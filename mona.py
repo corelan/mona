@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 463 $
-$Id: mona.py 463 2013-12-16 12:37:21Z corelanc0d3r $ 
+$Revision: 464 $
+$Id: mona.py 464 2013-12-27 21:11:26Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 463 $')
+__REV__ = filter(str.isdigit, '$Revision: 464 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -1292,6 +1292,320 @@ class MnCommand:
 		self.parseProc = parseProc
 		self.alias = alias
 
+
+#---------------------------------------#
+#   Class to encode bytes               #
+#---------------------------------------#
+
+class MnEncoder:
+	""" 
+	Class to encode bytes
+	"""
+
+	def __init__(self,bytestoencode):
+		self.origbytestoencode = bytestoencode
+		self.bytestoencode = bytestoencode
+
+	def encodeAlphaNum(self,badchars = []):
+		encodedbytes = {}
+		if not silent:
+			dbg.log("[+] Using alphanum encoder")
+			dbg.log("[+] Received %d bytes to encode" % len(self.origbytestoencode))
+			dbg.log("[+] Nr of bad chars: %d" % len(badchars))
+		# first, check if there are no bad char conflicts
+		nobadchars = "\x25\x2a\x2d\x31\x32\x35\x4a\x4d\x4e\x50\x55"
+		badbadchars = False
+		for b in badchars:
+			if b in nobadchars:
+				dbg.log("*** Error: byte \\x%s cannot be a bad char with this encoder" % bin2hex(b))
+				badbadchars = True
+
+		if badbadchars:
+			return {}				
+
+		# if all is well, explode the input to a multiple of 4
+		while True:
+			moduloresult = len(self.bytestoencode) % 4
+			if moduloresult == 0:
+				break
+			else:
+				self.bytestoencode += '\x90'
+		if not len(self.bytestoencode) == len(self.origbytestoencode):
+			if not silent:
+				dbg.log("[+] Added %d nops to make length of input a multiple of 4" % (len(self.bytestoencode) - len(self.origbytestoencode)))
+
+		# break it down into chunks of 4 bytes
+		toencodearray = []
+		toencodearray = [self.bytestoencode[max(i-4,0):i] for i in range(len(self.bytestoencode), 0, -4)][::-1]
+		blockcnt = 1
+		encodedline = 0
+		# we have to push the blocks in reverse order
+		blockcnt = len(toencodearray)
+		nrblocks = len(toencodearray)
+		while blockcnt > 0:
+			if not silent:
+				dbg.log("[+] Processing block %d/%d" % (blockcnt,nrblocks))
+			encodedbytes[encodedline] = ["\x25\x4a\x4d\x4e\x55","AND EAX,0x554E4D4A"]
+			encodedline += 1
+			encodedbytes[encodedline] = ["\x25\x35\x32\x31\x2A","AND EAX,0x2A313235"]
+			encodedline += 1
+	
+			opcodes=[]
+			startpos=7
+			source = "".join(bin2hex(a) for a in toencodearray[blockcnt-1])
+			
+			origbytes=source[startpos-7]+source[startpos-6]+source[startpos-5]+source[startpos-4]+source[startpos-3]+source[startpos-2]+source[startpos-1]+source[startpos]
+			reversebytes=origbytes[6]+origbytes[7]+origbytes[4]+origbytes[5]+origbytes[2]+origbytes[3]+origbytes[0]+origbytes[1]
+			revval=hexStrToInt(reversebytes)			   
+			twoval=4294967296-revval
+			twobytes=toHex(twoval)
+			if not silent:	
+				dbg.log("Opcode to produce : %s%s %s%s %s%s %s%s" % (origbytes[0],origbytes[1],origbytes[2],origbytes[3],origbytes[4],origbytes[5],origbytes[6],origbytes[7]))
+				dbg.log("         reversed : %s%s %s%s %s%s %s%s" % (reversebytes[0],reversebytes[1],reversebytes[2],reversebytes[3],reversebytes[4],reversebytes[5],reversebytes[6],reversebytes[7]))
+				dbg.log("                    -----------")				   
+				dbg.log("   2's complement : %s%s %s%s %s%s %s%s" % (twobytes[0],twobytes[1],twobytes[2],twobytes[3],twobytes[4],twobytes[5],twobytes[6],twobytes[7]))
+		
+			#for each byte, start with last one first
+			bcnt=3
+			overflow=0		
+			while bcnt >= 0:
+				currbyte=twobytes[(bcnt*2)]+twobytes[(bcnt*2)+1]
+				currval=hexStrToInt(currbyte)-overflow
+				testval=currval/3
+
+				if testval < 32:
+					#put 1 in front of byte
+					currbyte="1"+currbyte
+					currval=hexStrToInt(currbyte)-overflow
+					overflow=1
+				else:
+					overflow=0
+
+				val1=currval/3
+				val2=currval/3
+				val3=currval/3
+				sumval=val1+val2+val3
+				
+				if sumval < currval:
+					val3 = val3 + (currval-sumval)
+
+				#validate / fix badchars
+				
+				fixvals=self.validatebadchars_enc(val1,val2,val3,badchars)
+				val1="%02x" % fixvals[0]
+				val2="%02x" % fixvals[1]
+				val3="%02x" % fixvals[2]			
+				opcodes.append(val1)
+				opcodes.append(val2)
+				opcodes.append(val3)
+				bcnt=bcnt-1
+
+			# we should now have 12 bytes in opcodes
+			if not silent:
+				dbg.log("                    -----------")
+				dbg.log("                    %s %s %s %s" % (opcodes[9],opcodes[6],opcodes[3],opcodes[0]))
+				dbg.log("                    %s %s %s %s" % (opcodes[10],opcodes[7],opcodes[4],opcodes[1]))
+				dbg.log("                    %s %s %s %s" % (opcodes[11],opcodes[8],opcodes[5],opcodes[2]))
+				dbg.log("")
+			thisencodedbyte = "\x2D"
+			thisencodedbyte += hex2bin("\\x%s" % opcodes[0])
+			thisencodedbyte += hex2bin("\\x%s" % opcodes[3])
+			thisencodedbyte += hex2bin("\\x%s" % opcodes[6])
+			thisencodedbyte += hex2bin("\\x%s" % opcodes[9])
+			encodedbytes[encodedline] = [thisencodedbyte,"SUB EAX,0x%s%s%s%s" % (opcodes[9],opcodes[6],opcodes[3],opcodes[0])]
+			encodedline += 1
+
+			thisencodedbyte = "\x2D"
+			thisencodedbyte += hex2bin("\\x%s" % opcodes[1])
+			thisencodedbyte += hex2bin("\\x%s" % opcodes[4])
+			thisencodedbyte += hex2bin("\\x%s" % opcodes[7])
+			thisencodedbyte += hex2bin("\\x%s" % opcodes[10])
+			encodedbytes[encodedline] = [thisencodedbyte,"SUB EAX,0x%s%s%s%s" % (opcodes[10],opcodes[7],opcodes[4],opcodes[1])]
+			encodedline += 1
+
+			thisencodedbyte = "\x2D"
+			thisencodedbyte += hex2bin("\\x%s" % opcodes[2])
+			thisencodedbyte += hex2bin("\\x%s" % opcodes[5])
+			thisencodedbyte += hex2bin("\\x%s" % opcodes[8])
+			thisencodedbyte += hex2bin("\\x%s" % opcodes[11])
+			encodedbytes[encodedline] = [thisencodedbyte,"SUB EAX,0x%s%s%s%s" % (opcodes[11],opcodes[8],opcodes[5],opcodes[2])]
+			encodedline += 1
+
+			encodedbytes[encodedline] = ["\x50","PUSH EAX"]
+			encodedline += 1
+			
+			blockcnt -= 1
+	
+
+		return encodedbytes
+
+
+
+	def validatebadchars_enc(self,val1,val2,val3,badchars):
+		newvals=[]
+		allok=0
+		giveup=0
+		type=0
+		origval1=val1
+		origval2=val2
+		origval3=val3
+		d1=0
+		d2=0
+		d3=0
+		lastd1=0
+		lastd2=0
+		lastd3=0	
+		while allok==0 and giveup==0:
+			#check if there are bad chars left
+			charcnt=0
+			val1ok=1
+			val2ok=1
+			val3ok=1
+			while charcnt < len(badchars):
+				if (hex2bin("%02x" % val1) in badchars):
+					val1ok=0
+				if (hex2bin("%02x" % val2) in badchars):
+					val2ok=0
+				if (hex2bin("%02x" % val3) in badchars):
+					val3ok=0
+				charcnt=charcnt+1		
+			if (val1ok==0) or (val2ok==0) or (val3ok==0):
+				allok=0
+			else:
+				allok=1
+			if allok==0:
+				#try first by sub 1 from val1 and val2, and add more to val3
+				if type==0:
+					val1=val1-1
+					val2=val2-1
+					val3=val3+2
+					if (val1<1) or (val2==0) or (val3 > 126):
+						val1=origval1
+						val2=origval2
+						val3=origval3
+						type=1
+				if type==1:			  
+				#then try by add 1 to val1 and val2, and sub more from val3
+					val1=val1+1
+					val2=val2+1
+					val3=val3-2
+					if (val1>126) or (val2>126) or (val3 < 1):
+						val1=origval1
+						val2=origval2
+						val3=origval3
+						type=2	
+				if type==2:
+					#try by sub 2 from val1, and add 1 to val2 and val3
+					val1=val1-2
+					val2=val2+1
+					val3=val3+1
+					if (val1<1) or (val2>126) or (val3 > 126):
+						val1=origval1
+						val2=origval2
+						val3=origval3
+						type=3
+				if type==3:
+					#try by add 2 to val1, and sub 1 from val2 and val3
+					val1=val1+2
+					val2=val2-1
+					val3=val3-1
+					if (val1 > 126) or (val2 < 1) or (val3 < 1):
+						val1=origval1
+						val2=origval2
+						val3=origval3
+						type=4
+				if type==4:
+					if (val1ok==0):
+						val1=val1-1
+						d1=d1+1
+					else:
+						#now spread delta over other 2 values
+						if (d1 > 0):
+							val2=val2+1
+							val3=origval3+d1-1
+							d1=d1-1
+						else:
+							val1=0					
+					if (val1 < 1) or (val2 > 126) or (val3 > 126):
+						val1=origval1
+						val2=origval2
+						val3=origval3
+						d1=0					
+						type=5
+				if type==5:
+					if (val1ok==0):
+						val1=val1+1
+						d1=d1+1
+					else:
+						#now spread delta over other 2 values
+						if (d1 > 0):
+							val2=val2-1
+							val3=origval3-d1+1
+							d1=d1-1
+						else:
+							val1=255					
+					if (val1>126) or (val2 < 1) or (val3 < 1):
+						val1=origval1
+						val2=origval2
+						val3=origval3
+						val1ok=0
+						val2ok=0
+						val3ok=0					
+						d1=0
+						d2=0
+						d3=0					
+						type=6
+				if type==6:
+					if (val1ok==0):
+						val1=val1-1
+						#d1=d1+1
+					if (val2ok==0):
+						val2=val2+1
+						#d2=d2+1
+					d3=origval1-val1+origval2-val2
+					val3=origval3+d3
+					if (lastd3==d3) and (d3 > 0):
+						val1=origval1
+						val2=origval2
+						val3=origval3				
+						giveup=1
+					else:
+						lastd3=d3			
+					if (val1<1) or (val2 < 1) or (val3 > 126):
+						val1=origval1
+						val2=origval2
+						val3=origval3
+						giveup=1
+		#check results
+		charcnt=0
+		val1ok=1
+		val2ok=1
+		val3ok=1	
+		val1text="OK"	
+		val2text="OK"
+		val3text="OK"	
+		while charcnt < len(badchars):
+			if (val1 == badchars[charcnt]):
+				val1ok=0
+				val1text="NOK"			
+			if (val2 == badchars[charcnt]):
+				val2ok=0
+				val2text="NOK"						
+			if (val3 == badchars[charcnt]):
+				val3ok=0
+				val3text="NOK"						
+			charcnt=charcnt+1	
+			
+		if (val1ok==0) or (val2ok==0) or (val3ok==0):
+			dbg.log("  ** Unable to fix bad char issue !",highlight=1)
+			dbg.log("	  -> Values to check : %s(%s) %s(%s) %s(%s) " % (bin2hex(origval1),val1text,bin2hex(origval2),val2text,bin2hex(origval3),val3text),highlight=1)	
+			val1=origval1
+			val2=origval2
+			val3=origval3		
+		newvals.append(val1)
+		newvals.append(val2)
+		newvals.append(val3)
+		return newvals		
 		
 		
 #---------------------------------------#
@@ -14174,6 +14488,119 @@ def main(args):
 			return
 
 
+		def procEnc(args):
+			validencoders = ['alphanum']
+			encodertyperror = True
+			byteerror = True
+			encodertype = ""
+			bytestoencodestr = ""
+			bytestoencode = ""
+			badbytes = ""
+			
+			if "t" in args:
+				if type(args["t"]).__name__.lower() != "bool":
+					encodertype = args["t"]
+					encodertyperror = False
+
+			if "s" in args:
+				if type(args["s"]).__name__.lower() != "bool":
+					bytestoencodestr = args["s"]
+					byteerror = False
+
+			if "f" in args:
+				if type(args["f"]).__name__.lower() != "bool":
+					binfile = args["f"]
+					if os.path.exists(binfile):
+						if not silent:
+							dbg.log("[+] Reading bytes from %s" % binfile)
+						try:
+							f = open(binfile,"rb")
+							content = f.readlines()
+							f.close()
+							for c in content:
+								for a in c:
+									bytestoencodestr += "\\x%02x" % ord(a)
+							byteerror = False
+						except:
+							dbg.log("*** Error - unable to read bytes from %s" % binfile)
+							dbg.logLines(traceback.format_exc(),highlight=True)
+							byteerror = True
+					else:
+						byteerror = True
+				else:
+					byteerror = True
+
+			if "cpb" in args:
+				if type(args["cpb"]).__name__.lower() != "bool":
+					badbytes = hex2bin(args["cpb"])
+
+			if not encodertype in validencoders:
+				encodertyperror = True
+
+			if bytestoencodestr == "":
+				byteerror = True
+			else:
+				bytestoencode = hex2bin(bytestoencodestr)
+
+			if encodertyperror:
+				dbg.log("*** Please specific a valid encodertype with parameter -t.",highlight=True)
+				dbg.log("*** Valid types are: %s" % validencoders,highlight=True)
+
+
+			if byteerror:
+				dbg.log("*** Please specify a valid series of bytes with parameter -s",highlight=True)
+				dbg.log("*** or specify a valid path with parameter -f",highlight=True)
+
+			if encodertyperror or byteerror:
+				return
+			else:
+				cEncoder = MnEncoder(bytestoencode)
+				encodedbytes = ""
+				if encodertype == "alphanum":
+					encodedbytes = cEncoder.encodeAlphaNum(badchars = badbytes)
+					# determine correct sequence of dictionary
+					if len(encodedbytes) > 0:
+						logfile = MnLog("encoded_%s.txt" % encodertype)
+						thislog = logfile.reset()
+						if not silent:
+							dbg.log("")
+							dbg.log("Results:")
+							dbg.log("--------")
+						logfile.write("",thislog)
+						logfile.write("Results:",thislog)
+						logfile.write("--------",thislog)
+						encodedindex = []
+						fulllist_str = ""
+						fulllist_bin = ""
+						for i in encodedbytes:
+							encodedindex.append(i)
+						for i in encodedindex:
+							thisline = encodedbytes[i]
+							# 0 = bytes
+							# 1 = info
+							thislinebytes = "\\x" +  "\\x".join(bin2hex(a) for a in thisline[0])
+							logline = "  %s : %s : %s" % (thisline[0],thislinebytes,thisline[1])
+							if not silent:
+								dbg.log("%s" % logline)
+							logfile.write(logline,thislog)
+							fulllist_str += thislinebytes
+							fulllist_bin += thisline[0]
+
+						if not silent:
+							dbg.log("")
+							dbg.log("Full encoded string:")
+							dbg.log("--------------------")
+							dbg.log("%s" % fulllist_bin)
+						logfile.write("",thislog)
+						logfile.write("Full encoded string:",thislog)
+						logfile.write("--------------------",thislog)
+						logfile.write("%s" % fulllist_bin,thislog)
+						logfile.write("",thislog)
+						logfile.write("Full encoded hex:",thislog)
+						logfile.write("-----------------",thislog)
+						logfile.write("%s" % fulllist_str,thislog)
+			return
+
 		def procKb(args):
 			validcommands = ['set','list','del']
 			validcommandfound = False
@@ -15006,6 +15433,12 @@ Output will be written to infodump.xml"""
 		pebUsage = """Show the address of the Process Environment Block (PEB)"""
 
 		tebUsage = """Show the address of the Thread Environment Block (TEB) for the current thread"""
+
+		encUsage = """Encode a series of bytes
+Arguments:
+    -t <type>         : Type of encoder to use.  Allowed value(s) are alphanum 
+    -s <bytes>        : The bytes to encode (or use -f instead)
+    -f <path to file> : The full path to the binary file that contains the bytes to encode"""
 						  
 		commands["seh"] 			= MnCommand("seh", "Find pointers to assist with SEH overwrite exploits",sehUsage, procFindSEH)
 		commands["config"] 			= MnCommand("config","Manage configuration file (mona.ini)",configUsage,procConfig,"conf")
@@ -15035,7 +15468,7 @@ Output will be written to infodump.xml"""
 		commands["header"]			= MnCommand("header","Read a binary file and convert content to a nice 'header' string",headerUsage,procPrintHeader)
 		commands["update"]			= MnCommand("update","Update mona to the latest version",updateUsage,procUpdate,"up")
 		commands["getpc"]			= MnCommand("getpc","Show getpc routines for specific registers",getpcUsage,procgetPC)	
-		commands["egghunter"]		= MnCommand("egg","Create egghunter code",eggUsage,procEgg,"egg")
+		commands["egghunter"]		= MnCommand("egghunter","Create egghunter code",eggUsage,procEgg,"egg")
 		commands["stacks"]			= MnCommand("stacks","Show all stacks for all threads in the running application",stacksUsage,procStacks)
 		commands["skeleton"]		= MnCommand("skeleton","Create a Metasploit module skeleton with a cyclic pattern for a given type of exploit",skeletonUsage,procSkeleton)
 		commands["breakfunc"]		= MnCommand("breakfunc","Set a breakpoint on an exported function in on or more dll's",bfUsage,procBf,"bf")
@@ -15045,6 +15478,7 @@ Output will be written to infodump.xml"""
 		commands["pageacl"]         = MnCommand("pageacl","Show ACL associated with mapped pages",getpageACLUsage,procPageACL,"pacl")
 		commands["bpseh"]           = MnCommand("bpseh","Set a breakpoint on all current SEH Handler function pointers",bpsehUsage,procBPSeh,"sehbp")
 		commands["kb"]				= MnCommand("kb","Manage Knowledgebase data",kbUsage,procKb,"kb")
+		commands["encode"]			= MnCommand("encode","Encode a series of bytes",encUsage,procEnc,"enc")
 		#commands["heapcookie"]      = MnCommand("heapcookie","Looks for writeable pointers that can help avoiding cookie check during arbitrary free",heapCookieUsage,procHeapCookie,"hc")
 		if __DEBUGGERAPP__ == "Immunity Debugger":
 			commands["deferbp"]		= MnCommand("deferbp","Set a deferred breakpoint",deferUsage,procBu,"bu")
