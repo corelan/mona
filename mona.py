@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 464 $
-$Id: mona.py 464 2013-12-27 21:11:26Z corelanc0d3r $ 
+$Revision: 465 $
+$Id: mona.py 465 2014-01-07 11:39:59Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 464 $')
+__REV__ = filter(str.isdigit, '$Revision: 465 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -14601,6 +14601,105 @@ def main(args):
 						logfile.write("%s" % fulllist_str,thislog)
 			return
 
+		def procString(args):
+			mode = ""
+			useunicode = False
+			terminatestring = True
+			addy = 0
+			regs = dbg.getRegs()
+			stringtowrite = ""
+			# read or write ?
+			if not "r" in args and not "w" in args:
+				dbg.log("*** Error: you must indicate if you want to read (-r) or write (-w) ***",highlight=True)
+				return
+			addresserror = False
+			if not "a" in args:
+				addresserror = True
+			else:
+				if type(args["a"]).__name__.lower() != "bool":
+					# check if it's a register or not
+					if str(args["a"]).upper() in regs:
+						addy = regs[str(args["a"].upper())]
+					else:
+						addy = int(args["a"],16)
+				else:
+					addresserror = True
+
+			if addresserror:
+				dbg.log("*** Error: you must specify a valid address with -a ***",highlight=True)
+				return
+
+			if "w" in args:
+				mode = "write"
+			if "r" in args:
+				# read wins, because it's non destructive
+				mode = "read"
+			if "u" in args:
+				useunicode = True
+
+			stringerror = False
+			if "w" in args and not "s" in args:
+				stringerror = True
+			if "s" in args:
+				if type(args["s"]).__name__.lower() != "bool":
+					stringtowrite = args["s"]
+				else:
+					stringerror = True
+
+			if "noterminate" in args:
+				terminatestring = False
+
+			if stringerror:
+				dbg.log("*** Error: you must specify a valid string with -s ***",highlight=True)
+				return
+
+			if mode == "read":
+				stringinmemory = ""
+				extra = " "
+				try:
+					if not useunicode:
+						stringinmemory = dbg.readString(addy)
+					else:
+						stringinmemory = dbg.readWString(addy)
+						extra = " (unicode) "
+					dbg.log("String%sat 0x%08x:" % (extra,addy))
+					dbg.log("%s" % stringinmemory)
+				except:
+					dbg.log("Unable to read string at 0x%08x" % addy)
+			if mode == "write":
+				origstring = stringtowrite
+				writtendata = ""
+				try:
+					if not useunicode:
+						if terminatestring:
+							stringtowrite += "\x00"
+						byteswritten = ""
+						for c in stringtowrite:
+							byteswritten += " %s" % bin2hex(c)
+						dbg.writeMemory(addy,stringtowrite)
+						writtendata = dbg.readString(addy)
+						dbg.log("Wrote string (%d bytes) to 0x%08x:" % (len(stringtowrite),addy))
+						dbg.log("%s" % byteswritten)
+					else:
+						newstring = ""
+						for c in stringtowrite:
+							newstring += "%s%s" % (c,"\x00")
+						if terminatestring:
+							newstring += "\x00\x00"
+						dbg.writeMemory(addy,newstring)
+						dbg.log("Wrote unicode string (%d bytes) to 0x%08x" % (len(newstring),addy))
+						writtendata = dbg.readWString(addy)
+						byteswritten = ""
+						for c in newstring:
+							byteswritten += " %s" % bin2hex(c)
+						dbg.log("%s" % byteswritten)
+					if not writtendata.startswith(origstring):
+						dbg.log("Write operation succeeded, but the string in memory doesn't appear to be there",highlight=True)
+				except:
+					dbg.log("Unable to write the string to 0x%08x" % addy)	
+					dbg.logLines(traceback.format_exc(),highlight=True)			
+			return
+
 		def procKb(args):
 			validcommands = ['set','list','del']
 			validcommandfound = False
@@ -15439,7 +15538,17 @@ Arguments:
     -t <type>         : Type of encoder to use.  Allowed value(s) are alphanum 
     -s <bytes>        : The bytes to encode (or use -f instead)
     -f <path to file> : The full path to the binary file that contains the bytes to encode"""
-						  
+		
+		stringUsage = """Read a string from memory or write a string to memory
+Arguments:
+    -r                : Read a string, use in combination with -a
+    -w                : Write a string, use in combination with -a and -s
+    -noterminate      : Do not terminate the string (using in combination with -w)
+    -u                : use UTF-16 (Unicode) mode
+    -s <string>       : The string to write
+    -a <address>      : The location to read from or write to"""
+
+
 		commands["seh"] 			= MnCommand("seh", "Find pointers to assist with SEH overwrite exploits",sehUsage, procFindSEH)
 		commands["config"] 			= MnCommand("config","Manage configuration file (mona.ini)",configUsage,procConfig,"conf")
 		commands["jmp"]				= MnCommand("jmp","Find pointers that will allow you to jump to a register",jmpUsage,procFindJMP, "j")
@@ -15493,7 +15602,7 @@ Arguments:
 		commands["infodump"]		= MnCommand("infodump","Dumps specific parts of memory to file", infodumpUsage, procInfoDump,"if")
 		commands["peb"]				= MnCommand("peb","Show location of the PEB",pebUsage,procPEB,"peb")
 		commands["teb"]				= MnCommand("teb","Show TEB related information",tebUsage,procTEB,"teb")
-
+		commands["string"]			= MnCommand("string","Read or write a string from/to memory",stringUsage,procString,"str")
 		# get the options
 		opts = {}
 		last = ""
