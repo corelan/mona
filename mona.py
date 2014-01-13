@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 465 $
-$Id: mona.py 465 2014-01-07 11:39:59Z corelanc0d3r $ 
+$Revision: 466 $
+$Id: mona.py 466 2014-01-13 13:22:26Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 465 $')
+__REV__ = filter(str.isdigit, '$Revision: 466 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -8847,11 +8847,10 @@ def isGoodJopGadgetInstr(instruction):
 	return False
 
 def isGadgetEnding(instruction,endings,verbosity=False):
-	endingfound=False
 	for ending in endings:
 		if instruction.lower().find(ending.lower()) > -1:
-			endingfound = True
-	return endingfound
+			return True
+	return False
 
 def getRopSuggestion(ropchains,allchains):
 	suggestions={}
@@ -8905,6 +8904,7 @@ def getRopSuggestion(ropchains,allchains):
 				for allowed in pickup_target:
 					if gadgetinstructions.find(allowed) == 2 and gadgetinstructions.count("DWORD PTR") == 1:
 						allowedpickup = True
+						break
 				if allowedpickup:
 					if suggestedGadgetCheck(gadgetinstructions,pickup_allowed,pickup_notallowed):
 						toadd={}
@@ -8933,6 +8933,7 @@ def getRopSuggestion(ropchains,allchains):
 					for allowed in pickup_target:
 						if gadgetinstructions.find(allowed) == 2 and gadgetinstructions.count("DWORD PTR") == 1:
 							allowedpickup = True
+							break
 					if allowedpickup:
 						if suggestedGadgetCheck(gadgetinstructions,pickup_allowed,pickup_notallowed):
 							toadd={}
