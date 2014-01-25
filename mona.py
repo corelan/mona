@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 466 $
-$Id: mona.py 466 2014-01-13 13:22:26Z corelanc0d3r $ 
+$Revision: 467 $
+$Id: mona.py 467 2014-01-25 11:39:03Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 466 $')
+__REV__ = filter(str.isdigit, '$Revision: 467 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -15000,8 +15000,10 @@ def main(args):
 			addy = 0
 			sizeerror = False
 			addyerror = False
+			byteerror = False
 			fillup = False
 			writemore = False
+			fillbyte = "A"
 
 			if "s" in args:
 				if type(args["s"]).__name__.lower() != "bool":
@@ -15018,6 +15020,14 @@ def main(args):
 							sizeerror = True
 				else:
 					sizeerror = True
+
+			if "b" in args:
+				if type(args["b"]).__name__.lower() != "bool":
+					try:
+						fillbyte = hex2bin(args["b"])[0]
+					except:
+						dbg.log(" *** Invalid byte specified with -b ***")
+						byteerror = True
 
 			if size < 0x1:
 				sizeerror = True
@@ -15041,7 +15051,7 @@ def main(args):
 			if sizeerror:
 				dbg.log(" *** Please specify a valid size with -s ***",highlight = 1)
 			
-			if not addyerror and not sizeerror:
+			if not addyerror and not sizeerror and not byteerror:
 				dbg.log("[+] Requested allocation size: 0x%08x (%d) bytes" % (size,size))
 				if addy > 0:
 					dbg.log("[+] Desired target location : 0x%08x" % addy)
@@ -15051,19 +15061,19 @@ def main(args):
 				dbg.log("[+] Allocated memory at 0x%08x" % allocat)
 				if allocat == 0 and fillup and not writemore:
 					dbg.log("[+] It looks like the page was already mapped. Use the -force argument")
-					dbg.log("    to make me write to 0x%08x anyway")
+					dbg.log("    to make me write to 0x%08x anyway" % addy)
 				if (allocat > 0 and fillup) or (writemore and fillup):
 					loc = 0
 					written = 0
 					towrite = size
 					while loc < towrite:
 						try:
-							dbg.writeMemory(addy+loc,"A")
+							dbg.writeMemory(addy+loc,fillbyte)
 							written += 1
 						except:
 							pass
 						loc += 1
-					dbg.log("[+] Wrote %d A's to chunk at 0x%08x" % (written,addy))
+					dbg.log("[+] Wrote %d times \\x%s to chunk at 0x%08x" % (written,bin2hex(fillbyte),addy))
 			return
 
 
@@ -15524,6 +15534,7 @@ Optional arguments:
     -fill        : fill 'size' bytes (-s) of memory at specified address (-a) with A's.
     -force       : use in combination with -fill, in case page was already mapped but you still want to
                    fill the chunk at the desired location.
+    -b <byte>    : Specify what byte to write to the desired location. Defaults to \\x41    
 """   
 
 		infodumpUsage = """Dumps contents of memory to file. Contents will include all pages that don't
