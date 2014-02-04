@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 467 $
-$Id: mona.py 467 2014-01-25 11:39:03Z corelanc0d3r $ 
+$Revision: 468 $
+$Id: mona.py 468 2014-02-04 23:17:43Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 467 $')
+__REV__ = filter(str.isdigit, '$Revision: 468 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -14911,6 +14911,463 @@ def main(args):
 
 
 
+		# unicode alignment routines written by floyd (http://www.floyd.cd, twitter: @floyd_ch)
+		def procUnicodeAlign(args):
+			leaks = False
+			address = 0
+			alignresults = {}
+			bufferRegister = "eax" #we will put ebp into the buffer register
+			timeToRun = 15
+			registers = {"eax":0, "ebx":0, "ecx":0, "edx":0, "esp":0, "ebp":0,}
+			showerror = False
+			if "a" in args and args["a"] != "":
+				try:
+					address = int(args["a"],16)
+				except:
+					address = 0
+
+			if address == 0:
+				dbg.log("Please enter a valid address with argument -a",highlight=1)
+				dbg.log("This address must be the location where the alignment code will be placed/start")
+				dbg.log("(without leaking zero byte). Don't worry, the script will only use")
+				dbg.log("it to calculate the offset from the address to EBP.")
+				showerror=True
+			if "l" in args:
+				leaks = True
+			if "b" in args:
+				if args["b"].lower().strip() == "eax":
+					bufferRegister = 'eax'
+				elif args["b"].lower().strip() == "ebx":
+					bufferRegister = 'ebx'
+				elif args["b"].lower().strip() == "ecx":
+					bufferRegister = 'ecx'
+				elif args["b"].lower().strip() == "edx":
+					bufferRegister = 'edx'
+				else:
+					dbg.log("Please enter a valid register with argument -b")
+					dbg.log("Valid registers are: eax, ebx, ecx, edx")
+					showerror = True
+
+			if "t" in args and args["t"] != "":
+				try:
+					timeToRun = int(args["t"])
+					if timeToRun < 0:
+						timeToRun = timeToRun * (-1)
+				except:
+					dbg.log("Please enter a valid integer for -t",highlight=1)
+					showerror=True
+			if "ebp" in args and args["ebp"] != "":
+				try:
+					registers["ebp"] = int(args["ebp"],16)
+				except:
+					dbg.log("Please enter a valid value for ebp",highlight=1)
+					showerror=True
+
+			# ebp must be writeable for this routine to work
+			regs = dbg.getRegs()
+			value_of_ebp = regs["EBP"]
+			dbg.log("[+] Checking if ebp (0x%08x) is writeable" % value_of_ebp)
+			ebpaccess = getPointerAccess(value_of_ebp)
+			if not "WRITE" in ebpaccess:
+				dbg.log("[!] Warning! ebp does not appear to be writeable!",highlight = 1)
+				dbg.log("    You will have to run some custom instructions first to make ebp writeable")
+				dbg.log("    and at that point, run this mona command again.")
+				dbg.log("    Hints: maybe you can pop something off the stack into ebp,")
+				dbg.log("    or push esp and pop it into ebp.")
+				showerror = True
+			else:
+				dbg.log("    OK (%s)" % ebpaccess)
+			if not showerror:
+
+				alignresults = prepareAlignment(leaks, address, bufferRegister, timeToRun, registers)
+				# write results to file
+				if len(alignresults) > 0:
+					if not silent:
+						dbg.log("[+] Alignment generator finished, %d results" % len(alignresults))
+						logfile = MnLog("venetian_alignment.txt")
+						thislog = logfile.reset()
+						for resultnr in alignresults:
+							resulttitle = "Alignment routine %d:" % resultnr
+							logfile.write(resulttitle,thislog)
+							logfile.write("-" * len(resulttitle),thislog)
+							theseresults = alignresults[resultnr]
+							for resultinstructions in theseresults:
+								logfile.write("Instructions:",thislog)
+								resultlines = resultinstructions.split(";")
+								for resultline in resultlines:
+									logfile.write("   %s" % resultline.strip(),thislog)
+								logfile.write("Hex:",thislog)
+								logfile.write("'%s'" % theseresults[resultinstructions],thislog)
+							logfile.write("",thislog)
+			return alignresults
+
+
+		def prepareAlignment(leaks, address, bufferRegister, timeToRun, registers):
+
+			def getRegister(registerName):
+				registerName = registerName.upper()
+				regs = dbg.getRegs()
+				if registerName in regs:
+					return regs[registerName]
+
+			def calculateNewXregister(x,h,l):
+				return ((x>>16)<<16)+(h<<8)+l
+
+			prefix = ""
+			postfix = ""
+			additionalLength = 0 #Length of the prefix+postfix instructions in after-unicode-conversion bytes
+			code_to_get_rid_of_zeros = "add [ebp],ch; " #\x6d --> \x00\x6d\x00
+
+			buf_sig = bufferRegister[1]
+			
+			registers_to_fill = ["ah", "al", "bh", "bl", "ch", "cl", "dh", "dl"] #important: h's first!
+			registers_to_fill.remove(buf_sig+"h")
+			registers_to_fill.remove(buf_sig+"l")
+			
+			leadingZero = leaks
+
+			for name in registers:
+				if not registers[name]:
+					registers[name] = getRegister(name)
+
+			#256 values with only 8276 instructions (bruteforced), best found so far:
+			#values_to_generate_all_255_values = [71, 87, 15, 251, 162, 185]
+			#but to be on the safe side, let's take only A-Za-z values (in 8669 instructions):
+			values_to_generate_all_255_values = [86, 85, 75, 109, 121, 99]
+			
+			new_values = zip(registers_to_fill, values_to_generate_all_255_values)
+			
+			if leadingZero:
+				prefix += code_to_get_rid_of_zeros
+				additionalLength += 2
+				leadingZero = False
+			#prefix += "mov bl,0; mov bh,0; mov cl,0; mov ch,0; mov dl,0; mov dh,0; "
+			#additionalLength += 12
+			for name, value in zip(registers_to_fill, values_to_generate_all_255_values):
+				padding = ""
+				if value < 16:
+					padding = "0"
+				if "h" in name:
+					prefix += "mov e%sx,0x4100%s%s00; " % (name[0], padding, hex(value)[2:])
+					prefix += "add [ebp],ch; "
+					additionalLength += 8
+				if "l" in name:
+					prefix += "mov e%sx,0x4100%s%s00; " % (buf_sig, padding, hex(value)[2:])
+					prefix += "add %s,%sh; " % (name, buf_sig)
+					prefix += "add [ebp],ch; "
+					additionalLength += 10
+			leadingZero = False
+			new_values_dict = dict(new_values)
+			for new in registers_to_fill[::2]:
+				n = new[0]
+				registers['e%sx'%n] = calculateNewXregister(registers['e%sx'%n], new_values_dict['%sh'%n], new_values_dict['%sl'%n])
+			
+			if leadingZero:
+				prefix += code_to_get_rid_of_zeros
+				additionalLength += 2
+				leadingZero = False
+			#Let's push the value of ebp into the BufferRegister
+			prefix += "push ebp; %spop %s; " % (code_to_get_rid_of_zeros, bufferRegister)
+			leadingZero = True
+			additionalLength += 6
+			registers[bufferRegister] = registers["ebp"]
+
+			if not leadingZero:
+				#We need a leading zero for the ADD operations
+				prefix += "push ebp; " #something 1 byte, doesn't matter what
+				leadingZero = True
+				additionalLength += 2
+						
+			#The last ADD command will leak another zero to the next instruction
+			#Therefore append (postfix) a last instruction to get rid of it
+			#so the shellcode is nicely aligned				
+			postfix += code_to_get_rid_of_zeros
+			additionalLength += 2
+			
+			alignresults = generateAlignment(address, bufferRegister, registers, timeToRun, prefix, postfix, additionalLength)
+
+			return alignresults
+
+
+		def generateAlignment(alignment_code_loc, bufferRegister, registers, timeToRun, prefix, postfix, additionalLength):
+
+			import copy, random, time
+
+			alignresults = {}
+
+			def sanitiseZeros(originals, names):
+				for index, i in enumerate(originals):
+					if i == 0:
+						warn("Your %s register is zero. That's bad for the heuristic." % names[index])
+						warn("In general this means there will be no result or they consist of more bytes.")
+
+			def checkDuplicates(originals, names):
+				duplicates = len(originals) - len(set(originals))
+				if duplicates > 0:
+					warn("""Some of the 2 byte registers seem to be the same. There is/are %i duplicate(s):""" % duplicates)
+					warn("In general this means there will be no result or they consist of more bytes.")
+					warn(", ".join(names))
+					warn(", ".join(hexlist(originals)))
+
+			def checkHigherByteBufferRegisterForOverflow(g1, name, g2):
+				overflowDanger = 0x100-g1
+				max_instructions = overflowDanger*256-g2
+				if overflowDanger <= 3:
+					warn("Your BufferRegister's %s register value starts pretty high (%s) and might overflow." % (name, hex(g1)))
+					warn("Therefore we only look for solutions with less than %i bytes (%s%s until overflow)." % (max_instructions, hex(g1), hex(g2)[2:]))
+					warn("This makes our search space smaller, meaning it's harder to find a solution.")
+				return max_instructions
+
+			def randomise(values, maxValues):
+				for index, i in enumerate(values):
+					if random.random() <= MAGIC_PROBABILITY_OF_ADDING_AN_ELEMENT_FROM_INPUTS:
+						values[index] += 1 
+						values[index] = values[index] % maxValues[index]
+
+			def check(as1, index_for_higher_byte, ss, gs, xs, ys, M, best_result):
+				g1, g2 = gs
+				s1, s2 = ss
+				sum_of_instructions = 2*sum(xs) + 2*sum(ys) + M
+				if best_result > sum_of_instructions:
+					res0 = s1
+					res1 = s2
+					for index, _ in enumerate(as1):
+						res0 += as1[index]*xs[index] % 256
+					res0 = res0 - ((g2+sum_of_instructions)/256)
+					as2 = copy.copy(as1)
+					as2[index_for_higher_byte] = (g1 + ((g2+sum_of_instructions)/256)) % 256
+					for index, _ in enumerate(as2):
+						res1 += as2[index]*ys[index] % 256
+					res1 = res1 - sum_of_instructions
+					if g1 == res0 % 256 and g2 == res1 % 256:
+						return sum_of_instructions
+				return 0
+			
+			def printNicely(names, buffer_registers_4_byte_names, xs, ys, additionalLength=0, prefix="", postfix=""):
+				
+				thisresult = {}
+
+				resulting_string = prefix
+				sum_bytes = 0
+				for index, x in enumerate(xs):
+					for k in range(0, x):
+						resulting_string += "add "+buffer_registers_4_byte_names[0]+","+names[index]+"; "
+						sum_bytes += 2
+				for index, y in enumerate(ys):
+					for k in range(y):
+						resulting_string += "add "+buffer_registers_4_byte_names[1]+","+names[index]+"; "
+						sum_bytes += 2
+				resulting_string += postfix
+				sum_bytes += additionalLength
+				if not silent:
+					info("[+] %i resulting bytes (%i bytes injection) of Unicode code alignment. Instructions:"%(sum_bytes,sum_bytes/2))
+					info("   ", resulting_string)
+				hex_string = metasm(resulting_string)
+				if not silent:
+					info("    Unicode safe opcodes without zero bytes:")
+					info("   ", hex_string)
+				thisresult[resulting_string] = hex_string
+				return thisresult
+
+
+			def metasm(inputInstr):
+				#the immunity and metasm assembly differ a lot:
+				#immunity add [ebp],ch "\x00\xad\x00\x00\x00\x00"
+				#metasm add [ebp],ch "\x00\x6d\x00" --> we want this!
+				#Therefore implementing our own "metasm" mapping here
+				#same problem for things like mov eax,0x41004300			     
+				ass_operation = {'add [ebp],ch': '\\x00\x6d\\x00', 'pop ebp': ']', 'pop edx': 'Z', 'pop ecx': 'Y', 'push ecx': 'Q',
+						 'pop ebx': '[', 'push ebx': 'S', 'pop eax': 'X', 'push eax': 'P', 'push esp': 'T', 'push ebp': 'U',
+						 'push edx': 'R', 'pop esp': '\\', 'add dl,bh': '\\x00\\xfa', 'add dl,dh': '\\x00\\xf2',
+						 'add dl,ah': '\\x00\\xe2', 'add ah,al': '\\x00\\xc4', 'add ah,ah': '\\x00\\xe4', 'add ch,bl': '\\x00\\xdd',
+						 'add ah,cl': '\\x00\\xcc', 'add bl,ah': '\\x00\\xe3', 'add bh,dh': '\\x00\\xf7', 'add bl,cl': '\\x00\\xcb',
+						 'add ah,ch': '\\x00\\xec', 'add bl,al': '\\x00\\xc3', 'add bh,dl': '\\x00\\xd7', 'add bl,ch': '\\x00\\xeb',
+						 'add dl,cl': '\\x00\\xca', 'add dl,bl': '\\x00\\xda', 'add al,ah': '\\x00\\xe0', 'add bh,ch': '\\x00\\xef',
+						 'add al,al': '\\x00\\xc0', 'add bh,cl': '\\x00\\xcf', 'add al,ch': '\\x00\\xe8', 'add dh,bl': '\\x00\\xde',
+						 'add ch,ch': '\\x00\\xed', 'add cl,dl': '\\x00\\xd1', 'add al,cl': '\\x00\\xc8', 'add dh,bh': '\\x00\\xfe',
+						 'add ch,cl': '\\x00\\xcd', 'add cl,dh': '\\x00\\xf1', 'add ch,ah': '\\x00\\xe5', 'add cl,bl': '\\x00\\xd9',
+						 'add dh,al': '\\x00\\xc6', 'add ch,al': '\\x00\\xc5', 'add cl,bh': '\\x00\\xf9', 'add dh,ah': '\\x00\\xe6',
+						 'add dl,dl': '\\x00\\xd2', 'add dh,cl': '\\x00\\xce', 'add dh,dl': '\\x00\\xd6', 'add ah,dh': '\\x00\\xf4',
+						 'add dh,dh': '\\x00\\xf6', 'add ah,dl': '\\x00\\xd4', 'add ah,bh': '\\x00\\xfc', 'add ah,bl': '\\x00\\xdc',
+						 'add bl,bh': '\\x00\\xfb', 'add bh,al': '\\x00\\xc7', 'add bl,dl': '\\x00\\xd3', 'add bl,bl': '\\x00\\xdb',
+						 'add bh,ah': '\\x00\\xe7', 'add bl,dh': '\\x00\\xf3', 'add bh,bl': '\\x00\\xdf', 'add al,bl': '\\x00\\xd8',
+						 'add bh,bh': '\\x00\\xff', 'add al,bh': '\\x00\\xf8', 'add al,dl': '\\x00\\xd0', 'add dl,ch': '\\x00\\xea',
+						 'add dl,al': '\\x00\\xc2', 'add al,dh': '\\x00\\xf0', 'add cl,cl': '\\x00\\xc9', 'add cl,ch': '\\x00\\xe9',
+						 'add ch,bh': '\\x00\\xfd', 'add cl,al': '\\x00\\xc1', 'add ch,dh': '\\x00\\xf5', 'add cl,ah': '\\x00\\xe1',
+						 'add dh,ch': '\\x00\\xee', 'add ch,dl': '\\x00\\xd5', 'add ch,ah': '\\x00\\xe5', 'mov dh,0': '\\xb6\\x00',
+						 'add dl,ah': '\\x00\\xe2', 'mov dl,0': '\\xb2\\x00', 'mov ch,0': '\\xb5\\x00', 'mov cl,0': '\\xb1\\x00',
+						 'mov bh,0': '\\xb7\\x00', 'add bl,ah': '\\x00\\xe3', 'mov bl,0': '\\xb3\\x00', 'add dh,ah': '\\x00\\xe6',
+						 'add cl,ah': '\\x00\\xe1', 'add bh,ah': '\\x00\\xe7'}
+				for example_instr, example_op in [("mov eax,0x41004300", "\\xb8\\x00\\x43\\x00\\x41"),
+								  ("mov ebx,0x4100af00", "\\xbb\\x00\\xaf\\x00\\x41"),
+								  ("mov ecx,0x41004300", "\\xb9\\x00\\x43\\x00\\x41"),
+								  ("mov edx,0x41004300", "\\xba\\x00\\x43\\x00\\x41")]:
+					for i in range(0,256):
+						padding =""
+						if i < 16:
+							padding = "0"
+						new_instr = example_instr[:14]+padding+hex(i)[2:]+example_instr[16:]
+						new_op = example_op[:10]+padding+hex(i)[2:]+example_op[12:]
+						ass_operation[new_instr] = new_op
+				res = ""
+				for instr in inputInstr.split("; "):
+					if instr in ass_operation:
+						res += ass_operation[instr].replace("\\x00","")
+					elif instr.strip():
+						warn("    Couldn't find metasm assembly for %s" % str(instr))
+						warn("    You have to manually convert it in the metasm shell")
+						res += "<"+instr+">"
+				return res
+				
+			def getCyclic(originals):
+				cyclic = [0 for i in range(0,len(originals))]
+				for index, orig_num in enumerate(originals):
+					cycle = 1
+					num = orig_num
+					while True:
+						cycle += 1
+						num += orig_num
+						num = num % 256
+						if num == orig_num:
+							cyclic[index] = cycle
+							break
+				return cyclic
+
+			def hexlist(lis):
+				return [hex(i) for i in lis]
+				
+			def theX(num):
+				res = (num>>16)<<16 ^ num
+				return res
+				
+			def higher(num):
+				res = num>>8
+				return res
+				
+			def lower(num):
+				res = ((num>>8)<<8) ^ num
+				return res
+				
+			def info(*text):
+				dbg.log(" ".join(str(i) for i in text))
+				
+			def warn(*text):
+				dbg.log(" ".join(str(i) for i in text), highlight=1)
+				
+			def debug(*text):
+				if False:
+					dbg.log(" ".join(str(i) for i in text))
+
+
+			buffer_registers_4_byte_names = [bufferRegister[1]+"h", bufferRegister[1]+"l"]
+			buffer_registers_4_byte_value = theX(registers[bufferRegister])
+			
+			MAGIC_PROBABILITY_OF_ADDING_AN_ELEMENT_FROM_INPUTS=0.25
+			MAGIC_PROBABILITY_OF_RESETTING=0.04
+			MAGIC_MAX_PROBABILITY_OF_RESETTING=0.11
+
+			originals = []
+			ax = theX(registers["eax"])
+			ah = higher(ax)
+			al = lower(ax)
+				
+			bx = theX(registers["ebx"])
+			bh = higher(bx)
+			bl = lower(bx)
+			
+			cx = theX(registers["ecx"])
+			ch = higher(cx)
+			cl = lower(cx)
+			
+			dx = theX(registers["edx"])
+			dh = higher(dx)
+			dl = lower(dx)
+			
+			start_address = theX(buffer_registers_4_byte_value)
+			s1 = higher(start_address)
+			s2 = lower(start_address)
+			
+			alignment_code_loc_address = theX(alignment_code_loc)
+			g1 = higher(alignment_code_loc_address)
+			g2 = lower(alignment_code_loc_address)
+			
+			names = ['ah', 'al', 'bh', 'bl', 'ch', 'cl', 'dh', 'dl']
+			originals = [ah, al, bh, bl, ch, cl, dh, dl]
+			sanitiseZeros(originals, names)
+			checkDuplicates(originals, names)
+			best_result = checkHigherByteBufferRegisterForOverflow(g1, buffer_registers_4_byte_names[0], g2)
+						
+			xs = [0 for i in range(0,len(originals))]
+			ys = [0 for i in range(0,len(originals))]
+			
+			cyclic = getCyclic(originals)
+			mul = 1
+			for i in cyclic:
+				mul *= i
+
+			if not silent:
+				dbg.log("[+] Searching for random solutions for code alignment code in at least %i possibilities..." % mul)
+				dbg.log("    Bufferregister: %s" % bufferRegister)
+				dbg.log("    Max time: %d seconds" % timeToRun)
+				dbg.log("")
+
+			#We can't even know the value of AH yet (no, it's NOT g1 for high instruction counts)
+			cyclic2 = copy.copy(cyclic)
+			cyclic2[names.index(buffer_registers_4_byte_names[0])] = 9999999
+			
+			number_of_tries = 0.0
+			beginning = time.time()
+			resultFound = False
+			resultcnt = 0
+			while time.time()-beginning < timeToRun: #Run only timeToRun seconds!
+				randomise(xs, cyclic)
+				randomise(ys, cyclic2)
+				
+				#[Extra constraint!]
+				#not allowed: all operations with the bufferRegister,
+				#because we can not rely on it's values, e.g.
+				#add al, al
+				#add al, ah
+				#add ah, ah
+				#add ah, al
+				xs[names.index(buffer_registers_4_byte_names[0])] = 0
+				xs[names.index(buffer_registers_4_byte_names[1])] = 0
+				ys[names.index(buffer_registers_4_byte_names[0])] = 0
+				ys[names.index(buffer_registers_4_byte_names[1])] = 0
+				
+				tmp = check(originals, names.index(buffer_registers_4_byte_names[0]), [s1, s2], [g1, g2], xs, ys, additionalLength, best_result)
+
+				if tmp > 0:
+					best_result = tmp
+					#we got a new result
+					resultFound = True
+					alignresults[resultcnt] = printNicely(names, buffer_registers_4_byte_names, xs, ys, additionalLength, prefix, postfix)
+					resultcnt += 1
+					if not silent:
+						dbg.log("    Time elapsed so far: %s seconds" % (time.time()-beginning))
+						dbg.log("")
+				#Slightly increases probability of resetting with time
+				probability = MAGIC_PROBABILITY_OF_RESETTING+number_of_tries/(10**8)
+				if probability < MAGIC_MAX_PROBABILITY_OF_RESETTING:
+					number_of_tries += 1.0
+				if random.random() <= probability:
+					xs = [0 for i in range(0,len(originals))]
+					ys = [0 for i in range(0,len(originals))]
+			if not silent:
+				dbg.log("")
+				dbg.log("    Done. Total time elapsed: %s seconds" % (time.time()-beginning))
+			
+
+				if not resultFound:
+					dbg.log("")
+					dbg.log("No results. Please try again (you might want to increase -t)")
+				dbg.log("")
+				dbg.log("If you are unsatisfied with the result, run the command again and use the -t option")
+				dbg.log("")
+			return alignresults
+		# end unicode alignemt routines
+
+
 		def procHeapCookie(args):
 			# first find all writeable pages
 			allpages = dbg.getMemoryPages()
@@ -15534,7 +15991,7 @@ Optional arguments:
     -fill        : fill 'size' bytes (-s) of memory at specified address (-a) with A's.
     -force       : use in combination with -fill, in case page was already mapped but you still want to
                    fill the chunk at the desired location.
-    -b <byte>    : Specify what byte to write to the desired location. Defaults to \\x41    
+    -b <byte>    : Specify what byte to write to the desired location. Defaults to '\\x41'    
 """   
 
 		infodumpUsage = """Dumps contents of memory to file. Contents will include all pages that don't
@@ -15559,6 +16016,18 @@ Arguments:
     -u                : use UTF-16 (Unicode) mode
     -s <string>       : The string to write
     -a <address>      : The location to read from or write to"""
+
+		unicodealignUsage = """Generates a venetian shellcode alignment stub which can be placed directly before unicode shellcode.
+
+Arguments:
+    -a <address>      : Specify the address where the alignment code will start/be placed
+Optional arguments:
+    -l                : Prepend alignment with a null byte compensating nop equivalent
+                        (Use this if the last instruction before the alignment routine 'leaks' a null byte)
+    -b <reg>          : Set the bufferregister, defaults to eax
+    -t <seconds>      : Time in seconds to run heuristics (defaults to 15)
+    -ebp <value>      : Overrule the use of the 'current' value of ebp, 
+                        ebp/address will be used to calculate offset to shellcode"""
 
 
 		commands["seh"] 			= MnCommand("seh", "Find pointers to assist with SEH overwrite exploits",sehUsage, procFindSEH)
@@ -15600,6 +16069,7 @@ Arguments:
 		commands["bpseh"]           = MnCommand("bpseh","Set a breakpoint on all current SEH Handler function pointers",bpsehUsage,procBPSeh,"sehbp")
 		commands["kb"]				= MnCommand("kb","Manage Knowledgebase data",kbUsage,procKb,"kb")
 		commands["encode"]			= MnCommand("encode","Encode a series of bytes",encUsage,procEnc,"enc")
+		commands["unicodealign"]	= MnCommand("unicodealign","Generate venetian alignment code for unicode stack buffer overflow",unicodealignUsage,procUnicodeAlign,"ua")
 		#commands["heapcookie"]      = MnCommand("heapcookie","Looks for writeable pointers that can help avoiding cookie check during arbitrary free",heapCookieUsage,procHeapCookie,"hc")
 		if __DEBUGGERAPP__ == "Immunity Debugger":
 			commands["deferbp"]		= MnCommand("deferbp","Set a deferred breakpoint",deferUsage,procBu,"bu")
