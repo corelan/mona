@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 468 $
-$Id: mona.py 468 2014-02-04 23:17:43Z corelanc0d3r $ 
+$Revision: 469 $
+$Id: mona.py 469 2014-02-05 12:16:10Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 468 $')
+__REV__ = filter(str.isdigit, '$Revision: 469 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -14920,11 +14920,21 @@ def main(args):
 			timeToRun = 15
 			registers = {"eax":0, "ebx":0, "ecx":0, "edx":0, "esp":0, "ebp":0,}
 			showerror = False
-			if "a" in args and args["a"] != "":
-				try:
-					address = int(args["a"],16)
-				except:
-					address = 0
+			regs = dbg.getRegs()
+
+			if "l" in args:
+				leaks = True
+
+			if "a" in args:
+				if type(args["id"]).__name__.lower() != "bool":
+					try:
+						address = int(args["a"],16)
+					except:
+						address = 0
+			else:
+				address = regs["EIP"]
+				if leaks:
+					address += 1
 
 			if address == 0:
 				dbg.log("Please enter a valid address with argument -a",highlight=1)
@@ -14932,8 +14942,7 @@ def main(args):
 				dbg.log("(without leaking zero byte). Don't worry, the script will only use")
 				dbg.log("it to calculate the offset from the address to EBP.")
 				showerror=True
-			if "l" in args:
-				leaks = True
+
 			if "b" in args:
 				if args["b"].lower().strip() == "eax":
 					bufferRegister = 'eax'
@@ -14963,8 +14972,9 @@ def main(args):
 					dbg.log("Please enter a valid value for ebp",highlight=1)
 					showerror=True
 
+			dbg.log("[+] Start address for venetian alignment routine: 0x%08x" % address)
+			dbg.log("[+] Will prepend alignment with null byte compensation? %s" % str(leaks).lower())
 			# ebp must be writeable for this routine to work
-			regs = dbg.getRegs()
 			value_of_ebp = regs["EBP"]
 			dbg.log("[+] Checking if ebp (0x%08x) is writeable" % value_of_ebp)
 			ebpaccess = getPointerAccess(value_of_ebp)
@@ -16021,7 +16031,7 @@ Arguments:
 
 Arguments:
     -a <address>      : Specify the address where the alignment code will start/be placed
-Optional arguments:
+                      : If -a is not specified, the current value in EIP will be used.
     -l                : Prepend alignment with a null byte compensating nop equivalent
                         (Use this if the last instruction before the alignment routine 'leaks' a null byte)
     -b <reg>          : Set the bufferregister, defaults to eax
