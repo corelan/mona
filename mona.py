@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 470 $
-$Id: mona.py 470 2014-02-06 20:22:29Z corelanc0d3r $ 
+$Revision: 471 $
+$Id: mona.py 471 2014-02-06 21:06:54Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 470 $')
+__REV__ = filter(str.isdigit, '$Revision: 471 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -11526,16 +11526,10 @@ def main(args):
 
 				# first check for unicode
 				if cnt < max-1:
-					if linecnt == 0:
-						if thistype == "ruby":
-							thisline = "header = Rex::Text.to_unicode(\""
-						else:
-							thisline = "header = \""
+					if linecnt == 0:	
+						thisline = "header = \""
 					else:
-						if thistype == "ruby":
-							thisline = "header << Rex::Text.to_unicode(\""
-						else:
-							thisline = "header += \""
+						thisline = "header %s \"" % addchar
 						
 					thiscnt = cnt
 					while cnt < max-1 and isAscii2(ord(content[cnt])) and ord(content[cnt+1]) == 0:
@@ -11543,16 +11537,10 @@ def main(args):
 							thisline += "\\"
 						if content[cnt] == "\"":
 							thisline += "\\"
-						if thistype == "ruby":
-							thisline += content[cnt]
-						else:
-							thisline += "\\x%02x\\x00" % ord(content[cnt])
+						thisline += "%s\\x00" % content[cnt]
 						cnt += 2
 					if thiscnt != cnt:
-						if thistype == "ruby":
-							output += thisline + "\")" + "\n"
-						else:
-							output += thisline + "\"" + "\n"
+						output += thisline + "\"" + "\n"
 						linecnt += 1
 						
 						
