@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 469 $
-$Id: mona.py 469 2014-02-05 12:16:10Z corelanc0d3r $ 
+$Revision: 470 $
+$Id: mona.py 470 2014-02-06 20:22:29Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 469 $')
+__REV__ = filter(str.isdigit, '$Revision: 470 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -11471,13 +11471,34 @@ def main(args):
 			
 		#----- Read binary file, print 'nice' header -----#
 		def procPrintHeader(args):
+			alltypes = ["ruby","python"]
+			thistype = "ruby"
 			filename = ""
+			typewrong = False
+			stopnow = False
 			if "f" in args:
 				if type(args["f"]).__name__.lower() != "bool":	
 					filename = args["f"]
+			if "t" in args:
+				if type(args["t"]).__name__.lower() != "bool":
+					if args["t"] in alltypes:
+						thistype = args["t"]
+					else:
+						typewrong = True
+				else:
+					typewrong = True
+
+			if typewrong:
+				dbg.Log("Invalid type specified with option -t. Valid types are: %s" % alltypes,highlight=1)
+				stopnow = True
+
 			if filename == "":
 				dbg.log("Missing argument -f <source filename>",highlight=1)
+				stopnow = True
+
+			if stopnow:
 				return
+
 			filename = filename.replace("'","").replace('"',"")
 			content = ""
 			try:		
@@ -11488,7 +11509,7 @@ def main(args):
 				dbg.log("Unable to read file %s" % filename,highlight=1)
 				return
 			dbg.log("Read %d bytes from %s" % (len(content),filename))	
-			
+			dbg.log("Output type: %s" % thistype)
 			cnt = 0
 			linecnt = 0	
 			
@@ -11497,15 +11518,24 @@ def main(args):
 			
 			max = len(content)
 			
+			addchar = "<<"
+			if thistype == "python":
+				addchar = "+="
 			
 			while cnt < max:
 
 				# first check for unicode
 				if cnt < max-1:
 					if linecnt == 0:
-						thisline = "header = Rex::Text.to_unicode(\""
+						if thistype == "ruby":
+							thisline = "header = Rex::Text.to_unicode(\""
+						else:
+							thisline = "header = \""
 					else:
-						thisline = "header << Rex::Text.to_unicode(\""
+						if thistype == "ruby":
+							thisline = "header << Rex::Text.to_unicode(\""
+						else:
+							thisline = "header += \""
 						
 					thiscnt = cnt
 					while cnt < max-1 and isAscii2(ord(content[cnt])) and ord(content[cnt+1]) == 0:
@@ -11513,17 +11543,23 @@ def main(args):
 							thisline += "\\"
 						if content[cnt] == "\"":
 							thisline += "\\"
-						thisline += content[cnt]
+						if thistype == "ruby":
+							thisline += content[cnt]
+						else:
+							thisline += "\\x%02x\\x00" % ord(content[cnt])
 						cnt += 2
 					if thiscnt != cnt:
-						output += thisline + "\")" + "\n"
+						if thistype == "ruby":
+							output += thisline + "\")" + "\n"
+						else:
+							output += thisline + "\"" + "\n"
 						linecnt += 1
 						
 						
 				if linecnt == 0:
 					thisline = "header = \""
 				else:
-					thisline = "header << \""
+					thisline = "header %s \"" % addchar
 				thiscnt = cnt
 				
 				# ascii repetitions
@@ -11549,7 +11585,7 @@ def main(args):
 				if linecnt == 0:
 					thisline = "header = \""
 				else:
-					thisline = "header << \""
+					thisline = "header %s \"" % addchar
 				thiscnt = cnt
 				
 				# check for just ascii
@@ -11573,7 +11609,7 @@ def main(args):
 					if linecnt == 0:
 						thisline = "header = \""
 					else:
-						thisline = "header << \""
+						thisline = "header %s \"" % addchar
 					thiscnt = cnt
 					while cnt < max:
 						if isAscii2(ord(content[cnt])):
@@ -11595,9 +11631,10 @@ def main(args):
 							if linecnt == 0:
 								thisline = "header = \"\\x" + "%02x\" * %d" % (startval,reps)
 							else:
-								thisline = "header << \"\\x" + "%02x\" * %d" % (startval,reps)
+								thisline = "header %s \"\\x" % addchar 
+								thisline += "%02x\" * %d" % (startval,reps)
 							output += thisline + "\n"
-							thisline = "header << \""
+							thisline = "header %s \"" % addchar
 							linecnt += 1
 						else:
 							thisline += "\\x" + "%02x" % ord(content[cnt])	
@@ -11614,8 +11651,10 @@ def main(args):
 			headerfile = objheaderfile.reset()
 			objheaderfile.write(output,headerfile)
 			ignoremodules = False
-			dbg.logLines(output)
-			dbg.log("")			
+			if not silent:
+				dbg.log("-" * 30)
+				dbg.logLines(output)
+				dbg.log("-" * 30)			
 			dbg.log("Wrote header to %s" % headerfile)
 			return
 		
@@ -15852,9 +15891,11 @@ Optional arguments :
     -r : show array backwards (reversed), starting at \\xff
     Output will be written to bytearray.txt, and binary output will be written to bytearray.bin"""
 	
-		headerUsage = """Convert contents of a binary file to a nice 'header' string
+		headerUsage = """Convert contents of a binary file to code that can be run to produce the file
 Mandatory argument :
-    -f <filename> : source filename"""
+    -f <filename> : source filename
+Optional argument:
+    -t <type>     : specify type of output. Valid choices are 'ruby' (default) or 'python' """
 	
 		updateUsage = """Update mona to the latest version
 Optional argument : 
