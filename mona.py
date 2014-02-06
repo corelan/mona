@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 471 $
-$Id: mona.py 471 2014-02-06 21:06:54Z corelanc0d3r $ 
+$Revision: 472 $
+$Id: mona.py 472 2014-02-06 21:18:19Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 471 $')
+__REV__ = filter(str.isdigit, '$Revision: 472 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -11471,7 +11471,7 @@ def main(args):
 			
 		#----- Read binary file, print 'nice' header -----#
 		def procPrintHeader(args):
-			alltypes = ["ruby","python"]
+			alltypes = ["ruby","rb","python","py"]
 			thistype = "ruby"
 			filename = ""
 			typewrong = False
@@ -11489,8 +11489,13 @@ def main(args):
 					typewrong = True
 
 			if typewrong:
-				dbg.Log("Invalid type specified with option -t. Valid types are: %s" % alltypes,highlight=1)
+				dbg.log("Invalid type specified with option -t. Valid types are: %s" % alltypes,highlight=1)
 				stopnow = True
+			else:
+				if thistype == "rb":
+					thistype = "ruby"
+				if thistype == "py":
+					thistype = "python"
 
 			if filename == "":
 				dbg.log("Missing argument -f <source filename>",highlight=1)
