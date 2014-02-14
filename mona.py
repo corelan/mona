@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 472 $
-$Id: mona.py 472 2014-02-06 21:18:19Z corelanc0d3r $ 
+$Revision: 473 $
+$Id: mona.py 473 2014-02-14 15:35:47Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 472 $')
+__REV__ = filter(str.isdigit, '$Revision: 473 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -14958,7 +14958,7 @@ def main(args):
 				leaks = True
 
 			if "a" in args:
-				if type(args["id"]).__name__.lower() != "bool":
+				if type(args["a"]).__name__.lower() != "bool":
 					try:
 						address = int(args["a"],16)
 					except:
