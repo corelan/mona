@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 474 $
-$Id: mona.py 474 2014-02-22 21:15:35Z corelanc0d3r $ 
+$Revision: 475 $
+$Id: mona.py 475 2014-02-22 22:46:02Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 474 $')
+__REV__ = filter(str.isdigit, '$Revision: 475 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -14946,9 +14946,9 @@ def main(args):
 				for overwrittenhandler in handlersoverwritten:
 					overwrittendata = handlersoverwritten[overwrittenhandler]
 					overwrittentype = overwrittendata[0]
-					overwrittenoffset = overwrittendata[1]+2
+					overwrittenoffset = overwrittendata[1]
 					if not overwrittentype == "unicode":
-						dbg.log("[Junk * %d]['\\xeb\\x06\\x41\\x41'][p/p/r][shellcode][more junk if needed]" % overwrittenoffset)
+						dbg.log("[Junk * %d]['\\xeb\\x06\\x41\\x41'][p/p/r][shellcode][more junk if needed]" % overwrittenoffset+2)
 					else:
 						dbg.log("[Junk * %d][nseh - walkover][unicode p/p/r][venetian alignment][shellcode][more junk if needed]" % overwrittenoffset)
 			return
@@ -14963,7 +14963,7 @@ def main(args):
 			bufferRegister = "eax" #we will put ebp into the buffer register
 			timeToRun = 15
 			registers = {"eax":0, "ebx":0, "ecx":0, "edx":0, "esp":0, "ebp":0,}
-			showerror = Falsef
+			showerror = False
 			regs = dbg.getRegs()
 
 			if "l" in args:
