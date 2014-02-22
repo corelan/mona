@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 473 $
-$Id: mona.py 473 2014-02-14 15:35:47Z corelanc0d3r $ 
+$Revision: 474 $
+$Id: mona.py 474 2014-02-22 21:15:35Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 473 $')
+__REV__ = filter(str.isdigit, '$Revision: 474 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -9277,7 +9277,7 @@ def checkSEHOverwrite(address, nseh, seh):
 	global silent
 	silent = True
 
-	fullpattern = fullpattern = createPattern(50000,{})
+	fullpattern = createPattern(50000,{})
 	for pattype in pattypes:	
 		regpattern = fullpattern
 		hexpat = toHex(seh)
@@ -9486,38 +9486,50 @@ def goFindMSP(distance = 0,args = {}):
 	thissehchain=dbg.getSehChain()
 	
 	for chainentry in thissehchain:
-		for pattype in pattypes:
-			dbg.updateLog()		
-			regpattern = fullpattern
-			hexpat = toHex(chainentry[1])
-			hexpatr = hexpat
-			hexpat = toAscii(hexpat[6]+hexpat[7])+toAscii(hexpat[4]+hexpat[5])+toAscii(hexpat[2]+hexpat[3])+toAscii(hexpat[0]+hexpat[1])
-			hexpatrev = toAscii(hexpatr[0]+hexpatr[1])+toAscii(hexpatr[2]+hexpatr[3])+toAscii(hexpatr[4]+hexpatr[5])+toAscii(hexpatr[6]+hexpatr[7])				
-			factor = 1
-			goback = 4
-			if pattype == "upper":
-				regpattern = regpattern.upper()
-			if pattype == "lower":
-				regpattern = regpattern.lower()
-			if pattype == "unicode":
-				#regpattern = toUnicode(regpattern)
-				#get next 4 bytes too
-				hexpat = dbg.readMemory(chainentry[0],8)
-				hexpat = hexpat.replace('\x00','')
-				goback = 2
-	
-			offset = regpattern.find(hexpat)-goback
-			thissize = 0
-			if offset > -1:		
-				thepointer = MnPointer(chainentry[0])
-				if thepointer.isOnStack():
-					thissize = getPatternLength(chainentry[0]+4,pattype)
-					if thissize > 0:
-						if not silent:
-							dbg.log("    SEH record (nseh field) at 0x%s overwritten with %s pattern : 0x%s (offset %d), followed by %d bytes of cyclic data" % (toHex(chainentry[0]),pattype,toHex(chainentry[1]),offset,thissize))
-						tofile += "    SEH record (nseh field) at 0x%s overwritten with %s pattern : 0x%s (offset %d), followed by %d bytes of cyclic data\n" % (toHex(chainentry[0]),pattype,toHex(chainentry[1]),offset,thissize)
-						if not chainentry[0]+4 in seh:
-							seh[chainentry[0]+4] = ([chainentry[1],offset,pattype,thissize])
+		address = chainentry[0]
+		sehandler = chainentry[1]
+		nseh = 0
+		nsehvalue = 0
+		nsehascii = ""
+		try:
+			nsehascii = dbg.readMemory(address,4)
+			nsehvalue = struct.unpack('<L',nsehascii)[0]
+			nseh = "%08x" % nsehvalue
+		except:
+			nseh = 0
+			sehandler = 0
+		if nseh != 0 :
+			for pattype in pattypes:
+				dbg.updateLog()		
+				regpattern = fullpattern
+				hexpat = nsehascii
+				factor = 1
+				takeout = 4
+				divide = 1
+				if pattype == "upper":
+					regpattern = regpattern.upper()
+				if pattype == "lower":
+					regpattern = regpattern.lower()
+				if pattype == "unicode":
+					#get next 4 bytes too
+					nsehascii = dbg.readMemory(address,8)
+					hexpat = nsehascii.replace('\x00','')
+					takeout = 0
+					divide = 2
+				offset = regpattern.find(hexpat)
+				thissize = 0
+				if offset > -1:		
+					thepointer = MnPointer(chainentry[0])
+					if thepointer.isOnStack():
+						thissize = getPatternLength(address+4,pattype)
+						if thissize > 0:
+							thissize = (thissize - takeout)/divide
+							if not silent:
+								dbg.log("    SEH record (nseh field) at 0x%s overwritten with %s pattern : 0x%s (offset %d), followed by %d bytes of cyclic data after the handler" % (toHex(chainentry[0]),pattype,nseh,offset,thissize))
+							tofile += "    SEH record (nseh field) at 0x%s overwritten with %s pattern : 0x%s (offset %d), followed by %d bytes of cyclic data after the handler\n" % (toHex(chainentry[0]),pattype,nseh,offset,thissize)
+							if not chainentry[0]+4 in seh:
+								seh[chainentry[0]+4] = ([chainentry[1],offset,pattype,thissize])
+							
 							
 	if not "seh" in results:
 		results["seh"] = seh
@@ -14934,7 +14946,7 @@ def main(args):
 				for overwrittenhandler in handlersoverwritten:
 					overwrittendata = handlersoverwritten[overwrittenhandler]
 					overwrittentype = overwrittendata[0]
-					overwrittenoffset = overwrittendata[1]
+					overwrittenoffset = overwrittendata[1]+2
 					if not overwrittentype == "unicode":
 						dbg.log("[Junk * %d]['\\xeb\\x06\\x41\\x41'][p/p/r][shellcode][more junk if needed]" % overwrittenoffset)
 					else:
@@ -14951,7 +14963,7 @@ def main(args):
 			bufferRegister = "eax" #we will put ebp into the buffer register
 			timeToRun = 15
 			registers = {"eax":0, "ebx":0, "ecx":0, "edx":0, "esp":0, "ebp":0,}
-			showerror = False
+			showerror = Falsef
 			regs = dbg.getRegs()
 
 			if "l" in args:
