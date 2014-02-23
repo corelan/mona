@@ -515,6 +515,19 @@ def hexStrToInt(inputstr):
 		valtoreturn = 0
 	return valtoreturn
 
+def to_int(inputstr):
+    """
+    Converts a string to int, whether it's hex or decimal
+    Arguments:
+        inputstr - A string representation of a number. Example: 0xFFFF, 2345
+
+    Return:
+        the numeric value
+    """
+    if inputstr.startswith("0x"):
+        return hexStrToInt(inputstr)
+    else:
+        return int(inputstr)
 	
 def toSize(toPad,size):
 	"""
@@ -8746,67 +8759,46 @@ def isGoodGadgetPtr(gadget,criteria):
 		return status
 		
 def getStackPivotDistance(gadget,distance=0):
-	allgadgets = gadget.split(" # ")
 	offset = 0
-	gadgets = []
-	splitter = re.compile(",")
+        distance_str = str(distance).lower()
 	mindistance = 0
 	maxdistance = 0
-	distanceparts = splitter.split(str(distance))
-	if len(distanceparts) == 1:
-		maxdistance = 99999999
-		if str(distance).lower().startswith("0x"):
-			mindistance = hexStrToInt(mindistance)
-		else:
-			mindistance = int(distance)
+
+        if "," not in distance_str:
+            # only mindistance
+            maxdistance = 99999999
+            mindistance = to_int(distance_str)
 	else:
-		mindistance = distanceparts[0]
-		maxdistance = distanceparts[1]
-		if str(mindistance).lower().startswith("0x"):
-			mindistance = hexStrToInt(mindistance)
-		else:
-			mindistance = int(distanceparts[0])
-		if str(maxdistance).lower().startswith("0x"):
-			maxdistance = hexStrToInt(maxdistance)
-		else:
-			maxdistance = int(distanceparts[1])
-	for thisgadget in allgadgets:
-		if thisgadget.strip() != "":
-			gadgets.append(thisgadget.strip())
-	if len(gadgets) > 1:
-		# calculate the entire distance
-		for g in gadgets:
-			if g.find("POP") == 0 or g.find("ADD ESP,") == 0 or g.find("PUSH") == 0 or g.find("RET") == 0 or g.find("SUB ESP,") == 0 or g.find("INC ESP") == 0 or g.find("DEC ESP") == 0:
-				if g.strip().find("ADD ESP,") == 0:
-					parts = g.split(",")
-					try:
-						offset += hexStrToInt(parts[1])
-					except:
-						pass
-				if g.strip().find("SUB ESP,") == 0:
-					parts = g.split(",")
-					try:
-						offset -= hexStrToInt(parts[1])
-					except:
-						pass
-				if g.strip().find("INC ESP") == 0:
-					offset += 1
-				if g.strip().find("DEC ESP") == 0:
-					offset -= 1					
-				if g.strip().find("POP ") == 0:
-					offset += 4
-				if g.strip().find("PUSH ") == 0:
-					offset -= 4
-				if g.strip().find("POPAD") == 0:
-					offset += 32
-				if g.strip().find("PUSHAD") == 0:
-					offset -= 32
-			else:
-				if (g.find("DWORD PTR") > 0 or g.find("[") > 0) and not g.find("FS") > 0:
-					return 0
+            mindistance, maxdistance = distance_str.split(",")
+            mindistance = to_int(mindistance)
+            maxdistance = to_int(maxdistance)
+
+        gadgets = filter(lambda x: x.strip(), gadget.split(" # "))
+
+        for g in gadgets:
+            if "ADD ESP," in g:
+                offset += hexStrToInt(g.split(",")[1])
+            elif "SUB ESP," in g:
+                offset += hexStrToInt(g.split(",")[1])
+            elif "INC ESP" in g:
+                offset += 1
+            elif "DEC ESP" in g:
+                offset -= 1
+            elif "POP " in g:
+                offset += 4
+            elif "PUSH " in g:
+                offset -= 4
+            elif "POPAD" in g:
+                offset += 32
+            elif "PUSHAD" in g:
+                offset -= 32
+            elif ("DWORD PTR" in g or "[" in g) and "FS" not in g:
+                return 0
+
 	if mindistance <= offset and offset <= maxdistance:
 		return offset
-	return 0
+        else:
+	    return 0
 		
 def isGoodGadgetInstr(instruction):
 	if isAsciiString(instruction):
