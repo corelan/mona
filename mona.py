@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 477 $
-$Id: mona.py 477 2014-02-23 09:13:38Z corelanc0d3r $ 
+$Revision: 478 $
+$Id: mona.py 478 2014-04-04 07:03:41Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 477 $')
+__REV__ = filter(str.isdigit, '$Revision: 478 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -14950,6 +14950,68 @@ def main(args):
 			return
 
 
+		# routine to copy bytes from one location to another
+		def procCopy(args):
+			src = 0
+			dst = 0
+			nrbytes = 0
+			regs = dbg.getRegs()
+			if "src" in args:
+				if type(args["src"]).__name__.lower() != "bool":
+					try:
+						src = int(args["src"],16)
+					except:
+						src = 0
+
+					if src == 0 and args["src"].upper() in regs:
+						src = regs[args["src"].upper()]
+
+			if "dst" in args:
+				if type(args["dst"]).__name__.lower() != "bool":
+					try:
+						dst = int(args["dst"],16)
+					except:
+						dst = 0
+
+					if dst == 0 and args["dst"].upper() in regs:
+						dst = regs[args["dst"].upper()]
+
+			if "n" in args:
+				if type(args["n"]).__name__.lower() != "bool":
+					if str(args['n']).lower().startswith("0x"):
+						try:
+							nrbytes = int(args["n"],16)
+						except:
+							nrbytes = 0
+					else:
+						try:
+							nrbytes = int(args["n"])
+						except:
+							nrbytes = 0
+
+			errorsfound = False
+			if src == 0:
+				errorsfound = True
+				dbg.log("*** Please specify a valid source address to argument -src ***",highlight=1)
+			if dst == 0:
+				errorsfound = True
+				dbg.log("*** Please specify a valid destination address to argument -dst ***",highlight=1)
+			if nrbytes == 0:
+				errorsfound = True
+				dbg.log("*** Please specify a valid number of bytes to argument -n ***",highlight=1)
+
+			if not errorsfound:
+				dbg.log("[+] Attempting to copy 0x%08x bytes from 0x%08x to 0x%08x" % (nrbytes, src, dst))
+				sourcebytes = dbg.readMemory(src,nrbytes)
+				try:
+					dbg.writeMemory(dst,sourcebytes)
+					dbg.log("    Done.")
+				except:
+					dbg.log("   Copy failed, check if both locations are accessible/mapped")
+
+			return
+
+
 
 		# unicode alignment routines written by floyd (http://www.floyd.cd, twitter: @floyd_ch)
 		def procUnicodeAlign(args):
@@ -16081,6 +16143,12 @@ Arguments:
     -ebp <value>      : Overrule the use of the 'current' value of ebp, 
                         ebp/address will be used to calculate offset to shellcode"""
 
+		copyUsage = """Copies bytes from one location to another.
+
+Arguments:
+    -src <address>    : The source address
+    -dst <address>    : The destination address
+    -n <number>       : The number of bytes to copy"""                        
 
 		commands["seh"] 			= MnCommand("seh", "Find pointers to assist with SEH overwrite exploits",sehUsage, procFindSEH)
 		commands["config"] 			= MnCommand("config","Manage configuration file (mona.ini)",configUsage,procConfig,"conf")
@@ -16137,6 +16205,7 @@ Arguments:
 		commands["peb"]				= MnCommand("peb","Show location of the PEB",pebUsage,procPEB,"peb")
 		commands["teb"]				= MnCommand("teb","Show TEB related information",tebUsage,procTEB,"teb")
 		commands["string"]			= MnCommand("string","Read or write a string from/to memory",stringUsage,procString,"str")
+		commands["copy"]			= MnCommand("copy","Copy bytes from one location to another",copyUsage,procCopy,"cp")
 		# get the options
 		opts = {}
 		last = ""
