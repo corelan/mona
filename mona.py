@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 481 $
-$Id: mona.py 481 2014-04-05 21:58:23Z corelanc0d3r $ 
+$Revision: 482 $
+$Id: mona.py 482 2014-04-05 22:01:10Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 481 $')
+__REV__ = filter(str.isdigit, '$Revision: 482 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -15113,7 +15113,7 @@ def main(args):
 			if ptrx.isAsciiPrintable:
 				b1,b2,b3,b4 = splitAddress(addy)
 				ptrstr = toAscii(toHexByte(b1)) + toAscii(toHexByte(b2)) + toAscii(toHexByte(b3)) + toAscii(toHexByte(b4))
-				if ptrstr.replace(" ","") != "":
+				if ptrstr.replace(" ","") != "" and not toHexByte(b1) == "00" and not toHexByte(b2) == "00" and not toHexByte(b3) == "00" and not toHexByte(b4) == "00":
 					locinfo = ["str","= ASCII '%s'" % ptrstr,"ascii"]
 					return locinfo
 
