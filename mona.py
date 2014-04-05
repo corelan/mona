@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 478 $
-$Id: mona.py 478 2014-04-04 07:03:41Z corelanc0d3r $ 
+$Revision: 479 $
+$Id: mona.py 479 2014-04-05 21:26:33Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 478 $')
+__REV__ = filter(str.isdigit, '$Revision: 479 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -286,6 +286,8 @@ def toAscii(n):
 	A string (one character), representing the ascii equivalent
 	"""
 	asciiequival = " "
+	if n.__class__.__name__ == "int":
+		n = "%02x" % n
 	try:
 		if n != "00":
 			asciiequival=binascii.a2b_hex(n)
@@ -14950,6 +14952,172 @@ def main(args):
 			return
 
 
+		def procDumpObj(args):
+			addy = 0
+			levels = 0
+			size = 0
+			nestedsize = 0
+			regs = dbg.getRegs()
+			if "a" in args:
+				if type(args["a"]).__name__.lower() != "bool":
+					try:
+						addy = int(args["a"],16)
+					except:
+						addy = 0
+					if addy == 0 and args["a"].upper() in regs:
+						addy = regs[args["a"].upper()]
+
+			if "s" in args:
+				if type(args["s"]).__name__.lower() != "bool":
+					if str(args["s"]).lower().startswith("0x"):
+						try:
+							size = int(args["s"],16)
+						except:
+							size = 0
+					else:
+						try:
+							size = int(args["s"])
+						except:
+							size = 0
+
+			if "l" in args:
+				if type(args["l"]).__name__.lower() != "bool":
+					if str(args["l"]).lower().startswith("0x"):
+						try:
+							levels = int(args["l"],16)
+						except:
+							levels = 0
+					else:
+						try:
+							levels = int(args["l"])
+						except:
+							levels = 0
+
+			if "m" in args:
+				if type(args["m"]).__name__.lower() != "bool":
+					if str(args["m"]).lower().startswith("0x"):
+						try:
+							nestedsize = int(args["m"],16)
+						except:
+							nestedsize = 0
+					else:
+						try:
+							nestedsize = int(args["m"])
+						except:
+							nestedsize = 0
+
+			errorsfound = False
+			if addy == 0:
+				errorsfound = True
+				dbg.log("*** Please specify a valid address to argument -a ***",highlight=1)				
+			if size == 0:
+				errorsfound = True
+				dbg.log("*** Please specify a valid size to argument -s ***",highlight=1)				
+			if levels > 0 and nestedsize == 0:
+				errorsfound = True
+				dbg.log("*** Please specify a valid size to argument -m ***",highlight=1)				
+
+			if not errorsfound:
+				dbg.log("[+] Dumping object at 0x%08x, 0x%08x bytes" % (addy,size))
+				if levels > 0:
+					dbg.log("[+] Also dumping up to %d levels deep, max size of nested objects: 0x%08x bytes" % (levels, nestedsize))
+				dbg.log("")
+
+				parentlist = []
+				cmdtorun = "dds 0x%08x L 0x%08x/4" % (addy,size)
+				startaddy = addy
+				endaddy = addy + size
+				output = dbg.nativeCommand(cmdtorun)
+				outputlines = output.split("\n")
+				offset = 0
+				dbg.log("Offset       Address     Contents    Info")
+				dbg.log("------       -------     --------    -----")
+				for outputline in outputlines:
+					if not outputline.replace(" ","") == "":
+						loc = outputline[0:8]
+						content = outputline[10:18]
+						symbol = outputline[19:]
+						if not "??" in content and symbol.replace(" ","") == "":
+							contentaddy = hexStrToInt(content)
+							# ptr to self ?
+							info = getLocInfo(hexStrToInt(loc),contentaddy,startaddy,endaddy)
+							if len(info) > 0:
+								symbol = info[1]
+						dbg.log("+0x%08x  0x%s: 0x%s  %s" % (offset,loc,content,symbol))
+						offset += 4
+
+			return
+
+
+		def getLocInfo(loc,addy,startaddy,endaddy):
+			locinfo = []
+			
+			if addy >= startaddy and addy <= endaddy:
+				offset = addy - startaddy
+				locinfo = ["self","ptr to self+0x%08x" % offset,""]
+				return locinfo
+				
+			ismapped = False
+			
+			# maybe it's a pointer to an object ?
+			cmd2run = "dds 0x%08x L 1" % addy
+			output = dbg.nativeCommand(cmd2run)
+			outputlines = output.split("\n")
+			if len(outputlines) > 0:
+				if not "??" in outputlines[0]:
+					ismapped = True
+					ptraddy = outputlines[0][10:18]
+					ptrinfo = outputlines[0][19:]
+					if ptrinfo.replace(" ","") != "":
+						locinfo = ["ptr","ptr to 0x%08x : %s" % (hexStrToInt(ptraddy),ptrinfo),""]
+						return locinfo
+
+			# is it a mapped addy ?
+			if ismapped:
+
+				# pointer to a string ?
+				try:
+					strdata = dbg.readString(addy)
+					if len(strdata) > 2:
+						locinfo = ["ptr_str","ptr to ASCII '%s'" % strdata,"ascii"]
+						return locinfo
+				except:
+					pass
+
+				# maybe it's unicode ?
+				try:
+					strdata = dbg.readWString(addy)
+					if len(strdata) > 2:
+						locinfo = ["ptr_str","ptr to UNICODE '%s'" % strdata,"unicode"]
+						return locinfo
+				except:
+					pass
+
+				# maybe the pointer points into a function ?
+				ptrx = MnPointer(addy)
+				ptrf = ptrx.getPtrFunction()
+				locinfo = ["ptr_func","ptr to %s" % ptrf,""]
+				return locinfo
+
+			# pointer itself is a string ?
+			ptrx = MnPointer(addy)
+			if ptrx.isAsciiPrintable:
+				b1,b2,b3,b4 = splitAddress(addy)
+				ptrstr = toAscii(toHexByte(b1)) + toAscii(toHexByte(b2)) + toAscii(toHexByte(b3)) + toAscii(toHexByte(b4))
+				if ptrstr.replace(" ","") != "":
+					locinfo = ["str","= ASCII '%s'" % ptrstr,"ascii"]
+					return locinfo
+			if ptrx.isUnicode:
+				b1,b2,b3,b4 = splitAddress(addy)
+				ptrstr = toAscii(toHexByte(b1)) + toAscii(toHexByte(b3))
+				if ptrstr.replace(" ","") != "":
+					locinfo = ["str","= UNICODE '%s'" % ptrstr,"unicode"]
+					return locinfo
+
+
+			return locinfo
+
+
 		# routine to copy bytes from one location to another
 		def procCopy(args):
 			src = 0
@@ -15007,7 +15175,7 @@ def main(args):
 					dbg.writeMemory(dst,sourcebytes)
 					dbg.log("    Done.")
 				except:
-					dbg.log("   Copy failed, check if both locations are accessible/mapped")
+					dbg.log("    *** Copy failed, check if both locations are accessible/mapped",highlight=1)
 
 			return
 
@@ -16148,7 +16316,13 @@ Arguments:
 Arguments:
     -src <address>    : The source address
     -dst <address>    : The destination address
-    -n <number>       : The number of bytes to copy"""                        
+    -n <number>       : The number of bytes to copy""" 
+
+		dumpobjUsage = """Dump the contents of an object.
+
+Arguments:
+    -a <address>      : Address of object
+    -s <number>       : Size of object"""
 
 		commands["seh"] 			= MnCommand("seh", "Find pointers to assist with SEH overwrite exploits",sehUsage, procFindSEH)
 		commands["config"] 			= MnCommand("config","Manage configuration file (mona.ini)",configUsage,procConfig,"conf")
@@ -16196,7 +16370,8 @@ Arguments:
 			commands["calltrace"]	= MnCommand("calltrace","Log all CALL instructions",calltraceUsage,procCallTrace,"ct")
 		if __DEBUGGERAPP__ == "WinDBG":
 			commands["fillchunk"]	= MnCommand("fillchunk","Fill a heap chunk referenced by a register",fillchunkUsage,procFillChunk,"fchunk")
-		commands["allocmem"]	= MnCommand("allocmem","Allocate some RWX memory in the process",allocmemUsage,procAllocMem,"alloc")
+			commands["dumpobj"]		= MnCommand("dumpobj","Dump the contents of an object",dumpobjUsage,procDumpObj,"do")
+		commands["allocmem"]		= MnCommand("allocmem","Allocate some RWX memory in the process",allocmemUsage,procAllocMem,"alloc")
 		commands["fwptr"]			= MnCommand("fwptr", "Find Writeable Pointers that get called", fwptrUsage, procFwptr, "fwp")
 		commands["sehchain"]		= MnCommand("sehchain","Show the current SEH chain",sehchainUsage,procSehChain,"exchain")
 		commands["hidedebug"]		= MnCommand("hidedebug","Attempt to hide the debugger",hidedebugUsage,procHideDebug,"hd")
