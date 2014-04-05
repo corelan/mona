@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 479 $
-$Id: mona.py 479 2014-04-05 21:26:33Z corelanc0d3r $ 
+$Revision: 480 $
+$Id: mona.py 480 2014-04-05 21:55:52Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 479 $')
+__REV__ = filter(str.isdigit, '$Revision: 480 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -15073,6 +15073,7 @@ def main(args):
 						return locinfo
 
 			# is it a mapped addy ?
+			ptrx = MnPointer(addy)
 			if ismapped:
 
 				# pointer to a string ?
@@ -15094,25 +15095,28 @@ def main(args):
 					pass
 
 				# maybe the pointer points into a function ?
-				ptrx = MnPointer(addy)
 				ptrf = ptrx.getPtrFunction()
-				locinfo = ["ptr_func","ptr to %s" % ptrf,""]
-				return locinfo
+				if not ptrf == "":
+					locinfo = ["ptr_func","ptr to %s" % ptrf,""]
+					return locinfo
 
 			# pointer itself is a string ?
-			ptrx = MnPointer(addy)
-			if ptrx.isAsciiPrintable:
-				b1,b2,b3,b4 = splitAddress(addy)
-				ptrstr = toAscii(toHexByte(b1)) + toAscii(toHexByte(b2)) + toAscii(toHexByte(b3)) + toAscii(toHexByte(b4))
-				if ptrstr.replace(" ","") != "":
-					locinfo = ["str","= ASCII '%s'" % ptrstr,"ascii"]
-					return locinfo
+			
 			if ptrx.isUnicode:
 				b1,b2,b3,b4 = splitAddress(addy)
 				ptrstr = toAscii(toHexByte(b1)) + toAscii(toHexByte(b3))
 				if ptrstr.replace(" ","") != "":
 					locinfo = ["str","= UNICODE '%s'" % ptrstr,"unicode"]
 					return locinfo
+
+			
+			if ptrx.isAsciiPrintable:
+				b1,b2,b3,b4 = splitAddress(addy)
+				ptrstr = toAscii(toHexByte(b1)) + toAscii(toHexByte(b2)) + toAscii(toHexByte(b3)) + toAscii(toHexByte(b4))
+				if ptrstr.replace(" ","") != "":
+					locinfo = ["str","= ASCII '%s'" % ptrstr,"ascii"]
+					return locinfo
+
 
 
 			return locinfo
