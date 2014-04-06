@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 485 $
-$Id: mona.py 485 2014-04-06 15:53:59Z corelanc0d3r $ 
+$Revision: 486 $
+$Id: mona.py 486 2014-04-06 19:47:19Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 485 $')
+__REV__ = filter(str.isdigit, '$Revision: 486 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -15799,6 +15799,45 @@ def main(args):
 			return
 
 
+		def procChangeACL(args):
+			size = 1
+			addy = 0
+			acl = ""
+			addyerror = False
+			aclerror = False
+			if "a" in args:
+				if type(args["a"]).__name__.lower() != "bool":
+					try:
+						addy = int(args["a"],16)
+					except:
+						addyerror = True
+			if "acl" in args:
+				if type(args["acl"]).__name__.lower() != "bool":
+					if args["acl"].upper() in memProtConstants:
+						acl = args["acl"].upper()
+					else:
+						aclerror = True
+			else:
+				aclerror = True	
+			
+			if addyerror:
+				dbg.log(" *** Please specify a valid address to argument -a ***")
+
+			if aclerror:
+				dbg.log(" *** Please specify a valid memory protection constant with -acl ***")
+				dbg.log(" *** Valid values are :")
+				for acltype in memProtConstants:
+					dbg.log("     %s (%s = 0x%02x)" % (toSize(acltype,10),memProtConstants[acltype][0],memProtConstants[acltype][1]))
+
+			if not addyerror and not aclerror:
+				pageacl = memProtConstants[acl][1]
+				pageaclname = memProtConstants[acl][0]
+				dbg.log("[+] Current ACL: %s" % getPointerAccess(addy))
+				dbg.log("[+] Desired ACL: %s (0x%02x)" % (pageaclname,pageacl))
+				retval = dbg.rVirtualAlloc(addy,1,0x1000,pageacl)
+			return
+
+
 		def procAllocMem(args):
 			size = 0x1000
 			addy = 0
@@ -15860,7 +15899,7 @@ def main(args):
 						dbg.log(" *** Please specify a valid memory protection constant with -acl ***")
 						dbg.log(" *** Valid values are :")
 						for acltype in memProtConstants:
-							dbg.log("     '%s' (%s = 0x%02x)" % (toSize(acltype,10),memProtConstants[acltype][0],memProtConstants[acltype][1]))
+							dbg.log("     %s (%s = 0x%02x)" % (toSize(acltype,10),memProtConstants[acltype][0],memProtConstants[acltype][1]))
 
 			if addyerror:
 				dbg.log(" *** Please specify a valid address with -a ***",highlight=1)
@@ -15874,12 +15913,21 @@ def main(args):
 					dbg.log("[+] Desired target location : 0x%08x" % addy)
 				pageacl = memProtConstants[acl][1]
 				pageaclname = memProtConstants[acl][0]
-				dbg.log("    Desired memory protection attribute: %s (0x%02x)" % (pageaclname,pageacl))
+				if addy > 0:
+					dbg.log("    Current page ACL: %s" % getPointerAccess(addy))
+				dbg.log("    Desired page ACL: %s (0x%02x)" % (pageaclname,pageacl))
 				VIRTUAL_MEM = ( 0x1000 | 0x2000 )
-				allocat = dbg.rVirtualAlloc(addy,size,VIRTUAL_MEM,pageacl)
+				allocat = dbg.rVirtualAlloc(addy,size,0x1000,pageacl)
+				if addy == 0 and allocat > 0:
+					retval = dbg.rVirtualProtect(allocat,1,pageacl)
+				else:
+					retval = dbg.rVirtualProtect(addy,1,pageacl)
+				
 				dbg.log("[+] Allocated memory at 0x%08x" % allocat)
-				if allocat > 0:
-					dbg.log("    ACL: %s" % getPointerAccess(allocat))
+				#if allocat > 0:
+				#	dbg.log("    ACL 0x%08x: %s" % (allocat,getPointerAccess(allocat)))
+				#else:
+				#	dbg.log("    ACL 0x%08x: %s" % (addy,getPointerAccess(addy)))
 
 				if allocat == 0 and fillup and not writemore:
 					dbg.log("[+] It looks like the page was already mapped. Use the -force argument")
@@ -16360,7 +16408,12 @@ Optional arguments:
     -force       : use in combination with -fill, in case page was already mapped but you still want to
                    fill the chunk at the desired location.
     -b <byte>    : Specify what byte to write to the desired location. Defaults to '\\x41'    
-"""   
+"""  
+
+		changeaclUsage = """Change the ACL of a given page.
+Arguments:
+    -a <address>   : Address belonging to the page that needs to be changed
+    -acl <level>   : New ACL. Valid values are R,RW,RXW,RX,N,GUARD,NOCACHE,WC""" 
 
 		infodumpUsage = """Dumps contents of memory to file. Contents will include all pages that don't
 belong to stack, heap or loaded modules.
@@ -16457,6 +16510,7 @@ Arguments:
 		if __DEBUGGERAPP__ == "WinDBG":
 			commands["fillchunk"]	= MnCommand("fillchunk","Fill a heap chunk referenced by a register",fillchunkUsage,procFillChunk,"fchunk")
 			commands["dumpobj"]		= MnCommand("dumpobj","Dump the contents of an object",dumpobjUsage,procDumpObj,"do")
+			commands["changeacl"]   = MnCommand("changeacl","Change the ACL of a given page",changeaclUsage,procChangeACL,"ca")
 		commands["allocmem"]		= MnCommand("allocmem","Allocate some memory in the process",allocmemUsage,procAllocMem,"alloc")
 		commands["fwptr"]			= MnCommand("fwptr", "Find Writeable Pointers that get called", fwptrUsage, procFwptr, "fwp")
 		commands["sehchain"]		= MnCommand("sehchain","Show the current SEH chain",sehchainUsage,procSehChain,"exchain")
