@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 483 $
-$Id: mona.py 483 2014-04-06 07:30:28Z corelanc0d3r $ 
+$Revision: 484 $
+$Id: mona.py 484 2014-04-06 15:19:28Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 483 $')
+__REV__ = filter(str.isdigit, '$Revision: 484 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -113,9 +113,11 @@ global segmentlistCache
 global VACache
 global NtGlobalFlag
 global FreeListBitmap
+global memProtConstants
 
 NtGlobalFlag = -1
 FreeListBitmap = {}
+memProtConstants = {}
 CritCache={}
 vtableCache={}
 stacklistCache={}
@@ -143,6 +145,20 @@ if __DEBUGGERAPP__ == "WinDBG":
 osver = dbg.getOsVersion()
 if osver in ["6", "7", "8", "vista", "win7", "2008server", "win8"]:
 	win7mode = True
+
+
+#---------------------------------------#
+#  Populate constants                   #
+#---------------------------------------#	
+memProtConstants["X"] = ["PAGE_EXECUTE",0x10]
+memProtConstants["RX"] = ["PAGE_EXECUTE_READ",0x20]
+memProtConstants["RWX"] = ["PAGE_EXECUTE_READWRITE",0x40]
+memProtConstants["N"] = ["PAGE_NOACCESS",0x1]
+memProtConstants["R"] = ["PAGE_READONLY",0x2]
+memProtConstants["RW"] = ["PAGE_READWRITE",0x4]
+memProtConstants["GUARD"] = ["PAGE_GUARD",0x100]
+memProtConstants["NOCACHE"] = ["PAGE_NOCACHE",0x200]
+memProtConstants["WC"] = ["PAGE_WRITECOMBINE",0x400]
 
 #---------------------------------------#
 #  Utility functions                    #
@@ -15100,9 +15116,12 @@ def main(args):
 
 			memloc = ptrx.memLocation()
 			if not "??" in memloc:
-				extra = "(%s) " % memloc
+				if "Stack" in memloc or "Heap" in memloc:
+					extra = "(%s) " % memloc
+				else:
+					detailmemloc = ptrx.getPtrFunction()
+					extra = " (%s.%s)" % (memloc,detailmemloc)
 
-			
 			# maybe it's a pointer to an object ?
 			cmd2run = "dds 0x%08x L 1" % addy
 			output = dbg.nativeCommand(cmd2run)
@@ -15789,6 +15808,7 @@ def main(args):
 			fillup = False
 			writemore = False
 			fillbyte = "A"
+			acl = "RWX"
 
 			if "s" in args:
 				if type(args["s"]).__name__.lower() != "bool":
@@ -15830,19 +15850,33 @@ def main(args):
 				if "force" in args:
 					writemore = True
 
+			aclerror = True
+			if "acl" in args:
+				if type(args["acl"]).__name__.lower() != "bool":
+					if args["acl"].upper() in memProtConstants:
+						acl = args["acl"].upper()
+					else:
+						aclerror = True
+						dbg.log(" *** Please specify a valid memory protection constant with -acl ***")
+						dbg.log(" *** Valid values are :")
+						for acltype in memProtConstants:
+							dbg.log("     '%s' (%s = 0x%02x)" % (toSize(acltype,10),memProtConstants[acltype][0],memProtConstants[acltype][1]))
+
 			if addyerror:
 				dbg.log(" *** Please specify a valid address with -a ***",highlight=1)
 
 			if sizeerror:
 				dbg.log(" *** Please specify a valid size with -s ***",highlight = 1)
 			
-			if not addyerror and not sizeerror and not byteerror:
+			if not addyerror and not sizeerror and not byteerror and not aclerror:
 				dbg.log("[+] Requested allocation size: 0x%08x (%d) bytes" % (size,size))
 				if addy > 0:
 					dbg.log("[+] Desired target location : 0x%08x" % addy)
-				PAGE_EXECUTE_READWRITE = 0x40
-				VIRTUAL_MEM = ( 0x1000 | 0x2000 )					
-				allocat = dbg.rVirtualAlloc(addy,size,VIRTUAL_MEM,PAGE_EXECUTE_READWRITE)
+				pageacl = memProtConstants[acl][1]
+				pageaclname = memProtConstants[acl][0]
+				dbg.log("    Desired memory protection attribute: %s (0x%02x)" % (pageaclname,pageacl))
+				VIRTUAL_MEM = ( 0x1000 | 0x2000 )
+				allocat = dbg.rVirtualAlloc(addy,size,VIRTUAL_MEM,pageacl)
 				dbg.log("[+] Allocated memory at 0x%08x" % allocat)
 				if allocat == 0 and fillup and not writemore:
 					dbg.log("[+] It looks like the page was already mapped. Use the -force argument")
@@ -16318,6 +16352,7 @@ Optional arguments:
     -s <size>    : desired size of allocated chunk. VirtualAlloc will allocate at least 0x1000 bytes,
                    but this size argument is only useful when used in combination with -fill.
     -a <address> : desired target location for allocation, set to start of chunk to allocate.
+    -acl <level> : overrule default RWX memory protection.
     -fill        : fill 'size' bytes (-s) of memory at specified address (-a) with A's.
     -force       : use in combination with -fill, in case page was already mapped but you still want to
                    fill the chunk at the desired location.
@@ -16419,7 +16454,7 @@ Arguments:
 		if __DEBUGGERAPP__ == "WinDBG":
 			commands["fillchunk"]	= MnCommand("fillchunk","Fill a heap chunk referenced by a register",fillchunkUsage,procFillChunk,"fchunk")
 			commands["dumpobj"]		= MnCommand("dumpobj","Dump the contents of an object",dumpobjUsage,procDumpObj,"do")
-		commands["allocmem"]		= MnCommand("allocmem","Allocate some RWX memory in the process",allocmemUsage,procAllocMem,"alloc")
+		commands["allocmem"]		= MnCommand("allocmem","Allocate some memory in the process",allocmemUsage,procAllocMem,"alloc")
 		commands["fwptr"]			= MnCommand("fwptr", "Find Writeable Pointers that get called", fwptrUsage, procFwptr, "fwp")
 		commands["sehchain"]		= MnCommand("sehchain","Show the current SEH chain",sehchainUsage,procSehChain,"exchain")
 		commands["hidedebug"]		= MnCommand("hidedebug","Attempt to hide the debugger",hidedebugUsage,procHideDebug,"hd")
