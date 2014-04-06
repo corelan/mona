@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 486 $
-$Id: mona.py 486 2014-04-06 19:47:19Z corelanc0d3r $ 
+$Revision: 487 $
+$Id: mona.py 487 2014-04-06 20:09:11Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 486 $')
+__REV__ = filter(str.isdigit, '$Revision: 487 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -15918,10 +15918,10 @@ def main(args):
 				dbg.log("    Desired page ACL: %s (0x%02x)" % (pageaclname,pageacl))
 				VIRTUAL_MEM = ( 0x1000 | 0x2000 )
 				allocat = dbg.rVirtualAlloc(addy,size,0x1000,pageacl)
-				if addy == 0 and allocat > 0:
-					retval = dbg.rVirtualProtect(allocat,1,pageacl)
-				else:
-					retval = dbg.rVirtualProtect(addy,1,pageacl)
+				#if addy == 0 and allocat > 0:
+				#	retval = dbg.rVirtualProtect(allocat,1,pageacl)
+				#else:
+				#	retval = dbg.rVirtualProtect(addy,1,pageacl)
 				
 				dbg.log("[+] Allocated memory at 0x%08x" % allocat)
 				#if allocat > 0:
