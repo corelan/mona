@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 482 $
-$Id: mona.py 482 2014-04-05 22:01:10Z corelanc0d3r $ 
+$Revision: 483 $
+$Id: mona.py 483 2014-04-06 07:30:28Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 482 $')
+__REV__ = filter(str.isdigit, '$Revision: 483 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -15012,42 +15012,77 @@ def main(args):
 				dbg.log("*** Please specify a valid address to argument -a ***",highlight=1)				
 			if size == 0:
 				errorsfound = True
-				dbg.log("*** Please specify a valid size to argument -s ***",highlight=1)				
+				dbg.log("*** Please specify a valid size to argument -s ***",highlight=1)
+			if size > 0xffff:
+				errorsfound = True
+				dbg.log("*** Please keep the size below 0xffff (argument -s) ***",highlight=1)			
 			if levels > 0 and nestedsize == 0:
 				errorsfound = True
 				dbg.log("*** Please specify a valid size to argument -m ***",highlight=1)				
 
 			if not errorsfound:
+
+
+				dumpdata = dumpObjectAtLocation(addy,size,levels,nestedsize)
+
+				
+
+			return
+
+
+		def dumpObjectAtLocation(addy,size,levels,nestedsize):
+			dumpdata = {}
+			if not silent:
 				dbg.log("[+] Dumping object at 0x%08x, 0x%08x bytes" % (addy,size))
 				if levels > 0:
 					dbg.log("[+] Also dumping up to %d levels deep, max size of nested objects: 0x%08x bytes" % (levels, nestedsize))
 				dbg.log("")
 
-				parentlist = []
-				cmdtorun = "dds 0x%08x L 0x%08x/4" % (addy,size)
-				startaddy = addy
-				endaddy = addy + size
-				output = dbg.nativeCommand(cmdtorun)
-				outputlines = output.split("\n")
-				offset = 0
-				dbg.log("Offset       Address     Contents    Info")
-				dbg.log("------       -------     --------    -----")
-				for outputline in outputlines:
-					if not outputline.replace(" ","") == "":
-						loc = outputline[0:8]
-						content = outputline[10:18]
-						symbol = outputline[19:]
-						if not "??" in content and symbol.replace(" ","") == "":
-							contentaddy = hexStrToInt(content)
-							# ptr to self ?
-							info = getLocInfo(hexStrToInt(loc),contentaddy,startaddy,endaddy)
-							if len(info) > 0:
-								symbol = info[1]
-						dbg.log("+0x%08x  0x%s: 0x%s  %s" % (offset,loc,content,symbol))
-						offset += 4
+			parentlist = []
+			cmdtorun = "dds 0x%08x L 0x%08x/4" % (addy,size)
+			startaddy = addy
+			endaddy = addy + size
+			output = dbg.nativeCommand(cmdtorun)
+			outputlines = output.split("\n")
+			offset = 0
+			for outputline in outputlines:
+				if not outputline.replace(" ","") == "":
+					loc = outputline[0:8]
+					content = outputline[10:18]
+					symbol = outputline[19:]
+					if not "??" in content and symbol.replace(" ","") == "":
+						contentaddy = hexStrToInt(content)
+						# ptr to self ?
+						info = getLocInfo(hexStrToInt(loc),contentaddy,startaddy,endaddy)
+						info.append(content)
+						dumpdata[hexStrToInt(loc)] = info
+					else:
+						info = ["",symbol,"",content]
+						dumpdata[hexStrToInt(loc)] = info
+			if not silent:
+				printObjDump(dumpdata)
+			return dumpdata
 
+
+		def printObjDump(dumpdata):
+			# dictionary, key = address
+			# 0 = type
+			# 1 = content info
+			# 2 = string type
+			# 3 = content
+			dbg.log("Offset  Address      Contents    Info")
+			dbg.log("------  -------      --------    -----")
+			offset = 0
+			sortedkeys = sorted(dumpdata)
+			for loc in sortedkeys:
+				info = dumpdata[loc]
+				if len(info) > 3:
+					content = info[3]
+					contentinfo = info[1]  
+					offsetstr = toSize("%02x" % offset,4)
+					dbg.log("+%s   0x%08x | 0x%s  %s" % (offsetstr,loc,content,contentinfo))
+					offset += 4
 			return
-
 
 		def getLocInfo(loc,addy,startaddy,endaddy):
 			locinfo = []
@@ -15058,6 +15093,15 @@ def main(args):
 				return locinfo
 				
 			ismapped = False
+
+
+			extra = ""
+			ptrx = MnPointer(addy)
+
+			memloc = ptrx.memLocation()
+			if not "??" in memloc:
+				extra = "(%s) " % memloc
+
 			
 			# maybe it's a pointer to an object ?
 			cmd2run = "dds 0x%08x L 1" % addy
@@ -15069,18 +15113,18 @@ def main(args):
 					ptraddy = outputlines[0][10:18]
 					ptrinfo = outputlines[0][19:]
 					if ptrinfo.replace(" ","") != "":
-						locinfo = ["ptr","ptr to 0x%08x : %s" % (hexStrToInt(ptraddy),ptrinfo),""]
+						locinfo = ["ptr","%sptr to 0x%08x : %s" % (extra,hexStrToInt(ptraddy),ptrinfo),""]
 						return locinfo
 
-			# is it a mapped addy ?
-			ptrx = MnPointer(addy)
+
+
 			if ismapped:
 
 				# pointer to a string ?
 				try:
 					strdata = dbg.readString(addy)
 					if len(strdata) > 2:
-						locinfo = ["ptr_str","ptr to ASCII '%s'" % strdata,"ascii"]
+						locinfo = ["ptr_str","%sptr to ASCII '%s'" % (extra,strdata),"ascii"]
 						return locinfo
 				except:
 					pass
@@ -15089,7 +15133,7 @@ def main(args):
 				try:
 					strdata = dbg.readWString(addy)
 					if len(strdata) > 2:
-						locinfo = ["ptr_str","ptr to UNICODE '%s'" % strdata,"unicode"]
+						locinfo = ["ptr_str","%sptr to UNICODE '%s'" % (extra,strdata),"unicode"]
 						return locinfo
 				except:
 					pass
@@ -15097,7 +15141,7 @@ def main(args):
 				# maybe the pointer points into a function ?
 				ptrf = ptrx.getPtrFunction()
 				if not ptrf == "":
-					locinfo = ["ptr_func","ptr to %s" % ptrf,""]
+					locinfo = ["ptr_func","%sptr to %s" % (extra,ptrf),""]
 					return locinfo
 
 			# pointer itself is a string ?
@@ -15106,7 +15150,7 @@ def main(args):
 				b1,b2,b3,b4 = splitAddress(addy)
 				ptrstr = toAscii(toHexByte(b2)) + toAscii(toHexByte(b4))
 				if ptrstr.replace(" ","") != "" and not toHexByte(b2) == "00":
-					locinfo = ["str","= UNICODE '%s'" % ptrstr,"unicode"]
+					locinfo = ["str","= UNICODE '%s' %s" % (ptrstr,extra),"unicode"]
 					return locinfo
 
 			
@@ -15114,7 +15158,7 @@ def main(args):
 				b1,b2,b3,b4 = splitAddress(addy)
 				ptrstr = toAscii(toHexByte(b1)) + toAscii(toHexByte(b2)) + toAscii(toHexByte(b3)) + toAscii(toHexByte(b4))
 				if ptrstr.replace(" ","") != "" and not toHexByte(b1) == "00" and not toHexByte(b2) == "00" and not toHexByte(b3) == "00" and not toHexByte(b4) == "00":
-					locinfo = ["str","= ASCII '%s'" % ptrstr,"ascii"]
+					locinfo = ["str","= ASCII '%s' %s" % (ptrstr,extra),"ascii"]
 					return locinfo
 
 
