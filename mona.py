@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 484 $
-$Id: mona.py 484 2014-04-06 15:19:28Z corelanc0d3r $ 
+$Revision: 485 $
+$Id: mona.py 485 2014-04-06 15:53:59Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 484 $')
+__REV__ = filter(str.isdigit, '$Revision: 485 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -15850,7 +15850,7 @@ def main(args):
 				if "force" in args:
 					writemore = True
 
-			aclerror = True
+			aclerror = False
 			if "acl" in args:
 				if type(args["acl"]).__name__.lower() != "bool":
 					if args["acl"].upper() in memProtConstants:
@@ -15878,6 +15878,9 @@ def main(args):
 				VIRTUAL_MEM = ( 0x1000 | 0x2000 )
 				allocat = dbg.rVirtualAlloc(addy,size,VIRTUAL_MEM,pageacl)
 				dbg.log("[+] Allocated memory at 0x%08x" % allocat)
+				if allocat > 0:
+					dbg.log("    ACL: %s" % getPointerAccess(allocat))
+
 				if allocat == 0 and fillup and not writemore:
 					dbg.log("[+] It looks like the page was already mapped. Use the -force argument")
 					dbg.log("    to make me write to 0x%08x anyway" % addy)
