@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 488 $
-$Id: mona.py 488 2014-04-07 13:25:34Z corelanc0d3r $ 
+$Revision: 489 $
+$Id: mona.py 489 2014-04-07 13:51:44Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 488 $')
+__REV__ = filter(str.isdigit, '$Revision: 489 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -14971,7 +14971,7 @@ def main(args):
 		def procDumpObj(args):
 			addy = 0
 			levels = 0
-			size = 0
+			size = 0x28
 			nestedsize = 0
 			regs = dbg.getRegs()
 			if "a" in args:
@@ -15049,7 +15049,7 @@ def main(args):
 		def dumpObjectAtLocation(addy,size,levels,nestedsize):
 			dumpdata = {}
 			if not silent:
-				dbg.log("[+] Dumping object at 0x%08x, 0x%08x bytes" % (addy,size))
+				dbg.log("[+] Dumping object at 0x%08x, 0x%02x bytes" % (addy,size))
 				if levels > 0:
 					dbg.log("[+] Also dumping up to %d levels deep, max size of nested objects: 0x%08x bytes" % (levels, nestedsize))
 				dbg.log("")
@@ -16462,7 +16462,7 @@ Arguments:
 
 Arguments:
     -a <address>      : Address of object
-    -s <number>       : Size of object"""
+    -s <number>       : Size of object (default value: 0x28)"""
 
 		commands["seh"] 			= MnCommand("seh", "Find pointers to assist with SEH overwrite exploits",sehUsage, procFindSEH)
 		commands["config"] 			= MnCommand("config","Manage configuration file (mona.ini)",configUsage,procConfig,"conf")
