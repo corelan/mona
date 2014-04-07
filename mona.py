@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 489 $
-$Id: mona.py 489 2014-04-07 13:51:44Z corelanc0d3r $ 
+$Revision: 490 $
+$Id: mona.py 490 2014-04-07 22:26:06Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 489 $')
+__REV__ = filter(str.isdigit, '$Revision: 490 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -3739,6 +3739,8 @@ class MnPointer:
 						thischunk.showChunk(showdata = True)
 						self.showObjectInfo()
 						self.showHeapStackTrace(thischunk)
+						if thissize < 1025:
+							self.dumpObjectAtLocation(thissize)
 						foundchunk = thischunk
 
 			if foundchunk == None:
@@ -3751,7 +3753,9 @@ class MnPointer:
 						dbg.log("Address 0x%08x found in VirtualAllocdBlocks of heap 0x%08x" % (self.address,heapbase))
 						thischunk.showChunk(showdata = True)
 						self.showObjectInfo()
-						self.showHeapStackTrace(thischunk)										
+						self.showHeapStackTrace(thischunk)
+						if thissize < 1025:
+							self.dumpObjectAtLocation(thissize)									
 						foundchunk = thischunk
 
 			# perhaps chunk is in FEA
@@ -3785,6 +3789,8 @@ class MnPointer:
 									extra = "   --> "
 								dbg.log("%sChunkPtr: 0x%08x, UserPtr: 0x%08x, Flink: 0x%08x, ChunkSize: 0x%x, UserSize: 0x%x, UserSpace: 0x%x (%s)" % (extra,lalchunk.chunkptr,lalchunk.userptr,lalchunk.flink,chunksize,lalchunk.usersize,lalchunk.usersize + lalchunk.remaining,flag))
 							self.showObjectInfo()
+							if chunksize < 1025:
+								self.dumpObjectAtLocation(chunksize)
 							break
 
 				if not foundinlal:
@@ -3820,7 +3826,9 @@ class MnPointer:
 								flindicator = 1
 							if flindex > 1 and int(thisfreelistinusebitmap[flindex]) != flindicator:
 								dbg.log("     ** FreeListsInUseBitmap mismatch for index %d! **" % flindex, highlight = True)
-							self.showObjectInfo()								
+							self.showObjectInfo()
+							if chunksize < 1025:
+								self.dumpObjectAtLocation(chunksize)							
 							break					
 		return foundchunk
 
@@ -3897,6 +3905,184 @@ class MnPointer:
 					funcinfo = memloc+offsettxt
 		silent = False
 		return funcinfo
+
+	def dumpObjectAtLocation(self,size,levels=0,nestedsize=0):
+		dumpdata = {}
+		origdumpdata = {} 
+		if __DEBUGGERAPP__ == "WinDBG":
+			addy = self.address
+			if not silent:
+				dbg.log("[+] Dumping object at 0x%08x, 0x%02x bytes" % (addy,size))
+				if levels > 0:
+					dbg.log("[+] Also dumping up to %d levels deep, max size of nested objects: 0x%02x bytes" % (levels, nestedsize))
+				dbg.log("")
+
+			parentlist = []
+			levelcnt = 0
+			logfile = MnLog("dumpobj.txt")
+			thislog = logfile.reset()
+			addys = [addy]
+			while levelcnt <= levels:
+				thisleveladdys = []
+				for addy in addys:
+					cmdtorun = "dds 0x%08x L 0x%02x/4" % (addy,size)
+					startaddy = addy
+					endaddy = addy + size
+					output = dbg.nativeCommand(cmdtorun)
+					outputlines = output.split("\n")
+					offset = 0
+					for outputline in outputlines:
+						if not outputline.replace(" ","") == "":
+							loc = outputline[0:8]
+							content = outputline[10:18]
+							symbol = outputline[19:]
+							if not "??" in content and symbol.replace(" ","") == "":
+								contentaddy = hexStrToInt(content)
+								info = self.getLocInfo(hexStrToInt(loc),contentaddy,startaddy,endaddy)
+								info.append(content)
+								dumpdata[hexStrToInt(loc)] = info
+							else:
+								info = ["",symbol,"",content]
+								dumpdata[hexStrToInt(loc)] = info
+					self.printObjDump(dumpdata,logfile,thislog)
+					for loc in dumpdata:
+						thisdata = dumpdata[loc]
+						if thisdata[0] == "ptr_obj":
+							thisptr = int(thisdata[3],16)
+							thisleveladdys.append(thisptr)
+					if levelcnt == 0:
+						origdumpdata = dumpdata
+					dumpdata = {}
+				addys = thisleveladdys
+				size = nestedsize
+				levelcnt += 1
+		dumpdata = origdumpdata
+		return dumpdata
+
+	def printObjDump(self,dumpdata,logfile,thislog):
+		# dictionary, key = address
+		# 0 = type
+		# 1 = content info
+		# 2 = string type
+		# 3 = content
+		sortedkeys = sorted(dumpdata)
+		if len(sortedkeys) > 0:
+			startaddy = sortedkeys[0]
+			line = ">> Object at 0x%08x:" % startaddy
+			if not silent:
+				dbg.log("")
+				dbg.log(line)
+			logfile.write("",thislog)
+			logfile.write(line,thislog)
+			line = "Offset  Address      Contents    Info"
+			logfile.write(line,thislog)
+			if not silent:
+				dbg.log(line)
+			line = "------  -------      --------    -----"
+			logfile.write(line,thislog)
+			if not silent:
+				dbg.log(line)
+
+			offset = 0
+			
+			for loc in sortedkeys:
+				info = dumpdata[loc]
+				if len(info) > 1:
+					content = ""
+					if len(info) > 3:
+						content = info[3]
+					contentinfo = info[1]  
+					offsetstr = toSize("%02x" % offset,4)
+					line = "+%s   0x%08x | 0x%s  %s" % (offsetstr,loc,content,contentinfo)
+					if not silent:
+						dbg.log(line)
+					logfile.write(line,thislog)
+					offset += 4
+		return
+
+	def getLocInfo(self,loc,addy,startaddy,endaddy):
+		locinfo = []
+		
+		if addy >= startaddy and addy <= endaddy:
+			offset = addy - startaddy
+			locinfo = ["self","ptr to self+0x%08x" % offset,""]
+			return locinfo
+			
+		ismapped = False
+
+		extra = ""
+		ptrx = MnPointer(addy)
+
+		memloc = ptrx.memLocation()
+		if not "??" in memloc:
+			if "Stack" in memloc or "Heap" in memloc:
+				extra = "(%s) " % memloc
+			else:
+				detailmemloc = ptrx.getPtrFunction()
+				extra = " (%s.%s)" % (memloc,detailmemloc)
+
+		# maybe it's a pointer to an object ?
+		cmd2run = "dds 0x%08x L 1" % addy
+		output = dbg.nativeCommand(cmd2run)
+		outputlines = output.split("\n")
+		if len(outputlines) > 0:
+			if not "??" in outputlines[0]:
+				ismapped = True
+				ptraddy = outputlines[0][10:18]
+				ptrinfo = outputlines[0][19:]
+				if ptrinfo.replace(" ","") != "":
+					if "vftable" in ptrinfo:
+						locinfo = ["ptr_obj","%sptr to 0x%08x : %s" % (extra,hexStrToInt(ptraddy),ptrinfo),str(addy)]
+					else:
+						locinfo = ["ptr","%sptr to 0x%08x : %s" % (extra,hexStrToInt(ptraddy),ptrinfo),str(addy)]
+					return locinfo
+
+		if ismapped:
+
+			# pointer to a string ?
+			try:
+				strdata = dbg.readString(addy)
+				if len(strdata) > 2:
+					locinfo = ["ptr_str","%sptr to ASCII '%s'" % (extra,strdata),"ascii"]
+					return locinfo
+			except:
+				pass
+
+			# maybe it's unicode ?
+			try:
+				strdata = dbg.readWString(addy)
+				if len(strdata) > 2:
+					locinfo = ["ptr_str","%sptr to UNICODE '%s'" % (extra,strdata),"unicode"]
+					return locinfo
+			except:
+				pass
+
+			# maybe the pointer points into a function ?
+			ptrf = ptrx.getPtrFunction()
+			if not ptrf == "":
+				locinfo = ["ptr_func","%sptr to %s" % (extra,ptrf),str(addy)]
+				return locinfo
+
+		# pointer itself is a string ?
+		
+		if ptrx.isUnicode:
+			b1,b2,b3,b4 = splitAddress(addy)
+			ptrstr = toAscii(toHexByte(b2)) + toAscii(toHexByte(b4))
+			if ptrstr.replace(" ","") != "" and not toHexByte(b2) == "00":
+				locinfo = ["str","= UNICODE '%s' %s" % (ptrstr,extra),"unicode"]
+				return locinfo
+
+		
+		if ptrx.isAsciiPrintable:
+			b1,b2,b3,b4 = splitAddress(addy)
+			ptrstr = toAscii(toHexByte(b1)) + toAscii(toHexByte(b2)) + toAscii(toHexByte(b3)) + toAscii(toHexByte(b4))
+			if ptrstr.replace(" ","") != "" and not toHexByte(b1) == "00" and not toHexByte(b2) == "00" and not toHexByte(b3) == "00" and not toHexByte(b4) == "00":
+				locinfo = ["str","= ASCII '%s' %s" % (ptrstr,extra),"ascii"]
+				return locinfo
+		# nothing special to report
+		return ["","",""]
+
+
 		
 #---------------------------------------#
 #  Various functions                    #
@@ -10945,7 +11131,7 @@ def main(args):
 			compareFileWithMemory(filename,startpos,skipmodules)
 			
 			
-# ----- offset: Calculate the offset between two addresses ----- #
+		# ----- offset: Calculate the offset between two addresses ----- #
 		def procOffset(args):
 			extratext1 = ""
 			extratext2 = ""
@@ -14972,7 +15158,7 @@ def main(args):
 			addy = 0
 			levels = 0
 			size = 0x28
-			nestedsize = 0
+			nestedsize = 0x28
 			regs = dbg.getRegs()
 			if "a" in args:
 				if type(args["a"]).__name__.lower() != "bool":
@@ -15038,152 +15224,10 @@ def main(args):
 
 			if not errorsfound:
 
-
-				dumpdata = dumpObjectAtLocation(addy,size,levels,nestedsize)
-
-				
+				ptrx = MnPointer(addy)
+				dumpdata = ptrx.dumpObjectAtLocation(size,levels,nestedsize)
 
 			return
-
-
-		def dumpObjectAtLocation(addy,size,levels,nestedsize):
-			dumpdata = {}
-			if not silent:
-				dbg.log("[+] Dumping object at 0x%08x, 0x%02x bytes" % (addy,size))
-				if levels > 0:
-					dbg.log("[+] Also dumping up to %d levels deep, max size of nested objects: 0x%08x bytes" % (levels, nestedsize))
-				dbg.log("")
-
-			parentlist = []
-			cmdtorun = "dds 0x%08x L 0x%08x/4" % (addy,size)
-			startaddy = addy
-			endaddy = addy + size
-			output = dbg.nativeCommand(cmdtorun)
-			outputlines = output.split("\n")
-			offset = 0
-			for outputline in outputlines:
-				if not outputline.replace(" ","") == "":
-					loc = outputline[0:8]
-					content = outputline[10:18]
-					symbol = outputline[19:]
-					if not "??" in content and symbol.replace(" ","") == "":
-						contentaddy = hexStrToInt(content)
-						info = getLocInfo(hexStrToInt(loc),contentaddy,startaddy,endaddy)
-						info.append(content)
-						dumpdata[hexStrToInt(loc)] = info
-					else:
-						info = ["",symbol,"",content]
-						dumpdata[hexStrToInt(loc)] = info
-			if not silent:
-				printObjDump(dumpdata)
-			return dumpdata
-
-
-		def printObjDump(dumpdata):
-			# dictionary, key = address
-			# 0 = type
-			# 1 = content info
-			# 2 = string type
-			# 3 = content
-			dbg.log("Offset  Address      Contents    Info")
-			dbg.log("------  -------      --------    -----")
-			offset = 0
-			sortedkeys = sorted(dumpdata)
-			for loc in sortedkeys:
-				info = dumpdata[loc]
-				if len(info) > 1:
-					content = ""
-					if len(info) > 3:
-						content = info[3]
-					contentinfo = info[1]  
-					offsetstr = toSize("%02x" % offset,4)
-					dbg.log("+%s   0x%08x | 0x%s  %s" % (offsetstr,loc,content,contentinfo))
-					offset += 4
-			return
-
-		def getLocInfo(loc,addy,startaddy,endaddy):
-			locinfo = []
-			
-			if addy >= startaddy and addy <= endaddy:
-				offset = addy - startaddy
-				locinfo = ["self","ptr to self+0x%08x" % offset,""]
-				return locinfo
-				
-			ismapped = False
-
-
-			extra = ""
-			ptrx = MnPointer(addy)
-
-			memloc = ptrx.memLocation()
-			if not "??" in memloc:
-				if "Stack" in memloc or "Heap" in memloc:
-					extra = "(%s) " % memloc
-				else:
-					detailmemloc = ptrx.getPtrFunction()
-					extra = " (%s.%s)" % (memloc,detailmemloc)
-
-			# maybe it's a pointer to an object ?
-			cmd2run = "dds 0x%08x L 1" % addy
-			output = dbg.nativeCommand(cmd2run)
-			outputlines = output.split("\n")
-			if len(outputlines) > 0:
-				if not "??" in outputlines[0]:
-					ismapped = True
-					ptraddy = outputlines[0][10:18]
-					ptrinfo = outputlines[0][19:]
-					if ptrinfo.replace(" ","") != "":
-						locinfo = ["ptr","%sptr to 0x%08x : %s" % (extra,hexStrToInt(ptraddy),ptrinfo),""]
-						return locinfo
-
-
-
-			if ismapped:
-
-				# pointer to a string ?
-				try:
-					strdata = dbg.readString(addy)
-					if len(strdata) > 2:
-						locinfo = ["ptr_str","%sptr to ASCII '%s'" % (extra,strdata),"ascii"]
-						return locinfo
-				except:
-					pass
-
-				# maybe it's unicode ?
-				try:
-					strdata = dbg.readWString(addy)
-					if len(strdata) > 2:
-						locinfo = ["ptr_str","%sptr to UNICODE '%s'" % (extra,strdata),"unicode"]
-						return locinfo
-				except:
-					pass
-
-				# maybe the pointer points into a function ?
-				ptrf = ptrx.getPtrFunction()
-				if not ptrf == "":
-					locinfo = ["ptr_func","%sptr to %s" % (extra,ptrf),""]
-					return locinfo
-
-			# pointer itself is a string ?
-			
-			if ptrx.isUnicode:
-				b1,b2,b3,b4 = splitAddress(addy)
-				ptrstr = toAscii(toHexByte(b2)) + toAscii(toHexByte(b4))
-				if ptrstr.replace(" ","") != "" and not toHexByte(b2) == "00":
-					locinfo = ["str","= UNICODE '%s' %s" % (ptrstr,extra),"unicode"]
-					return locinfo
-
-			
-			if ptrx.isAsciiPrintable:
-				b1,b2,b3,b4 = splitAddress(addy)
-				ptrstr = toAscii(toHexByte(b1)) + toAscii(toHexByte(b2)) + toAscii(toHexByte(b3)) + toAscii(toHexByte(b4))
-				if ptrstr.replace(" ","") != "" and not toHexByte(b1) == "00" and not toHexByte(b2) == "00" and not toHexByte(b3) == "00" and not toHexByte(b4) == "00":
-					locinfo = ["str","= ASCII '%s' %s" % (ptrstr,extra),"ascii"]
-					return locinfo
-
-
-
-			return ["","",""]
 
 
 		# routine to copy bytes from one location to another
@@ -16462,7 +16506,11 @@ Arguments:
 
 Arguments:
     -a <address>      : Address of object
-    -s <number>       : Size of object (default value: 0x28)"""
+    -s <number>       : Size of object (default value: 0x28)
+Optional arguments:
+    -l <number>       : Recursively dump objects
+    -m <number>       : Size for recursive objects (default value: 0x28)
+"""
 
 		commands["seh"] 			= MnCommand("seh", "Find pointers to assist with SEH overwrite exploits",sehUsage, procFindSEH)
 		commands["config"] 			= MnCommand("config","Manage configuration file (mona.ini)",configUsage,procConfig,"conf")
