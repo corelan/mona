@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 487 $
-$Id: mona.py 487 2014-04-06 20:09:11Z corelanc0d3r $ 
+$Revision: 488 $
+$Id: mona.py 488 2014-04-07 13:25:34Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 487 $')
+__REV__ = filter(str.isdigit, '$Revision: 488 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -15068,7 +15068,6 @@ def main(args):
 					symbol = outputline[19:]
 					if not "??" in content and symbol.replace(" ","") == "":
 						contentaddy = hexStrToInt(content)
-						# ptr to self ?
 						info = getLocInfo(hexStrToInt(loc),contentaddy,startaddy,endaddy)
 						info.append(content)
 						dumpdata[hexStrToInt(loc)] = info
@@ -15092,8 +15091,10 @@ def main(args):
 			sortedkeys = sorted(dumpdata)
 			for loc in sortedkeys:
 				info = dumpdata[loc]
-				if len(info) > 3:
-					content = info[3]
+				if len(info) > 1:
+					content = ""
+					if len(info) > 3:
+						content = info[3]
 					contentinfo = info[1]  
 					offsetstr = toSize("%02x" % offset,4)
 					dbg.log("+%s   0x%08x | 0x%s  %s" % (offsetstr,loc,content,contentinfo))
@@ -15182,7 +15183,7 @@ def main(args):
 
 
 
-			return locinfo
+			return ["","",""]
 
 
 		# routine to copy bytes from one location to another
@@ -15918,10 +15919,10 @@ def main(args):
 				dbg.log("    Desired page ACL: %s (0x%02x)" % (pageaclname,pageacl))
 				VIRTUAL_MEM = ( 0x1000 | 0x2000 )
 				allocat = dbg.rVirtualAlloc(addy,size,0x1000,pageacl)
-				#if addy == 0 and allocat > 0:
-				#	retval = dbg.rVirtualProtect(allocat,1,pageacl)
-				#else:
-				#	retval = dbg.rVirtualProtect(addy,1,pageacl)
+				if addy == 0 and allocat > 0:
+					retval = dbg.rVirtualProtect(allocat,1,pageacl)
+				else:
+					retval = dbg.rVirtualProtect(addy,1,pageacl)
 				
 				dbg.log("[+] Allocated memory at 0x%08x" % allocat)
 				#if allocat > 0:
