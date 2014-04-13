@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 490 $
-$Id: mona.py 490 2014-04-07 22:26:06Z corelanc0d3r $ 
+$Revision: 491 $
+$Id: mona.py 491 2014-04-13 18:54:35Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 490 $')
+__REV__ = filter(str.isdigit, '$Revision: 491 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -2638,7 +2638,7 @@ class MnHeap:
 		return self.Encoding
 
 
-	def getHeapChunkHeaderAtAddress(self,thischunk,headersize,type):
+	def getHeapChunkHeaderAtAddress(self,thischunk,headersize=8,type="chunk"):
 		"""
 		Will convert the bytes placed at a certain address into an MnChunk object
 		"""
@@ -3507,7 +3507,16 @@ class MnPointer:
 						return True
 		return False
 		
+
 	def getHeapInfo(self):
+		global silent
+		oldsilent = silent
+		silent = True
+		foundinheap, foundinsegment, foundinva, foundinchunk = self.showHeapBlockInfo()
+		silent = oldsilent
+		return [foundinheap, foundinsegment, foundinva, foundinchunk]
+
+	def getHeapInfo_old(self):
 		"""
 		Returns heap related information about a given pointer
 		"""
@@ -3518,9 +3527,10 @@ class MnPointer:
 		heapinfo["size"] = 0
 		allheaps = dbg.getHeapsAddress()
 		for heap in allheaps:
+			dbg.log("checking heap 0x%08x for 0x%08x" % (heap,self.address))
 			theap = dbg.getHeap(heap)
 			heapchunks = theap.getChunks(heap)
-			if len(heapchunks) > 0:
+			if len(heapchunks) > 0 and not silent:
 				dbg.log("Querying segment(s) for heap 0x%s" % toHex(heap))
 			for hchunk in heapchunks:
 				chunkbase = hchunk.get("address")
@@ -3530,6 +3540,7 @@ class MnPointer:
 					heapinfo["segment"] = 0
 					heapinfo["chunk"] = chunkbase
 					heapinfo["size"] = chunksize
+					return heapinfo
 		return heapinfo
 
 
@@ -3701,7 +3712,12 @@ class MnPointer:
 		"""
 		allheaps = []
 		heapkey = 0
-		foundchunk = None
+		
+		foundinheap = None
+		foundinsegment = None
+		foundinva = None
+		foundinchunk = None
+
 		try:
 			allheaps = dbg.getHeapsAddress()
 		except:
@@ -3722,6 +3738,7 @@ class MnPointer:
 
 			segments = mHeap.getHeapSegmentList()
 
+			#segments
 			for seg in segments:
 				segstart = segments[seg][0]
 				segend = segments[seg][1]
@@ -3730,33 +3747,43 @@ class MnPointer:
 				allchunks = walkSegment(FirstEntry,LastValidEntry,heapbase)
 				for chunkptr in allchunks:
 					thischunk = allchunks[chunkptr]
-					thissize =thischunk.size*8 
+					thissize = thischunk.size*8 
 					headersize = thischunk.headersize
 					if self.address >= chunkptr and self.address < (chunkptr + thissize):
 						# found it !
-						dbg.log("")
-						dbg.log("Address 0x%08x found in " % self.address)
-						thischunk.showChunk(showdata = True)
-						self.showObjectInfo()
-						self.showHeapStackTrace(thischunk)
-						if thissize < 1025:
-							self.dumpObjectAtLocation(thissize)
-						foundchunk = thischunk
+						if not silent:
+							dbg.log("")
+							dbg.log("Address 0x%08x found in " % self.address)
+							thischunk.showChunk(showdata = True)
+							self.showObjectInfo()
+							self.showHeapStackTrace(thischunk)
+							if thissize < 1025:
+								self.dumpObjectAtLocation(thissize)
+						foundinchunk = thischunk
+						foundinsegment = seg
+						foundinheap = heapbase
+						break
+				if not foundinchunk == None:
+					break
 
-			if foundchunk == None:
+			# VA
+			if foundinchunk == None:
 				# maybe it's in VirtualAllocdBlocks
 				vachunks = mHeap.getVirtualAllocdBlocks()
 				for vaptr in vachunks:
 					thischunk = vachunks[vaptr]
 					if self.address >= vaptr and self.address <= vaptr + (thischunk.commitsize*8):
-						dbg.log("")
-						dbg.log("Address 0x%08x found in VirtualAllocdBlocks of heap 0x%08x" % (self.address,heapbase))
-						thischunk.showChunk(showdata = True)
-						self.showObjectInfo()
-						self.showHeapStackTrace(thischunk)
-						if thissize < 1025:
-							self.dumpObjectAtLocation(thissize)									
-						foundchunk = thischunk
+						if not silent:
+							dbg.log("")
+							dbg.log("Address 0x%08x found in VirtualAllocdBlocks of heap 0x%08x" % (self.address,heapbase))
+							thischunk.showChunk(showdata = True)
+							self.showObjectInfo()
+							self.showHeapStackTrace(thischunk)
+							if thissize < 1025:
+								self.dumpObjectAtLocation(thissize)									
+						foundinchunk = thischunk
+						foundinva = vaptr
+						foundinheap = heapbase
 
 			# perhaps chunk is in FEA
 			if not win7mode:
@@ -3774,11 +3801,13 @@ class MnPointer:
 							flag = getHeapFlag(lalchunk.flag)
 							if (self.address >= lalchunk.chunkptr) and (self.address < lalchunk.chunkptr+chunksize):
 								foundinlal = True
-								dbg.log("Address is part of chunk on LookAsideList[%d], heap 0x%08x" % (lal_table_entry,mHeap.heapbase))
+								if not silent:
+									dbg.log("Address is part of chunk on LookAsideList[%d], heap 0x%08x" % (lal_table_entry,mHeap.heapbase))
 								break
 						if foundinlal:
 							expectedsize = lal_table_entry * 8
-							dbg.log("     LAL [%d] @0x%08x, Expected Chunksize: 0x%x (%d), %d chunks, Flink: 0x%08x" % (lal_table_entry,FrontEndHeap + (0x30 * lal_table_entry),expectedsize,expectedsize,nr_of_chunks,lalhead))
+							if not silent:
+								dbg.log("     LAL [%d] @0x%08x, Expected Chunksize: 0x%x (%d), %d chunks, Flink: 0x%08x" % (lal_table_entry,FrontEndHeap + (0x30 * lal_table_entry),expectedsize,expectedsize,nr_of_chunks,lalhead))
 							for chunkindex in fea_lal[lal_table_entry]:
 								lalchunk = fea_lal[lal_table_entry][chunkindex]
 								foundchunk = lalchunk
@@ -3787,10 +3816,12 @@ class MnPointer:
 								extra = "       "
 								if (self.address >= lalchunk.chunkptr) and (self.address < lalchunk.chunkptr+chunksize):
 									extra = "   --> "
-								dbg.log("%sChunkPtr: 0x%08x, UserPtr: 0x%08x, Flink: 0x%08x, ChunkSize: 0x%x, UserSize: 0x%x, UserSpace: 0x%x (%s)" % (extra,lalchunk.chunkptr,lalchunk.userptr,lalchunk.flink,chunksize,lalchunk.usersize,lalchunk.usersize + lalchunk.remaining,flag))
-							self.showObjectInfo()
-							if chunksize < 1025:
-								self.dumpObjectAtLocation(chunksize)
+								if not silent:
+									dbg.log("%sChunkPtr: 0x%08x, UserPtr: 0x%08x, Flink: 0x%08x, ChunkSize: 0x%x, UserSize: 0x%x, UserSpace: 0x%x (%s)" % (extra,lalchunk.chunkptr,lalchunk.userptr,lalchunk.flink,chunksize,lalchunk.usersize,lalchunk.usersize + lalchunk.remaining,flag))
+							if not silent:
+								self.showObjectInfo()
+								if chunksize < 1025:
+									self.dumpObjectAtLocation(chunksize)
 							break
 
 				if not foundinlal:
@@ -3809,7 +3840,8 @@ class MnPointer:
 							chunksize = freelist_chunk.size * 8
 							if (self.address >= freelist_chunk.chunkptr) and (self.address < freelist_chunk.chunkptr+chunksize):
 								foundinfreelist = True
-								dbg.log("Address is part of chunk on FreeLists[%d] at 0x%08x, heap 0x%08x:" % (flindex,freelist_addy,mHeap.heapbase))
+								if not silent:
+									dbg.log("Address is part of chunk on FreeLists[%d] at 0x%08x, heap 0x%08x:" % (flindex,freelist_addy,mHeap.heapbase))
 								break
 						if foundinfreelist:
 							flindicator = 0
@@ -3820,17 +3852,20 @@ class MnPointer:
 								if (self.address >= freelist_chunk.chunkptr) and (self.address < freelist_chunk.chunkptr+chunksize):						
 									extra = " --> "
 									foundchunk = freelist_chunk
-								dbg.log("%sChunkPtr: 0x%08x, UserPtr: 0x%08x, Flink: 0x%08x, Blink: 0x%08x, ChunkSize: 0x%x (%d), Usersize: 0x%x (%d)" % (extra,freelist_chunk.chunkptr,freelist_chunk.userptr,freelist_chunk.flink,freelist_chunk.blink,chunksize,chunksize,freelist_chunk.usersize,freelist_chunk.usersize))
+								if not silent:
+									dbg.log("%sChunkPtr: 0x%08x, UserPtr: 0x%08x, Flink: 0x%08x, Blink: 0x%08x, ChunkSize: 0x%x (%d), Usersize: 0x%x (%d)" % (extra,freelist_chunk.chunkptr,freelist_chunk.userptr,freelist_chunk.flink,freelist_chunk.blink,chunksize,chunksize,freelist_chunk.usersize,freelist_chunk.usersize))
 								if flindex != 0 and chunksize != (8*flindex):
 									dbg.log("     ** Header may be corrupted! **", highlight = True)
 								flindicator = 1
 							if flindex > 1 and int(thisfreelistinusebitmap[flindex]) != flindicator:
-								dbg.log("     ** FreeListsInUseBitmap mismatch for index %d! **" % flindex, highlight = True)
-							self.showObjectInfo()
-							if chunksize < 1025:
-								self.dumpObjectAtLocation(chunksize)							
+								if not silent:
+									dbg.log("     ** FreeListsInUseBitmap mismatch for index %d! **" % flindex, highlight = True)
+							if not silent:
+								self.showObjectInfo()
+								if chunksize < 1025:
+									self.dumpObjectAtLocation(chunksize)							
 							break					
-		return foundchunk
+		return foundinheap, foundinsegment, foundinva, foundinchunk
 
 	def showHeapStackTrace(self,thischunk):
 		# show stacktrace if any
@@ -15157,7 +15192,7 @@ def main(args):
 		def procDumpObj(args):
 			addy = 0
 			levels = 0
-			size = 0x28
+			size = 0
 			nestedsize = 0x28
 			regs = dbg.getRegs()
 			if "a" in args:
@@ -15211,19 +15246,37 @@ def main(args):
 			errorsfound = False
 			if addy == 0:
 				errorsfound = True
-				dbg.log("*** Please specify a valid address to argument -a ***",highlight=1)				
+				dbg.log("*** Please specify a valid address to argument -a ***",highlight=1)
+			else:
+				ptrx = MnPointer(addy)
+			osize = size
 			if size == 0:
+				# no size specified
+				if addy > 0:
+					dbg.log("[+] No size specified, checking if address is part of known heap chunk")
+					
+					if ptrx.isInHeap():
+						heapinfo = ptrx.getHeapInfo()
+						heapaddy = heapinfo[0]
+						chunkobj = heapinfo[3]
+						chunkaddy = chunkobj.chunkptr
+						size = chunkobj.usersize
+						if heapaddy > 0:
+							dbg.log("    Address found in chunk 0x%08x, heap 0x%08x, (user)size 0x%02x" % (chunkaddy, heapaddy, size))
+							addy = chunkobj.userptr
+							if size > 0xfff:
+								dbg.log("    I'll only dump 0xfff bytes from the object, for performance reasons")
+								size = 0xfff
+			if size > 0xfff and osize > 0:
 				errorsfound = True
-				dbg.log("*** Please specify a valid size to argument -s ***",highlight=1)
-			if size > 0xffff:
-				errorsfound = True
-				dbg.log("*** Please keep the size below 0xffff (argument -s) ***",highlight=1)			
+				dbg.log("*** Please keep the size below 0xfff (argument -s) ***",highlight=1)
+			if size == 0:
+				size = 0x28
 			if levels > 0 and nestedsize == 0:
 				errorsfound = True
 				dbg.log("*** Please specify a valid size to argument -m ***",highlight=1)				
 
 			if not errorsfound:
-
 				ptrx = MnPointer(addy)
 				dumpdata = ptrx.dumpObjectAtLocation(size,levels,nestedsize)
 
