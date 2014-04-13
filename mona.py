@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 491 $
-$Id: mona.py 491 2014-04-13 18:54:35Z corelanc0d3r $ 
+$Revision: 492 $
+$Id: mona.py 492 2014-04-13 19:32:12Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 491 $')
+__REV__ = filter(str.isdigit, '$Revision: 492 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -15259,14 +15259,15 @@ def main(args):
 						heapinfo = ptrx.getHeapInfo()
 						heapaddy = heapinfo[0]
 						chunkobj = heapinfo[3]
-						chunkaddy = chunkobj.chunkptr
-						size = chunkobj.usersize
-						if heapaddy > 0:
-							dbg.log("    Address found in chunk 0x%08x, heap 0x%08x, (user)size 0x%02x" % (chunkaddy, heapaddy, size))
-							addy = chunkobj.userptr
-							if size > 0xfff:
-								dbg.log("    I'll only dump 0xfff bytes from the object, for performance reasons")
-								size = 0xfff
+						if not heapaddy == None:
+							if heapaddy > 0:
+								chunkaddy = chunkobj.chunkptr
+								size = chunkobj.usersize
+								dbg.log("    Address found in chunk 0x%08x, heap 0x%08x, (user)size 0x%02x" % (chunkaddy, heapaddy, size))
+								addy = chunkobj.userptr
+								if size > 0xfff:
+									dbg.log("    I'll only dump 0xfff bytes from the object, for performance reasons")
+									size = 0xfff
 			if size > 0xfff and osize > 0:
 				errorsfound = True
 				dbg.log("*** Please keep the size below 0xfff (argument -s) ***",highlight=1)
@@ -16559,7 +16560,7 @@ Arguments:
 
 Arguments:
     -a <address>      : Address of object
-    -s <number>       : Size of object (default value: 0x28)
+    -s <number>       : Size of object (default value: 0x28 or size of chunk)
 Optional arguments:
     -l <number>       : Recursively dump objects
     -m <number>       : Size for recursive objects (default value: 0x28)
