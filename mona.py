@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 492 $
-$Id: mona.py 492 2014-04-13 19:32:12Z corelanc0d3r $ 
+$Revision: 493 $
+$Id: mona.py 493 2014-04-15 12:15:27Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 492 $')
+__REV__ = filter(str.isdigit, '$Revision: 493 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -1997,7 +1997,18 @@ class MnLog:
 				towrite = entry
 		else:
 			towrite = entry
-		towrite = str(towrite)
+		# if this fails, we got an unprintable character
+		try:
+			towrite = str(towrite)
+		except:
+			# one at a time
+			towrite2 = ""
+			for c in towrite:
+				try:
+					towrite2 += str(c)
+				except:
+					towrite2 += "\\x" + str(hex(ord(c))).replace("0x","")
+			towrite = towrite2
 		try:
 			with open(logfile,"a") as fh:
 				if towrite.find('\n') > -1:
