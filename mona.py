@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 493 $
-$Id: mona.py 493 2014-04-15 12:15:27Z corelanc0d3r $ 
+$Revision: 494 $
+$Id: mona.py 494 2014-04-26 22:06:53Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 493 $')
+__REV__ = filter(str.isdigit, '$Revision: 494 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -114,6 +114,7 @@ global VACache
 global NtGlobalFlag
 global FreeListBitmap
 global memProtConstants
+global currentArgs
 
 NtGlobalFlag = -1
 FreeListBitmap = {}
@@ -1955,6 +1956,8 @@ class MnLog:
 						osrel=dbg.getOsRelease()
 						fh.write("  OS : " + osver + ", release " + osrel + "\n")
 						fh.write("  Process being debugged : " + debuggedname +" (pid " + str(thispid) + ")\n")
+						currmonaargs = " ".join(x for x in currentArgs)
+						fh.write("  Current mona arguments: %s\n" % currmonaargs)
 						fh.write("=" * 80 + '\n')
 						fh.write("  " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "\n")
 						fh.write("=" * 80 + '\n')
@@ -5631,38 +5634,43 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 	dbg.updateLog()
 
 	if mode == "all":
-		# another round of filtering
-		updatetext = "[+] Creating suggestions list"
-		dbg.log(updatetext)
-		objprogressfile.write(updatetext.strip(),progressfile)
-		suggestions = getRopSuggestion(interestinggadgets,ropgadgets)
-		#see if we can propose something
-		updatetext = "[+] Processing suggestions"
-		dbg.log(updatetext)
-		objprogressfile.write(updatetext.strip(),progressfile)
-		suggtowrite=""
-		for suggestedtype in suggestions:
-			if suggestedtype.find("pop ") == -1:		#too many, don't write to file
-				suggtowrite += "[%s]\n" % suggestedtype
-				for suggestedpointer in suggestions[suggestedtype]:
-					sptr = MnPointer(suggestedpointer)
-					modname = sptr.belongsTo()
-					modinfo = MnModule(modname)
-					if not modinfo.moduleBase.__class__.__name__ == "instancemethod":
-						rva = suggestedpointer - modinfo.moduleBase	
-					suggesteddata = suggestions[suggestedtype][suggestedpointer]
-					if not modinfo.moduleBase.__class__.__name__ == "instancemethod":
-						ptrinfo = "0x" + toHex(suggestedpointer) + " (RVA : 0x" + toHex(rva) + ") : " + suggesteddata + "    ** [" + modname + "] **   |  " + sptr.__str__()+"\n"
-					else:
-						ptrinfo = "0x" + toHex(suggestedpointer) + " : " + suggesteddata + "    ** [" + modname + "] **   |  " + sptr.__str__()+"\n"
-					suggtowrite += ptrinfo
-		dbg.log("[+] Launching ROP generator")
-		updatetext = "Attempting to create rop chain proposals"
-		objprogressfile.write(updatetext.strip(),progressfile)
-		vplogtxt = createRopChains(suggestions,interestinggadgets,ropgadgets,modulecriteria,criteria,objprogressfile,progressfile)
-		dbg.logLines(vplogtxt.replace("\t","    "))
-		dbg.log("    ROP generator finished")
-	
+		if len(ropgadgets) > 0 and len(interestinggadgets) > 0:
+			# another round of filtering
+			updatetext = "[+] Creating suggestions list"
+			dbg.log(updatetext)
+			objprogressfile.write(updatetext.strip(),progressfile)
+			suggestions = getRopSuggestion(interestinggadgets,ropgadgets)
+			#see if we can propose something
+			updatetext = "[+] Processing suggestions"
+			dbg.log(updatetext)
+			objprogressfile.write(updatetext.strip(),progressfile)
+			suggtowrite=""
+			for suggestedtype in suggestions:
+				if suggestedtype.find("pop ") == -1:		#too many, don't write to file
+					suggtowrite += "[%s]\n" % suggestedtype
+					for suggestedpointer in suggestions[suggestedtype]:
+						sptr = MnPointer(suggestedpointer)
+						modname = sptr.belongsTo()
+						modinfo = MnModule(modname)
+						if not modinfo.moduleBase.__class__.__name__ == "instancemethod":
+							rva = suggestedpointer - modinfo.moduleBase	
+						suggesteddata = suggestions[suggestedtype][suggestedpointer]
+						if not modinfo.moduleBase.__class__.__name__ == "instancemethod":
+							ptrinfo = "0x" + toHex(suggestedpointer) + " (RVA : 0x" + toHex(rva) + ") : " + suggesteddata + "    ** [" + modname + "] **   |  " + sptr.__str__()+"\n"
+						else:
+							ptrinfo = "0x" + toHex(suggestedpointer) + " : " + suggesteddata + "    ** [" + modname + "] **   |  " + sptr.__str__()+"\n"
+						suggtowrite += ptrinfo
+			dbg.log("[+] Launching ROP generator")
+			updatetext = "Attempting to create rop chain proposals"
+			objprogressfile.write(updatetext.strip(),progressfile)
+			vplogtxt = createRopChains(suggestions,interestinggadgets,ropgadgets,modulecriteria,criteria,objprogressfile,progressfile)
+			dbg.logLines(vplogtxt.replace("\t","    "))
+			dbg.log("    ROP generator finished")
+		else:
+			updatetext = "[+] Oops, no gadgets found, aborting.."
+			dbg.log(updatetext)
+			objprogressfile.write(updatetext.strip(),progressfile)
+
 	#done, write to log files
 	dbg.setStatusBar("Writing to logfiles...")
 	dbg.log("")
@@ -10229,6 +10237,8 @@ def doManageBpOnFunc(modulecriteria,criteria,funcfilter,mode="add",type="export"
 				
 def main(args):
 	dbg.createLogWindow()
+	global currentArgs
+	currentArgs = args
 	try:
 		starttime = datetime.datetime.now()
 		ptr_counter = 0
@@ -15183,8 +15193,12 @@ def main(args):
 						else:
 							nseh = "0x%08x" % int(nseh)
 					if len(overwritedata) > 0:
-						overwritemark = " (<- smashed !)"
 						handlersoverwritten[address] = overwritedata
+						smashoffset = int(overwritedata[1])
+						if not overwritedata[0] == "unicode":
+							smashoffset += 2
+						overwritemark = " (record smashed at offset %d)" % smashoffset
+						
 					dbg.log("0x%08x  %s  0x%08x %s%s" % (address,nseh,sehandler,funcinfo, overwritemark))
 			if len(handlersoverwritten) > 0:
 				dbg.log("")
@@ -15192,9 +15206,9 @@ def main(args):
 				for overwrittenhandler in handlersoverwritten:
 					overwrittendata = handlersoverwritten[overwrittenhandler]
 					overwrittentype = overwrittendata[0]
-					overwrittenoffset = overwrittendata[1]
+					overwrittenoffset = int(overwrittendata[1])
 					if not overwrittentype == "unicode":
-						dbg.log("[Junk * %d]['\\xeb\\x06\\x41\\x41'][p/p/r][shellcode][more junk if needed]" % overwrittenoffset+2)
+						dbg.log("[Junk * %d]['\\xeb\\x06\\x41\\x41'][p/p/r][shellcode][more junk if needed]" % (overwrittenoffset+2))
 					else:
 						dbg.log("[Junk * %d][nseh - walkover][unicode p/p/r][venetian alignment][shellcode][more junk if needed]" % overwrittenoffset)
 			return
@@ -16625,7 +16639,7 @@ Optional arguments:
 			commands["fillchunk"]	= MnCommand("fillchunk","Fill a heap chunk referenced by a register",fillchunkUsage,procFillChunk,"fchunk")
 			commands["dumpobj"]		= MnCommand("dumpobj","Dump the contents of an object",dumpobjUsage,procDumpObj,"do")
 			commands["changeacl"]   = MnCommand("changeacl","Change the ACL of a given page",changeaclUsage,procChangeACL,"ca")
-		commands["allocmem"]		= MnCommand("allocmem","Allocate some memory in the process",allocmemUsage,procAllocMem,"alloc")
+			commands["allocmem"]		= MnCommand("allocmem","Allocate some memory in the process",allocmemUsage,procAllocMem,"alloc")
 		commands["fwptr"]			= MnCommand("fwptr", "Find Writeable Pointers that get called", fwptrUsage, procFwptr, "fwp")
 		commands["sehchain"]		= MnCommand("sehchain","Show the current SEH chain",sehchainUsage,procSehChain,"exchain")
 		commands["hidedebug"]		= MnCommand("hidedebug","Attempt to hide the debugger",hidedebugUsage,procHideDebug,"hd")
