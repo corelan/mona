@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 495 $
-$Id: mona.py 495 2014-08-15 13:47:52Z corelanc0d3r $ 
+$Revision: 496 $
+$Id: mona.py 496 2014-08-15 19:19:04Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 495 $')
+__REV__ = filter(str.isdigit, '$Revision: 496 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -12998,9 +12998,15 @@ def main(args):
 					segmentinfo = segmentinfo.strip(",")
 					segmentinfo = " : " + segmentinfo
 					defheap = ""
+					lfhheap = ""
 					if heap == getDefaultProcessHeap():
 						defheap = "* Default process heap"
-					dbg.log("0x%08x (%d segment(s)%s) %s" % (heap,len(segments),segmentinfo,defheap))
+					if win7mode:
+						iHeap = MnHeap(heap)
+						if iHeap.usesLFH():
+							lfhheapaddress = iHeap.getLFHAddress()
+							lfhheap = "[LFH enabled, _LFH_HEAP at 0x%08x]" % lfhheapaddress
+					dbg.log("0x%08x (%d segment(s)%s) %s %s" % (heap,len(segments),segmentinfo,defheap,lfhheap))
 			else:
 				dbg.log(" ** No heaps found")
 			dbg.log("")
