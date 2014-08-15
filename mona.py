@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 494 $
-$Id: mona.py 494 2014-04-26 22:06:53Z corelanc0d3r $ 
+$Revision: 495 $
+$Id: mona.py 495 2014-08-15 13:47:52Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 494 $')
+__REV__ = filter(str.isdigit, '$Revision: 495 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -3216,6 +3216,12 @@ class MnChunk:
 		chunkshown = False
 		if self.chunktype == "chunk":
 			dbg.log("    _HEAP @ %08x, Segment @ %08x" % (self.heapbase,self.segmentbase))
+			if win7mode:
+				iHeap = MnHeap(self.heapbase)
+				if iHeap.usesLFH():
+					dbg.log("    Heap has LFH enabled. LFH Heap starts at 0x%08x" % iHeap.getLFHAddress())
+					if "busy" in self.flagtxt.lower() and "internal" in self.flagtxt.lower() and self.usersize > 0x1ff0:
+						dbg.log("    This chunk may be managed by LFH")
 			dbg.log("                      (         bytes        )                   (bytes)")						
 			dbg.log("      HEAP_ENTRY      Size  PrevSize    Unused Flags    UserPtr  UserSize Remaining - state")
 			dbg.log("        %08x  %08x  %08x  %08x  [%02x]   %08x  %08x  %08x   %s  (hex)" % (self.chunkptr,self.size*8,self.prevsize*8,self.unused,self.flag,self.userptr,self.usersize,self.unused-self.headersize,self.flagtxt))
@@ -7492,7 +7498,7 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 		
 		movetolast = []
 		regsequences = []
-		
+		stepcnt = 1
 		for step in routinedefs[routine]:
 			thisreg = step[0]
 			thistarget = step[1]
@@ -7500,6 +7506,9 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 			if thisreg in replacelist:
 				thistarget = replacelist[thisreg]
 			
+			dbg.log("    Step %d/%d: %s" % (stepcnt,len(routinedefs[routine]),thisreg))
+			stepcnt += 1
+
 			if not thisreg in skiplist:
 			
 				regsequences.append(thisreg)
@@ -7508,7 +7517,7 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 				# replacelist and skiplist arrays
 				if str(thistarget) == "api":
 					objprogressfile.write("  * Enumerating ROPFunc info",progressfile)
-					dbg.log("    Enumerating ROPFunc info")
+					#dbg.log("    Enumerating ROPFunc info")
 					# routine to put api pointer in thisreg
 					funcptr,functext = getRopFuncPtr(routine,modulecriteria,criteria,"iat")
 					if routine == "SetProcessDEPPolicy" and funcptr == 0:
@@ -13950,6 +13959,8 @@ def main(args):
 			criteria = {}
 
 			thisxat = {}
+
+			entriesfound = 0
 			
 			if "s" in args:
 				if type(args["s"]).__name__.lower() != "bool":
@@ -14022,6 +14033,7 @@ def main(args):
 						else:
 							addtolist = True
 						if addtolist:
+							entriesfound += 1
 							if mode == "iat":
 								thedelta = thisfunc - thismod.moduleBase
 								logentry = "At 0x%s in %s (base + 0x%s) : 0x%s (ptr to %s)" % (toHex(thisfunc),thismodule.lower(),toHex(thedelta),toHex(theptr),origfuncname)
@@ -14029,6 +14041,9 @@ def main(args):
 								logentry = "0x%08x : %s!%s" % (thisfunc,thismodule.lower(),origfuncname)
 							dbg.log(logentry,address = thisfunc)
 							objxatfilename.write(logentry,xatfile)
+				if not silent:
+					dbg.log("")
+					dbg.log("%d entries found" % entriesfound)
 			return
 
 			
