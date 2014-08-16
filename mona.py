@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 499 $
-$Id: mona.py 499 2014-08-16 13:55:51Z corelanc0d3r $ 
+$Revision: 500 $
+$Id: mona.py 500 2014-08-16 16:42:25Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 499 $')
+__REV__ = filter(str.isdigit, '$Revision: 500 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -291,6 +291,9 @@ def toHexByte(n):
 	A string, representing the value in hex (1 byte)
 	"""
 	return "%02X" % n
+
+def toAsciiOnly(inputstr):
+	return "".join(i for i in inputstr if ord(i)<128 and ord(i) > 31)
 
 def toAscii(n):
 	"""
@@ -3967,6 +3970,7 @@ class MnPointer:
 		if __DEBUGGERAPP__ == "WinDBG":
 			addy = self.address
 			if not silent:
+				dbg.log("")
 				dbg.log("----------------------------------------------------")
 				dbg.log("[+] Dumping object at 0x%08x, 0x%02x bytes" % (addy,size))
 				if levels > 0:
@@ -4055,7 +4059,7 @@ class MnPointer:
 					content = ""
 					if len(info) > 3:
 						content = info[3]
-					contentinfo = info[1]  
+					contentinfo = toAsciiOnly(info[1])
 					offsetstr = toSize("%02x" % offset,4)
 					line = "+%s   0x%08x | 0x%s  %s" % (offsetstr,loc,content,contentinfo)
 					if not silent:
@@ -4095,7 +4099,7 @@ class MnPointer:
 				ptraddy = outputlines[0][10:18]
 				ptrinfo = outputlines[0][19:]
 				if ptrinfo.replace(" ","") != "":
-					if "vftable" in ptrinfo:
+					if "vftable" in ptrinfo or "Heap" in memloc:
 						locinfo = ["ptr_obj","%sptr to 0x%08x : %s" % (extra,hexStrToInt(ptraddy),ptrinfo),str(addy)]
 					else:
 						locinfo = ["ptr","%sptr to 0x%08x : %s" % (extra,hexStrToInt(ptraddy),ptrinfo),str(addy)]
@@ -4143,6 +4147,12 @@ class MnPointer:
 			if ptrstr.replace(" ","") != "" and not toHexByte(b1) == "00" and not toHexByte(b2) == "00" and not toHexByte(b3) == "00" and not toHexByte(b4) == "00":
 				locinfo = ["str","= ASCII '%s' %s" % (ptrstr,extra),"ascii"]
 				return locinfo
+
+		# pointer to heap ?
+		if "Heap" in memloc:
+			locinfo = ["ptr_obj","%sptr to 0x%08x : %s" % (extra,hexStrToInt(ptraddy),ptrinfo),str(addy)]
+			return locinfo
+
 		# nothing special to report
 		return ["","",""]
 
@@ -15263,11 +15273,12 @@ def main(args):
 			logdata = {}
 			try:
 				dbg.log("[+] Parsing logfile %s" % logfile)
-				f = open(logfile,"r")
+				f = open(logfile,"rb")
 				contents = f.readlines()
 				f.close()
 
-				for line in contents:
+				for tline in contents:
+					line = str(tline)
 					if line.startswith("alloc("):
 						size = ""
 						addy = ""
@@ -15317,7 +15328,7 @@ def main(args):
 
 			except:
 				dbg.log(" *** Unable to open logfile %s ***" % logfile,highlight=1)
-				#dbg.log(traceback.format_exc())
+				dbg.log(traceback.format_exc())
 				return
 
 
