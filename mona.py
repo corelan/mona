@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 500 $
-$Id: mona.py 500 2014-08-16 16:42:25Z corelanc0d3r $ 
+$Revision: 501 $
+$Id: mona.py 501 2014-08-16 22:03:56Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 500 $')
+__REV__ = filter(str.isdigit, '$Revision: 501 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -3986,6 +3986,7 @@ class MnPointer:
 				logfile = customlogfile
 				thislog = customthislog
 			addys = [addy]
+			parent = ""
 			while levelcnt <= levels:
 				thisleveladdys = []
 				for addy in addys:
@@ -4008,11 +4009,12 @@ class MnPointer:
 							else:
 								info = ["",symbol,"",content]
 								dumpdata[hexStrToInt(loc)] = info
-					self.printObjDump(dumpdata,logfile,thislog,size)
+					self.printObjDump(dumpdata,logfile,thislog,size,parent)
 					for loc in dumpdata:
 						thisdata = dumpdata[loc]
 						if thisdata[0] == "ptr_obj":
 							thisptr = int(thisdata[3],16)
+							parent = "0x%08x in object 0x%08x" % (loc,addy)
 							thisleveladdys.append(thisptr)
 					if levelcnt == 0:
 						origdumpdata = dumpdata
@@ -4024,7 +4026,7 @@ class MnPointer:
 		return dumpdata
 
 
-	def printObjDump(self,dumpdata,logfile,thislog,size=0):
+	def printObjDump(self,dumpdata,logfile,thislog,size=0,parent=""):
 		# dictionary, key = address
 		# 0 = type
 		# 1 = content info
@@ -4034,14 +4036,24 @@ class MnPointer:
 		if len(sortedkeys) > 0:
 			startaddy = sortedkeys[0]
 			sizem = ""
+			parentinfo = ""
 			if size > 0:
 				sizem = " (0x%02x bytes)" % size
+
 			line = ">> Object at 0x%08x%s:" % (startaddy,sizem)
 			if not silent:
 				dbg.log("")
 				dbg.log(line)
 			logfile.write("",thislog)
 			logfile.write(line,thislog)
+
+			if parent != "":
+				line = "   (Referenced at %s)" % parent
+				if not silent:
+					dbg.log(line)
+				logfile.write("",thislog)
+				logfile.write(line,thislog)
+
 			line = "Offset  Address      Contents    Info"
 			logfile.write(line,thislog)
 			if not silent:
@@ -4150,7 +4162,10 @@ class MnPointer:
 
 		# pointer to heap ?
 		if "Heap" in memloc:
-			locinfo = ["ptr_obj","%sptr to 0x%08x : %s" % (extra,hexStrToInt(ptraddy),ptrinfo),str(addy)]
+			sep = ""
+			if ptrinfo.replace(" ","") != "":
+				sep = ":"
+			locinfo = ["ptr_obj","%sptr to 0x%08x %s %s" % (extra,hexStrToInt(ptraddy),sep,ptrinfo),str(addy)]
 			return locinfo
 
 		# nothing special to report
@@ -15259,9 +15274,38 @@ def main(args):
 
 		def procDumpLog(args):
 			logfile = ""
+			levels = 0
+			nestedsize = 0x28
+
 			if "f" in args:
 				if type(args["f"]).__name__.lower() != "bool":
 					logfile = args["f"]
+
+			if "l" in args:
+				if type(args["l"]).__name__.lower() != "bool":
+					if str(args["l"]).lower().startswith("0x"):
+						try:
+							levels = int(args["l"],16)
+						except:
+							levels = 0
+					else:
+						try:
+							levels = int(args["l"])
+						except:
+							levels = 0
+
+			if "m" in args:
+				if type(args["m"]).__name__.lower() != "bool":
+					if str(args["m"]).lower().startswith("0x"):
+						try:
+							nestedsize = int(args["m"],16)
+						except:
+							nestedsize = 0x28
+					else:
+						try:
+							nestedsize = int(args["m"])
+						except:
+							nestedsize = 0x28					
 
 			if logfile == "":
 				dbg.log(" *** Error: please specify a valid logfile with argument -f ***",highlight=1)
@@ -15322,8 +15366,6 @@ def main(args):
 					asize = logdata[addy]
 					ptrx = MnPointer(int(addy,16))
 					size = int(asize,16)
-					levels = 0
-					nestedsize = 0
 					dumpdata = ptrx.dumpObjectAtLocation(size,levels,nestedsize,thislog,logfile)
 
 			except:
@@ -16720,7 +16762,10 @@ Expected syntax for log entries:
 Additional text after the alloc & free info is fine.
 Just make sure the syntax matches exactly with the examples above.
 Arguments:
-    -f <path/to/logfile> : Full path to the logfile""" 
+    -f <path/to/logfile> : Full path to the logfile
+Optional arguments:
+    -l <number>       : Recursively dump objects
+    -m <number>       : Size for recursive objects (default value: 0x28)""" 
 
 
 		commands["seh"] 			= MnCommand("seh", "Find pointers to assist with SEH overwrite exploits",sehUsage, procFindSEH)
