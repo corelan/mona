@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 505 $
-$Id: mona.py 505 2014-08-16 22:28:06Z corelanc0d3r $ 
+$Revision: 506 $
+$Id: mona.py 506 2014-08-16 22:32:24Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 505 $')
+__REV__ = filter(str.isdigit, '$Revision: 506 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -4013,6 +4013,8 @@ class MnPointer:
 					if addy in parentdata:
 						pdata = parentdata[addy]
 						parent = "Referenced at 0x%08x (object 0x%08x, offset +0x%02x)" % (pdata[0],pdata[1],pdata[0]-pdata[1])
+					else:
+						parent = ""
 					self.printObjDump(dumpdata,logfile,thislog,size,parent)
 
 					for loc in dumpdata:
