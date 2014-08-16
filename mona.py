@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 503 $
-$Id: mona.py 503 2014-08-16 22:11:19Z corelanc0d3r $ 
+$Revision: 504 $
+$Id: mona.py 504 2014-08-16 22:18:01Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 503 $')
+__REV__ = filter(str.isdigit, '$Revision: 504 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -4040,12 +4040,16 @@ class MnPointer:
 			parentinfo = ""
 			if size > 0:
 				sizem = " (0x%02x bytes)" % size
+			logfile.write("",thislog)
+
+			if parent == "":
+				logfile.write("=" * 60,thislog)
 
 			line = ">> Object at 0x%08x%s:" % (startaddy,sizem)
 			if not silent:
 				dbg.log("")
 				dbg.log(line)
-			logfile.write("",thislog)
+			
 			logfile.write(line,thislog)
 
 			if parent != "":
