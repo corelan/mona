@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 498 $
-$Id: mona.py 498 2014-08-16 10:10:18Z corelanc0d3r $ 
+$Revision: 499 $
+$Id: mona.py 499 2014-08-16 13:55:51Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 498 $')
+__REV__ = filter(str.isdigit, '$Revision: 499 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -4018,6 +4018,7 @@ class MnPointer:
 				levelcnt += 1
 		dumpdata = origdumpdata
 		return dumpdata
+
 
 	def printObjDump(self,dumpdata,logfile,thislog,size=0):
 		# dictionary, key = address
@@ -10323,6 +10324,9 @@ def main(args):
 		def procHelp(args):
 			dbg.log("     'mona' - Exploit Development Swiss Army Knife - %s (%sbit)" % (__DEBUGGERAPP__,str(arch)))
 			dbg.log("     Plugin version : %s r%s" % (__VERSION__,__REV__))
+			if __DEBUGGERAPP__ == "WinDBG":
+				pykdversion = dbg.getPyKDVersionNr()
+				dbg.log("     PyKD version %s" % pykdversion)
 			dbg.log("     Written by Corelan - https://www.corelan.be")
 			dbg.log("     Project page : https://redmine.corelan.be/projects/mona")
 			dbg.logLines(getBanner(),highlight=1)
