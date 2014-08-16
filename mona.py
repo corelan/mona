@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 496 $
-$Id: mona.py 496 2014-08-15 19:19:04Z corelanc0d3r $ 
+$Revision: 497 $
+$Id: mona.py 497 2014-08-16 10:07:11Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 496 $')
+__REV__ = filter(str.isdigit, '$Revision: 497 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -3961,7 +3961,7 @@ class MnPointer:
 		silent = False
 		return funcinfo
 
-	def dumpObjectAtLocation(self,size,levels=0,nestedsize=0):
+	def dumpObjectAtLocation(self,size,levels=0,nestedsize=0,customthislog="",customlogfile=""):
 		dumpdata = {}
 		origdumpdata = {} 
 		if __DEBUGGERAPP__ == "WinDBG":
@@ -3974,8 +3974,12 @@ class MnPointer:
 
 			parentlist = []
 			levelcnt = 0
-			logfile = MnLog("dumpobj.txt")
-			thislog = logfile.reset()
+			if customthislog == "" and customlogfile == "":
+				logfile = MnLog("dumpobj.txt")
+				thislog = logfile.reset()
+			else:
+				logfile = customlogfile
+				thislog = customthislog
 			addys = [addy]
 			while levelcnt <= levels:
 				thisleveladdys = []
@@ -3999,7 +4003,7 @@ class MnPointer:
 							else:
 								info = ["",symbol,"",content]
 								dumpdata[hexStrToInt(loc)] = info
-					self.printObjDump(dumpdata,logfile,thislog)
+					self.printObjDump(dumpdata,logfile,thislog,size)
 					for loc in dumpdata:
 						thisdata = dumpdata[loc]
 						if thisdata[0] == "ptr_obj":
@@ -4014,7 +4018,7 @@ class MnPointer:
 		dumpdata = origdumpdata
 		return dumpdata
 
-	def printObjDump(self,dumpdata,logfile,thislog):
+	def printObjDump(self,dumpdata,logfile,thislog,size=0):
 		# dictionary, key = address
 		# 0 = type
 		# 1 = content info
@@ -4023,7 +4027,10 @@ class MnPointer:
 		sortedkeys = sorted(dumpdata)
 		if len(sortedkeys) > 0:
 			startaddy = sortedkeys[0]
-			line = ">> Object at 0x%08x:" % startaddy
+			sizem = ""
+			if size > 0:
+				sizem = " (0x%02x bytes)" % size
+			line = ">> Object at 0x%08x%s:" % (startaddy,sizem)
 			if not silent:
 				dbg.log("")
 				dbg.log(line)
@@ -15235,6 +15242,83 @@ def main(args):
 			return
 
 
+		def procDumpLog(args):
+			logfile = ""
+			if "f" in args:
+				if type(args["f"]).__name__.lower() != "bool":
+					logfile = args["f"]
+
+			if logfile == "":
+				dbg.log(" *** Error: please specify a valid logfile with argument -f ***",highlight=1)
+				return
+
+			allocs = 0
+			frees = 0
+			# open logfile and record all objects & sizes
+			logdata = {}
+			try:
+				dbg.log("[+] Parsing logfile %s" % logfile)
+				f = open(logfile,"r")
+				contents = f.readlines()
+				f.close()
+
+				for line in contents:
+					if line.startswith("alloc("):
+						size = ""
+						addy = ""
+						lineparts = line.split("(")
+						if len(lineparts) > 1:
+							sizeparts = lineparts[1].split(")")
+							size = sizeparts[0].replace(" ","")
+						lineparts = line.split("=")
+						if len(lineparts) > 1:
+							linepartaddy = lineparts[1].split(" ")
+							for lpa in linepartaddy:
+								if addy != "":
+									break
+								if lpa != "":
+									addy = lpa 
+						if size != "" and addy != "":
+							size = size.lower()
+							addy = addy.lower()
+							if not addy in logdata:
+								logdata[addy] = size
+							allocs += 1
+
+					if line.startswith("free("):
+						addy = ""
+						lineparts = line.split("(")
+						if len(lineparts) > 1:
+							addyparts = lineparts[1].split(")")
+							addy = addyparts[0].replace(" ","")
+						if addy != "":
+							addy = addy.lower()
+							if addy in logdata:
+								del logdata[addy]
+							frees += 1			
+
+				dbg.log("[+] Logfile parsed, %d objects found" % len(logdata))
+				dbg.log("    Total allocs: %d, total free: %d" % (allocs,frees))
+				dbg.log("[+] Dumping objects")
+				logfile = MnLog("dump_alloc_free.txt")
+				thislog = logfile.reset()
+				for addy in logdata:
+					asize = logdata[addy]
+					ptrx = MnPointer(int(addy,16))
+					size = int(asize,16)
+					levels = 0
+					nestedsize = 0
+					dumpdata = ptrx.dumpObjectAtLocation(size,levels,nestedsize,thislog,logfile)
+
+			except:
+				dbg.log(" *** Unable to open logfile %s ***" % logfile,highlight=1)
+				dbg.log(traceback.format_exc())
+				return
+
+
+			return
+
+
 		def procDumpObj(args):
 			addy = 0
 			levels = 0
@@ -16612,6 +16696,17 @@ Optional arguments:
     -m <number>       : Size for recursive objects (default value: 0x28)
 """
 
+		dumplogUsage = """Dump all objects recorded in an alloc/free log
+Note: dumplog will only dump objects that have not been freed in the same logfile.
+Expected syntax for log entries:
+    Alloc : 'alloc(size in hex) = address'
+    Free  : 'free(address)'
+Additional text after the alloc & free info is fine.
+Just make sure the syntax matches exactly with the examples above.
+Arguments:
+    -f <path/to/logfile> : Full path to the logfile""" 
+
+
 		commands["seh"] 			= MnCommand("seh", "Find pointers to assist with SEH overwrite exploits",sehUsage, procFindSEH)
 		commands["config"] 			= MnCommand("config","Manage configuration file (mona.ini)",configUsage,procConfig,"conf")
 		commands["jmp"]				= MnCommand("jmp","Find pointers that will allow you to jump to a register",jmpUsage,procFindJMP, "j")
@@ -16659,6 +16754,7 @@ Optional arguments:
 		if __DEBUGGERAPP__ == "WinDBG":
 			commands["fillchunk"]	= MnCommand("fillchunk","Fill a heap chunk referenced by a register",fillchunkUsage,procFillChunk,"fchunk")
 			commands["dumpobj"]		= MnCommand("dumpobj","Dump the contents of an object",dumpobjUsage,procDumpObj,"do")
+			commands["dumplog"]     = MnCommand("dumplog","Dump objects present in alloc/free log file",dumplogUsage,procDumpLog,"dl")
 			commands["changeacl"]   = MnCommand("changeacl","Change the ACL of a given page",changeaclUsage,procChangeACL,"ca")
 			commands["allocmem"]		= MnCommand("allocmem","Allocate some memory in the process",allocmemUsage,procAllocMem,"alloc")
 		commands["fwptr"]			= MnCommand("fwptr", "Find Writeable Pointers that get called", fwptrUsage, procFwptr, "fwp")
