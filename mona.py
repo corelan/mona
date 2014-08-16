@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 497 $
-$Id: mona.py 497 2014-08-16 10:07:11Z corelanc0d3r $ 
+$Revision: 498 $
+$Id: mona.py 498 2014-08-16 10:10:18Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 497 $')
+__REV__ = filter(str.isdigit, '$Revision: 498 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -3967,6 +3967,7 @@ class MnPointer:
 		if __DEBUGGERAPP__ == "WinDBG":
 			addy = self.address
 			if not silent:
+				dbg.log("----------------------------------------------------")
 				dbg.log("[+] Dumping object at 0x%08x, 0x%02x bytes" % (addy,size))
 				if levels > 0:
 					dbg.log("[+] Also dumping up to %d levels deep, max size of nested objects: 0x%02x bytes" % (levels, nestedsize))
@@ -15312,7 +15313,7 @@ def main(args):
 
 			except:
 				dbg.log(" *** Unable to open logfile %s ***" % logfile,highlight=1)
-				dbg.log(traceback.format_exc())
+				#dbg.log(traceback.format_exc())
 				return
 
 
