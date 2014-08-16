@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 504 $
-$Id: mona.py 504 2014-08-16 22:18:01Z corelanc0d3r $ 
+$Revision: 505 $
+$Id: mona.py 505 2014-08-16 22:28:06Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 504 $')
+__REV__ = filter(str.isdigit, '$Revision: 505 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -3987,6 +3987,7 @@ class MnPointer:
 				thislog = customthislog
 			addys = [addy]
 			parent = ""
+			parentdata = {}
 			while levelcnt <= levels:
 				thisleveladdys = []
 				for addy in addys:
@@ -4009,14 +4010,17 @@ class MnPointer:
 							else:
 								info = ["",symbol,"",content]
 								dumpdata[hexStrToInt(loc)] = info
+					if addy in parentdata:
+						pdata = parentdata[addy]
+						parent = "Referenced at 0x%08x (object 0x%08x, offset +0x%02x)" % (pdata[0],pdata[1],pdata[0]-pdata[1])
 					self.printObjDump(dumpdata,logfile,thislog,size,parent)
+
 					for loc in dumpdata:
 						thisdata = dumpdata[loc]
 						if thisdata[0] == "ptr_obj":
 							thisptr = int(thisdata[3],16)
-							laoffset = loc-addy
-							parent = "0x%08x (object 0x%08x, offset +0x%02x)" % (loc,addy,laoffset)
 							thisleveladdys.append(thisptr)
+							parentdata[thisptr] = [loc,addy]
 					if levelcnt == 0:
 						origdumpdata = dumpdata
 					dumpdata = {}
@@ -4053,7 +4057,7 @@ class MnPointer:
 			logfile.write(line,thislog)
 
 			if parent != "":
-				line = "   Referenced at %s" % parent
+				line = "   %s" % parent
 				if not silent:
 					dbg.log(line)
 				logfile.write(line,thislog)
