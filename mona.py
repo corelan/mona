@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 507 $
-$Id: mona.py 507 2014-08-16 23:29:52Z corelanc0d3r $ 
+$Revision: 508 $
+$Id: mona.py 508 2014-08-16 23:32:29Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 507 $')
+__REV__ = filter(str.isdigit, '$Revision: 508 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -4172,9 +4172,11 @@ class MnPointer:
 
 		# pointer to heap ?
 		if "Heap" in memloc:
-			sep = ""
-			locinfo = ["ptr_obj","%sptr to 0x%08x %s %s" % (extra,hexStrToInt(ptraddy),sep,ptrinfo),str(addy)]
-			return locinfo
+			if not "??" in outputlines[0]:
+				ismapped = True
+				ptraddy = outputlines[0][10:18]
+				locinfo = ["ptr_obj","%sptr to 0x%08x" % (extra,hexStrToInt(ptraddy)),str(addy)]
+				return locinfo
 
 		# nothing special to report
 		return ["","",""]
