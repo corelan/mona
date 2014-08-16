@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 501 $
-$Id: mona.py 501 2014-08-16 22:03:56Z corelanc0d3r $ 
+$Revision: 502 $
+$Id: mona.py 502 2014-08-16 22:08:08Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 501 $')
+__REV__ = filter(str.isdigit, '$Revision: 502 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -4051,7 +4051,6 @@ class MnPointer:
 				line = "   (Referenced at %s)" % parent
 				if not silent:
 					dbg.log(line)
-				logfile.write("",thislog)
 				logfile.write(line,thislog)
 
 			line = "Offset  Address      Contents    Info"
