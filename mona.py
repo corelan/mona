@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 502 $
-$Id: mona.py 502 2014-08-16 22:08:08Z corelanc0d3r $ 
+$Revision: 503 $
+$Id: mona.py 503 2014-08-16 22:11:19Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 502 $')
+__REV__ = filter(str.isdigit, '$Revision: 503 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -4014,7 +4014,8 @@ class MnPointer:
 						thisdata = dumpdata[loc]
 						if thisdata[0] == "ptr_obj":
 							thisptr = int(thisdata[3],16)
-							parent = "0x%08x in object 0x%08x" % (loc,addy)
+							laoffset = loc-addy
+							parent = "0x%08x (object 0x%08x, offset +0x%02x)" % (loc,addy,laoffset)
 							thisleveladdys.append(thisptr)
 					if levelcnt == 0:
 						origdumpdata = dumpdata
@@ -4048,7 +4049,7 @@ class MnPointer:
 			logfile.write(line,thislog)
 
 			if parent != "":
-				line = "   (Referenced at %s)" % parent
+				line = "   Referenced at %s" % parent
 				if not silent:
 					dbg.log(line)
 				logfile.write(line,thislog)
