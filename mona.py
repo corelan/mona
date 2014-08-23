@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 510 $
-$Id: mona.py 510 2014-08-23 11:25:45Z corelanc0d3r $ 
+$Revision: 511 $
+$Id: mona.py 511 2014-08-23 11:42:08Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 510 $')
+__REV__ = filter(str.isdigit, '$Revision: 511 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -11199,18 +11199,11 @@ def main(args):
 				dbg.log("Missing mandatory argument -a", highlight=1)
 				return
 			
-			args["a"] = args["a"].replace("0x","").replace("0X","")
-			targetaddy = args["a"]
-			# maybe arg is a register
-			allregs = dbg.getRegs()
-			if str(targetaddy).upper() in allregs:
-				targetaddy = "%08x" % allregs[str(targetaddy.upper())]
-
-			if not isAddress(targetaddy):
-				dbg.log("%s is not a valid address" % args["a"], highlight=1)
+			address,addyok = getAddyArg(args["a"])
+			if not addyok:
+				dbg.log("%s is an invalid address" % args["a"], highlight=1)
 				return
 			
-			address = addrToInt(targetaddy)
 			ptr = MnPointer(address)
 			modname = ptr.belongsTo()
 			modinfo = None
