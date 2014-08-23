@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 509 $
-$Id: mona.py 509 2014-08-18 20:51:58Z corelanc0d3r $ 
+$Revision: 510 $
+$Id: mona.py 510 2014-08-23 11:25:45Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 509 $')
+__REV__ = filter(str.isdigit, '$Revision: 510 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -198,6 +198,80 @@ def DwordToBits(srcDword):
 	for bit in bits:
 		bit_array.append(int(bit))
 	return bit_array
+
+def getAddyArg(argaddy):
+	"""
+	Tries to extract an address from a specified argument
+	addresses and values will be considered hex
+	you can use some basic math operations such as - and +
+	registers are allowed too
+	"""
+	findaddy = 0
+	addyok = True
+	addyparts = []
+	addypartsint = []
+	regs = dbg.getRegs()
+	thispart = ""
+	for c in str(argaddy):
+		if c == "-" or c == "+":
+			thispart = thispart.replace(" ","")
+			if thispart != "":
+				addyparts.append(thispart)
+			thispart = c
+		else:
+			thispart += c
+	if thispart != "":
+		addyparts.append(thispart)
+
+	#dbg.log("%s" % addyparts)
+	# replace values with int
+	for part in addyparts:
+		action = ""
+		partclean = part
+		partval = 0
+		if part.startswith("-"):
+			action = "-"
+			partclean = part.replace("-","")
+		elif part.startswith("+"):
+			action = "+"
+			partclean = part.replace("+","")
+
+		#dbg.log("Part: %s, action %s" % (part,action))
+		partclean = partclean.upper()
+		if partclean in regs:
+			partval = regs[partclean]
+		#elif partclean.startswith("[") and partclean.endswith["]"]:
+
+		else:
+			if partclean.lower().startswith("0n"):
+				partclean = partclean.lower().replace("0n","")
+				try:
+					partval = int(partclean)
+				except:
+					addyok = False
+					findaddy = 0
+			else:
+				try:
+					if not "0x" in partclean.lower():
+						partclean = "0x" + partclean
+					partval = int(partclean,16)
+				except:
+					addyok = False
+					findaddy = 0
+		if not addyok:
+			am = dbg.getAllModules()
+			m = getModuleObj(part)
+			if not m == None:
+				partval = m.moduleBase
+				addyok = True
+			else:
+				break
+		if action == "" or action == "+":
+			findaddy += partval
+		elif action == "-":
+			findaddy -= partval
+	return findaddy,addyok
+
 
 def printDataArray(data,charsperline=16,prefix=""):
 	maxlen = len(data)
@@ -1031,16 +1105,40 @@ def getModuleObj(modname):
 	if mod is not None:
 		return mod
 	# Method 2
-	allmod = dbg.getAllModules()
-	if not modname.endswith(".dll"):
-		modname += ".dll"
-	for tmod in allmod:
-		if tmod.getName() == modname:
-			return tmod
-	# Method 3
-	for tmod in allmod:
-		if tmod.getName().lower() == modname.lower():
-			return tmod
+
+	suffixes = ["",".exe",".dll"]
+	for suf in suffixes:
+		modname_search = modname + suf
+		allmod = dbg.getAllModules()
+		for tmod_s in allmod:
+			tmod = dbg.getModule(tmod_s)
+			if not tmod == None:
+				if tmod.getName() == modname_search:
+					return MnModule(tmod_s)
+				imname = dbg.getImageNameForModule(tmod.getName())
+				if not imname == None:
+					if imname == modname_search:
+						return MnModule(tmod)
+		# Method 3
+		for tmod_s in allmod:
+			tmod = dbg.getModule(tmod_s)
+			if not tmod == None:
+				if tmod.getName().lower() == modname_search.lower():
+					return tmod
+				imname = dbg.getImageNameForModule(tmod.getName().lower())
+				if not imname == None:
+					if imname.lower() == modname_search.lower():
+						return MnModule(tmod)
+
+		# Method 4
+		for tmod_s in allmod:
+			tmod = dbg.getModule(tmod_s)
+			if not tmod == None:
+				if tmod_s.lower() == modname_search.lower():
+					return MnModule(tmod_s)
+		
+
+
 	return None
 	
 		
@@ -11225,19 +11323,10 @@ def main(args):
 				dbg.log("You must specify a valid filename using parameter -f", highlight=1)
 				return
 			if "a" in args:
-				uppera = args["a"].upper()
-				if uppera in allregs:
-					startpos = "0x%08x" % allregs[uppera]
-					dbg.log(startpos)
-				else:
-					addy = args["a"]
-					if addy.upper().startswith("0X"):
-						addy = addy[2:]
-					if not isAddress(addy):
-						dbg.log("%s is an invalid address" % args["a"], highlight=1)
-						return
-					else:
-						startpos = args["a"]
+				startpos,addyok = getAddyArg(args["a"])
+				if not addyok:
+					dbg.log("%s is an invalid address" % args["a"], highlight=1)
+					return
 			if "s" in args:
 				skipmodules = True
 			compareFileWithMemory(filename,startpos,skipmodules)
@@ -14559,12 +14648,8 @@ def main(args):
 			silent = True
 			findaddy = 0
 			if "a" in args:
-				findaddy = args["a"]
-				try:
-					if not "0x" in findaddy.lower():
-						findaddy = "0x" + findaddy
-					findaddy = int(findaddy,16)
-				except:
+				findaddy,addyok = getAddyArg(args["a"])
+				if not addyok:
 					dbg.log("%s is an invalid address" % args["a"], highlight=1)
 					return
 			if findaddy > 0:
@@ -15439,12 +15524,7 @@ def main(args):
 			regs = dbg.getRegs()
 			if "a" in args:
 				if type(args["a"]).__name__.lower() != "bool":
-					try:
-						addy = int(args["a"],16)
-					except:
-						addy = 0
-					if addy == 0 and args["a"].upper() in regs:
-						addy = regs[args["a"].upper()]
+					addy,addyok = getAddyArg(args["a"])
 
 			if "s" in args:
 				if type(args["s"]).__name__.lower() != "bool":
@@ -15534,23 +15614,11 @@ def main(args):
 			regs = dbg.getRegs()
 			if "src" in args:
 				if type(args["src"]).__name__.lower() != "bool":
-					try:
-						src = int(args["src"],16)
-					except:
-						src = 0
-
-					if src == 0 and args["src"].upper() in regs:
-						src = regs[args["src"].upper()]
+					src,addyok = getAddyArg(args["src"])
 
 			if "dst" in args:
 				if type(args["dst"]).__name__.lower() != "bool":
-					try:
-						dst = int(args["dst"],16)
-					except:
-						dst = 0
-
-					if dst == 0 and args["dst"].upper() in regs:
-						dst = regs[args["dst"].upper()]
+					dst,addyok = getAddyArg(args["dst"])
 
 			if "n" in args:
 				if type(args["n"]).__name__.lower() != "bool":
@@ -15605,10 +15673,7 @@ def main(args):
 
 			if "a" in args:
 				if type(args["a"]).__name__.lower() != "bool":
-					try:
-						address = int(args["a"],16)
-					except:
-						address = 0
+					address,addyok = getAddyArg(args["a"])
 			else:
 				address = regs["EIP"]
 				if leaks:
@@ -16148,9 +16213,8 @@ def main(args):
 			aclerror = False
 			if "a" in args:
 				if type(args["a"]).__name__.lower() != "bool":
-					try:
-						addy = int(args["a"],16)
-					except:
+					addy,addyok = getAddyArg(args["a"])
+					if not addyok:
 						addyerror = True
 			if "acl" in args:
 				if type(args["acl"]).__name__.lower() != "bool":
@@ -16220,9 +16284,8 @@ def main(args):
 
 			if "a" in args:
 				if type(args["a"]).__name__.lower() != "bool":
-					try:
-						addy = int(args["a"],16)
-					except:
+					addy,addyok = getAddyArg(args["a"])
+					if not addyok:
 						addyerror = True
 
 			if "fill" in args:
