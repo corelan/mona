@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 513 $
-$Id: mona.py 513 2014-08-30 08:03:23Z corelanc0d3r $ 
+$Revision: 514 $
+$Id: mona.py 514 2014-08-30 09:47:50Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 513 $')
+__REV__ = filter(str.isdigit, '$Revision: 514 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -14202,7 +14202,8 @@ def main(args):
 								thedelta = thisfunc - thismod.moduleBase
 								logentry = "At 0x%s in %s (base + 0x%s) : 0x%s (ptr to %s)" % (toHex(thisfunc),thismodule.lower(),toHex(thedelta),toHex(theptr),origfuncname)
 							else:
-								logentry = "0x%08x : %s!%s" % (thisfunc,thismodule.lower(),origfuncname)
+								thedelta = thisfunc - thismod.moduleBase
+								logentry = "0x%08x : %s!%s (0x%08x+0x%08x)" % (thisfunc,thismodule.lower(),origfuncname,thismod.moduleBase,thedelta)
 							dbg.log(logentry,address = thisfunc)
 							objxatfilename.write(logentry,xatfile)
 				if not silent:
