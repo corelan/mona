@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 518 $
-$Id: mona.py 518 2014-08-30 13:08:10Z corelanc0d3r $ 
+$Revision: 519 $
+$Id: mona.py 519 2014-08-30 23:49:32Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 518 $')
+__REV__ = filter(str.isdigit, '$Revision: 519 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -203,85 +203,111 @@ def getAddyArg(argaddy):
 	"""
 	Tries to extract an address from a specified argument
 	addresses and values will be considered hex
-	you can use some basic math operations such as - and +
+	(unless you specify 0n before a value)
 	registers are allowed too
 	"""
 	findaddy = 0
 	addyok = True
 	addyparts = []
 	addypartsint = []
+	delimchars = ["-","+","*","/","(",")","&","|",">","<"]
 	regs = dbg.getRegs()
 	thispart = ""
 	for c in str(argaddy):
-		if c == "-" or c == "+":
+		if c in delimchars:
 			thispart = thispart.replace(" ","")
 			if thispart != "":
 				addyparts.append(thispart)
-			thispart = c
+			addyparts.append(c)
+			thispart = ""
 		else:
 			thispart += c
 	if thispart != "":
 		addyparts.append(thispart)
 
-	#dbg.log("%s" % addyparts)
-	# replace values with int
 	for part in addyparts:
-		action = ""
-		partclean = part
-		partval = 0
-		if part.startswith("-"):
-			action = "-"
-			partclean = part.replace("-","")
-		elif part.startswith("+"):
-			action = "+"
-			partclean = part.replace("+","")
-
-		#dbg.log("Part: %s, action %s" % (part,action))
-		partclean = partclean.upper()
-		if partclean in regs:
-			partval = regs[partclean]
-		#elif partclean.startswith("[") and partclean.endswith["]"]:
-
-		else:
-			if partclean.lower().startswith("0n"):
-				partclean = partclean.lower().replace("0n","")
-				try:
-					partval = int(partclean)
-				except:
-					addyok = False
-					findaddy = 0
-			else:
-				try:
-					if not "0x" in partclean.lower():
-						partclean = "0x" + partclean
-					partval = int(partclean,16)
-				except:
-					addyok = False
-					findaddy = 0
-		if not addyok:
-			#am = dbg.getAllModules()
-			if not "!" in part:
-				m = getModuleObj(part)
-				if not m == None:
-					partval = m.moduleBase
-					addyok = True
-				else:
+		cleaned = part
+		if not part in delimchars:
+			for x in delimchars:
+				cleaned = cleaned.replace(x,"")	
+			if cleaned.startswith("[") and cleaned.endswith("]"):
+				partval,partok = getIntForPart(cleaned.replace("[","").replace("]",""))
+				if partok:
+					try:
+						partval = struct.unpack('<L',dbg.readMemory(partval,4))[0]
+					except:
+						partval = 0
+						partok = False
+						break
+			else:	
+				partval,partok = getIntForPart(cleaned)
+				if not partok:
 					break
-			else:
-				# module.function ?
-				modparts = part.split("!")
-				modname = modparts[0]
-				funcname = modparts[1]
-				m = getFunctionAddress(modname,funcname)
-				if m > 0:
-					partval = m
-					addyok = True
+			addypartsint.append(partval)
+		else:
+			addypartsint.append(part)
+		if not partok:
+			break
 
-		if action == "" or action == "+":
-			findaddy += partval
-		elif action == "-":
-			findaddy -= partval
-	return findaddy,addyok
+	if not partok:
+		addyok = False
+		findval = 0
+	else:
+		calcstr = "".join(str(x) for x in addypartsint)
+		try:
+			findval = eval(calcstr)
+			addyok = True
+		except:
+			findval = 0
+			addyok = False
+
+	return findval, addyok
+	
+
+
+def getIntForPart(part):
+	"""
+	Returns the int value associated with an input string
+	The input string can be a hex value, decimal value, register, modulename, or modulee!functionname
+	"""
+	partclean = part
+	partclean = partclean.upper()
+	addyok = True
+	partval = 0
+	regs = dbg.getRegs()
+	if partclean in regs:
+		partval = regs[partclean]
+	else:
+		if partclean.lower().startswith("0n"):
+			partclean = partclean.lower().replace("0n","")
+			try:
+				partval = int(partclean)
+			except:
+				addyok = False
+				partval = 0
+		else:
+			try:
+				if not "0x" in partclean.lower():
+					partclean = "0x" + partclean
+				partval = int(partclean,16)
+			except:
+				addyok = False
+				partval = 0
+	if not addyok:
+		if not "!" in part:
+			m = getModuleObj(part)
+			if not m == None:
+				partval = m.moduleBase
+				addyok = True
+		else:
+			modparts = part.split("!")
+			modname = modparts[0]
+			funcname = modparts[1]
+			m = getFunctionAddress(modname,funcname)
+			if m > 0:
+				partval = m
+				addyok = True
+	return partval,addyok
 
 
 def getFunctionAddress(modname,funcname):
