@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 511 $
-$Id: mona.py 511 2014-08-23 11:42:08Z corelanc0d3r $ 
+$Revision: 512 $
+$Id: mona.py 512 2014-08-30 05:00:24Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 511 $')
+__REV__ = filter(str.isdigit, '$Revision: 512 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -15385,7 +15385,7 @@ def main(args):
 					if len(overwritedata) > 0:
 						handlersoverwritten[address] = overwritedata
 						smashoffset = int(overwritedata[1])
-						if not overwritedata[0] == "unicode":
+						if overwritedata[0] == "unicode":
 							smashoffset += 2
 						overwritemark = " (record smashed at offset %d)" % smashoffset
 						
