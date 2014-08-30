@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 516 $
-$Id: mona.py 516 2014-08-30 11:28:21Z corelanc0d3r $ 
+$Revision: 517 $
+$Id: mona.py 517 2014-08-30 11:31:23Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 516 $')
+__REV__ = filter(str.isdigit, '$Revision: 517 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -15363,7 +15363,7 @@ def main(args):
 						ptr = MnPointer(sehandler)
 						funcinfo = ptr.getPtrFunction()
 					else:
-						funcinfo = "(corrupted record)"
+						funcinfo = " (corrupted record)"
 						if str(nseh).startswith("0x"):
 							nseh = "0x%08x" % int(nseh,16)
 						else:
@@ -15374,7 +15374,7 @@ def main(args):
 						typeinfo = ""
 						if overwritedata[0] == "unicode":
 							smashoffset += 2
-							typeinfo = " [unicode] "
+							typeinfo = " [unicode]"
 						overwritemark = " (record smashed at offset %d%s)" % (smashoffset,typeinfo)
 						
 					dbg.log("0x%08x  %s  0x%08x %s%s" % (address,nseh,sehandler,funcinfo, overwritemark))
