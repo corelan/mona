@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 512 $
-$Id: mona.py 512 2014-08-30 05:00:24Z corelanc0d3r $ 
+$Revision: 513 $
+$Id: mona.py 513 2014-08-30 08:03:23Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 512 $')
+__REV__ = filter(str.isdigit, '$Revision: 513 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -11114,15 +11114,14 @@ def main(args):
 					patterntype = "str"
 			
 			if "b" in args:
-				try:
-					base = int(args["b"],16)
-				except:
+				base,addyok = getAddyArg(args["b"])
+				if not addyok:
 					dbg.log("invalid base address: %s" % args["b"],highlight=1)
 					return
+
 			if "t" in args:
-				try:
-					top = int(args["t"],16)
-				except:
+				top,addyok = getAddyArg(args["t"])
+				if not addyok:
 					dbg.log("invalid top address: %s" % args["t"],highlight=1)
 					return
 					
@@ -11340,33 +11339,18 @@ def main(args):
 				dbg.log("Missing mandatory argument -a2 <address>", highlight=1)
 				return		
 			a2 = args["a2"]
-			
-			for reg in regs:
-				if reg.upper() == a1.upper():
-					a1=toHex(regs[reg])					
-					isReg_a1 = True
-					extratext1 = " [" + reg.upper() + "] " 
-					break
-			a1 = a1.upper().replace("0X","").lower()
-				
-			if not isAddress(str(a1)):
-				dbg.log("%s is not a valid address" % str(a1), highlight=1)
+
+
+			a1,addyok = getAddyArg(args["a1"])
+			if not addyok:			
+				dbg.log("0x%08x is not a valid address" % a1, highlight=1)
 				return
-			for reg in regs:
-				if reg.upper() == a2.upper():
-					a2=toHex(regs[reg])					
-					isReg_a2 = True
-					extratext2 = " [" + reg.upper() + "] " 					
-					break
-			a2 = a2.upper().replace("0X","").lower()
-			
-			if not isAddress(str(a2)):
-				dbg.log("%s is not a valid address" % str(a2), highlight=1)
+
+			a2,addyok = getAddyArg(args["a2"])
+			if not addyok:			
+				dbg.log("0x%08x is not a valid address" % a2, highlight=1)
 				return
-				
-			a1 = hexStrToInt(a1)
-			a2 = hexStrToInt(a2)
-			
+
 			diff = a2 - a1
 			result=toHex(diff)
 			negjmpbytes = ""
@@ -11375,11 +11359,12 @@ def main(args):
 				result=toHex(4294967296-ndiff) 
 				negjmpbytes="\\x"+ result[6]+result[7]+"\\x"+result[4]+result[5]+"\\x"+result[2]+result[3]+"\\x"+result[0]+result[1]
 				regaction="sub"
-			dbg.log("Offset from 0x%08x%s to 0x%08x%s : %d (0x%s) bytes" % (a1,extratext1,a2,extratext2,diff,result))	
+			dbg.log("Offset from 0x%08x to 0x%08x : %d (0x%s) bytes" % (a1,a2,diff,result))	
 			if a1 > a2:
 				dbg.log("Negative jmp offset : %s" % negjmpbytes)
 			else:
-				dbg.log("Jmp offset : %s" % negjmpbytes)				
+				dbg.log("Jmp offset : %s" % negjmpbytes)		
+			return		
 				
 		# ----- bp: Set a breakpoint on read/write/exe access ----- #
 		def procBp(args):
@@ -15398,7 +15383,7 @@ def main(args):
 					overwrittentype = overwrittendata[0]
 					overwrittenoffset = int(overwrittendata[1])
 					if not overwrittentype == "unicode":
-						dbg.log("[Junk * %d]['\\xeb\\x06\\x41\\x41'][p/p/r][shellcode][more junk if needed]" % (overwrittenoffset+2))
+						dbg.log("[Junk * %d]['\\xeb\\x06\\x41\\x41'][p/p/r][shellcode][more junk if needed]" % (overwrittenoffset))
 					else:
 						dbg.log("[Junk * %d][nseh - walkover][unicode p/p/r][venetian alignment][shellcode][more junk if needed]" % overwrittenoffset)
 			return
