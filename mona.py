@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 517 $
-$Id: mona.py 517 2014-08-30 11:31:23Z corelanc0d3r $ 
+$Revision: 518 $
+$Id: mona.py 518 2014-08-30 13:08:10Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 517 $')
+__REV__ = filter(str.isdigit, '$Revision: 518 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -259,18 +259,50 @@ def getAddyArg(argaddy):
 					addyok = False
 					findaddy = 0
 		if not addyok:
-			am = dbg.getAllModules()
-			m = getModuleObj(part)
-			if not m == None:
-				partval = m.moduleBase
-				addyok = True
+			#am = dbg.getAllModules()
+			if not "!" in part:
+				m = getModuleObj(part)
+				if not m == None:
+					partval = m.moduleBase
+					addyok = True
+				else:
+					break
 			else:
-				break
+				# module.function ?
+				modparts = part.split("!")
+				modname = modparts[0]
+				funcname = modparts[1]
+				m = getFunctionAddress(modname,funcname)
+				if m > 0:
+					partval = m
+					addyok = True
+
 		if action == "" or action == "+":
 			findaddy += partval
 		elif action == "-":
 			findaddy -= partval
 	return findaddy,addyok
+
+
+def getFunctionAddress(modname,funcname):
+	"""
+	Returns the addres of the function inside a given module
+	Relies on EAT data
+	Returns 0 if nothing found
+	"""
+	funcaddy = 0
+	m = getModuleObj(modname)
+	if not m == None:
+		eatlist = m.getEAT()
+		for f in eatlist:
+			if funcname == eatlist[f]:
+				return f
+		for f in eatlist:
+			if funcname.lower() == eatlist[f].lower():
+				return f
+	return funcaddy
+
+
 
 
 def printDataArray(data,charsperline=16,prefix=""):
@@ -1103,7 +1135,7 @@ def getModuleObj(modname):
 	# Method 1
 	mod = dbg.getModule(modname)
 	if mod is not None:
-		return mod
+		return MnModule(modname)
 	# Method 2
 
 	suffixes = ["",".exe",".dll"]
@@ -1124,7 +1156,7 @@ def getModuleObj(modname):
 			tmod = dbg.getModule(tmod_s)
 			if not tmod == None:
 				if tmod.getName().lower() == modname_search.lower():
-					return tmod
+					return MnModule(tmod_s)
 				imname = dbg.getImageNameForModule(tmod.getName().lower())
 				if not imname == None:
 					if imname.lower() == modname_search.lower():
@@ -1137,8 +1169,6 @@ def getModuleObj(modname):
 				if tmod_s.lower() == modname_search.lower():
 					return MnModule(tmod_s)
 		
-
-
 	return None
 	
 		
@@ -11227,6 +11257,10 @@ def main(args):
 				dbg.log("    Section : %s" % section)
 			if rva != 0:
 				dbg.log("    Offset from module base: 0x%x" % rva)
+				if modinfo:
+					eatlist = modinfo.getEAT()
+					if address in eatlist:
+						dbg.log("    Address is start of function %s in %s" % (eatlist[address],modname))
 			if ptr.isOnStack():
 				stacks = getStacks()
 				stackref = ""
