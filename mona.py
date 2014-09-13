@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 521 $
-$Id: mona.py 521 2014-09-13 08:12:42Z corelanc0d3r $ 
+$Revision: 522 $
+$Id: mona.py 522 2014-09-13 22:24:37Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 521 $')
+__REV__ = filter(str.isdigit, '$Revision: 522 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -16318,12 +16318,16 @@ def main(args):
 			instructionparts = []
 			global silent
 			oldsilent = silent
+			regs = dbg.getRegs()
 			silent = True
 			if "a" in args:
 				if type(args["a"]).__name__.lower() != "bool":
 					addy,addyok = getAddyArg(args["a"])
 					if not addyok:
 						addyerror = True
+			else:
+				addy = regs["EIP"]
+
 			if "e" in args:
 				executenow = True
 
@@ -16349,7 +16353,7 @@ def main(args):
 			instructionparts = multiSplit(instruction,[" ",","])
 
 			usedregs = []
-			regs = dbg.getRegs()
+			
 			for reg in regs:
 				for ipart in instructionparts:
 					if reg.upper() in ipart.upper():
@@ -16384,7 +16388,7 @@ def main(args):
 			dbg.log("Updated %s" % thislog)
 			if executenow:
 				dbg.nativeCommand(bpsyntax)
-				dbg.log("Breakpoint set")
+				dbg.log("> Breakpoint set at 0x%08x" % addy)
 			return
 
 
