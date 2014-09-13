@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 520 $
-$Id: mona.py 520 2014-09-13 08:03:16Z corelanc0d3r $ 
+$Revision: 521 $
+$Id: mona.py 521 2014-09-13 08:12:42Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 520 $')
+__REV__ = filter(str.isdigit, '$Revision: 521 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -16310,7 +16310,7 @@ def main(args):
 			"""
 			addy = 0
 			addyerror = False
-
+			executenow = False
 			locsyntax = ""
 			regsyntax = ""
 			poisyntax = ""
@@ -16324,6 +16324,8 @@ def main(args):
 					addy,addyok = getAddyArg(args["a"])
 					if not addyok:
 						addyerror = True
+			if "e" in args:
+				executenow = True
 
 			if addyerror:
 				dbg.log(" *** Please provide a valid address with argument -a ***",highlight=1)
@@ -16380,6 +16382,9 @@ def main(args):
 			silent = oldsilent
 			dbg.log("%s" % bpsyntax)
 			dbg.log("Updated %s" % thislog)
+			if executenow:
+				dbg.nativeCommand(bpsyntax)
+				dbg.log("Breakpoint set")
 			return
 
 
@@ -17027,7 +17032,9 @@ Optional arguments:
 
 		tobpUsage = """Generate WinDBG syntax to set a logging breakpoint at a given location
 Arguments:
-    -a <address>      : Location (address, register) for logging breakpoint"""
+    -a <address>      : Location (address, register) for logging breakpoint
+Optional arguments:
+    -e                : Execute breakpoint command right away"""
 
 
 		commands["seh"] 			= MnCommand("seh", "Find pointers to assist with SEH overwrite exploits",sehUsage, procFindSEH)
