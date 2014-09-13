@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 519 $
-$Id: mona.py 519 2014-08-30 23:49:32Z corelanc0d3r $ 
+$Revision: 520 $
+$Id: mona.py 520 2014-09-13 08:03:16Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 519 $')
+__REV__ = filter(str.isdigit, '$Revision: 520 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -198,6 +198,25 @@ def DwordToBits(srcDword):
 	for bit in bits:
 		bit_array.append(int(bit))
 	return bit_array
+
+
+def multiSplit(thisarg,delimchars):
+	""" splits a string into an array, based on provided delimeters"""
+	splitparts = []
+	thispart = ""
+	for c in str(thisarg):
+		if c in delimchars:
+			thispart = thispart.replace(" ","")
+			if thispart != "":
+				splitparts.append(thispart)
+			splitparts.append(c)
+			thispart = ""
+		else:
+			thispart += c
+	if thispart != "":
+		splitparts.append(thispart)
+	return splitparts
+
 
 def getAddyArg(argaddy):
 	"""
@@ -16285,6 +16304,85 @@ def main(args):
 			return
 
 
+		def procToBp(args):
+			"""
+			Generate WinDBG syntax to create a logging breakpoint on a given location
+			"""
+			addy = 0
+			addyerror = False
+
+			locsyntax = ""
+			regsyntax = ""
+			poisyntax = ""
+			dmpsyntax = ""
+			instructionparts = []
+			global silent
+			oldsilent = silent
+			silent = True
+			if "a" in args:
+				if type(args["a"]).__name__.lower() != "bool":
+					addy,addyok = getAddyArg(args["a"])
+					if not addyok:
+						addyerror = True
+
+			if addyerror:
+				dbg.log(" *** Please provide a valid address with argument -a ***",highlight=1)
+				return
+
+			# get RVA for addy (or absolute address if addy is not part of a module)
+			bpdest = "0x%08x" % addy
+			instruction = ""
+			ptrx = MnPointer(addy)
+			modname = ptrx.belongsTo()
+			if not modname == "":
+				mod = MnModule(modname)
+				m = mod.moduleBase
+				rva = addy - m
+				bpdest = "%s+0x%02x" % (modname,rva)
+				thisopcode = dbg.disasm(addy)
+				instruction = thisopcode.getDisasm()
+
+			locsyntax = "bp %s" % bpdest
+
+			instructionparts = multiSplit(instruction,[" ",","])
+
+			usedregs = []
+			regs = dbg.getRegs()
+			for reg in regs:
+				for ipart in instructionparts:
+					if reg.upper() in ipart.upper():
+						usedregs.append(reg)
+
+			if len(usedregs) > 0:
+				regsyntax = 'u eip L 1;.printf \\"'
+				argsyntax = ""
+				
+				for ipart in instructionparts:
+					for reg in regs:
+						if reg.upper() in ipart.upper():
+							regsyntax += ipart
+							regsyntax += ": 0x%08x, "
+							if "[" in ipart:
+								argsyntax += "%s," % ipart.replace("[","poi(").replace("]",")")
+								dmpsyntax += ".echo;dds %s L 0x24/4;" % ipart.replace("[","poi(").replace("]",")")
+							else:
+								argsyntax += "%s," % ipart 
+				argsyntax = argsyntax.strip(",")
+				regsyntax = regsyntax.strip(", ")
+				regsyntax += '\\",%s;' % argsyntax
+
+			bpsyntax = locsyntax + ' ".echo ---------------;' + regsyntax + dmpsyntax + ".echo;g" + '"'
+			filename = "logbps.txt"
+			logfile = MnLog(filename)
+			thislog = logfile.reset(False,False)
+			with open(thislog, "a") as fh:
+				fh.write(bpsyntax + "\n")
+			silent = oldsilent
+			dbg.log("%s" % bpsyntax)
+			dbg.log("Updated %s" % thislog)
+			return
+
+
 		def procAllocMem(args):
 			size = 0x1000
 			addy = 0
@@ -16927,6 +17025,10 @@ Optional arguments:
     -l <number>       : Recursively dump objects
     -m <number>       : Size for recursive objects (default value: 0x28)""" 
 
+		tobpUsage = """Generate WinDBG syntax to set a logging breakpoint at a given location
+Arguments:
+    -a <address>      : Location (address, register) for logging breakpoint"""
+
 
 		commands["seh"] 			= MnCommand("seh", "Find pointers to assist with SEH overwrite exploits",sehUsage, procFindSEH)
 		commands["config"] 			= MnCommand("config","Manage configuration file (mona.ini)",configUsage,procConfig,"conf")
@@ -16977,7 +17079,8 @@ Optional arguments:
 			commands["dumpobj"]		= MnCommand("dumpobj","Dump the contents of an object",dumpobjUsage,procDumpObj,"do")
 			commands["dumplog"]     = MnCommand("dumplog","Dump objects present in alloc/free log file",dumplogUsage,procDumpLog,"dl")
 			commands["changeacl"]   = MnCommand("changeacl","Change the ACL of a given page",changeaclUsage,procChangeACL,"ca")
-			commands["allocmem"]		= MnCommand("allocmem","Allocate some memory in the process",allocmemUsage,procAllocMem,"alloc")
+			commands["allocmem"]	= MnCommand("allocmem","Allocate some memory in the process",allocmemUsage,procAllocMem,"alloc")
+			commands["tobp"]		= MnCommand("tobp","Generate WinDBG syntax to create a logging breakpoint at given location",tobpUsage,procToBp,"2bp")
 		commands["fwptr"]			= MnCommand("fwptr", "Find Writeable Pointers that get called", fwptrUsage, procFwptr, "fwp")
 		commands["sehchain"]		= MnCommand("sehchain","Show the current SEH chain",sehchainUsage,procSehChain,"exchain")
 		commands["hidedebug"]		= MnCommand("hidedebug","Attempt to hide the debugger",hidedebugUsage,procHideDebug,"hd")
