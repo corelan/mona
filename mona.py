@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 528 $
-$Id: mona.py 528 2014-09-14 08:56:26Z corelanc0d3r $ 
+$Revision: 529 $
+$Id: mona.py 529 2014-09-14 09:01:26Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 528 $')
+__REV__ = filter(str.isdigit, '$Revision: 529 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -16401,19 +16401,23 @@ def main(args):
 				for ipart in instructionparts:
 					for reg in regs:
 						if reg.upper() in ipart.upper():
-							regsyntax += ipart
-							regsyntax += ": 0x%08x, "
+
 							if "[" in ipart:
 								regsyntax += ipart.replace("[","").replace("]","")
 								regsyntax += ": 0x%08x, "
 
-								argsyntax += "%s," % ipart.replace("[","poi(").replace("]",")")
 								argsyntax += "%s," % ipart.replace("[","").replace("]","")
 
+								regsyntax += ipart
+								regsyntax += ": 0x%08x, "								
+
+								argsyntax += "%s," % ipart.replace("[","poi(").replace("]",")")
+								
 								iparttxt = ipart.replace("[","").replace("]","")
 								dmpsyntax += ".echo;.echo %s:;dds %s L 0x24/4;" % (iparttxt,iparttxt)
-
 							else:
+								regsyntax += ipart
+								regsyntax += ": 0x%08x, "								
 								argsyntax += "%s," % ipart 
 				argsyntax = argsyntax.strip(",")
 				regsyntax = regsyntax.strip(", ")
