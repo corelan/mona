@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 523 $
-$Id: mona.py 523 2014-09-14 07:16:53Z corelanc0d3r $ 
+$Revision: 524 $
+$Id: mona.py 524 2014-09-14 08:07:26Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 523 $')
+__REV__ = filter(str.isdigit, '$Revision: 524 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -4306,7 +4306,10 @@ class MnPointer:
 			try:
 				strdata = dbg.readString(addy)
 				if len(strdata) > 2:
-					locinfo = ["ptr_str","%sptr to ASCII '%s'" % (extra,strdata),"ascii"]
+					datastr = strdata
+					if len(strdata) > 80:
+						datastr = strdata[0:80] + "..."
+					locinfo = ["ptr_str","%sptr to ASCII (0x%02x) '%s'" % (extra,len(strdata),datastr),"ascii"]
 					return locinfo
 			except:
 				pass
@@ -4315,7 +4318,10 @@ class MnPointer:
 			try:
 				strdata = dbg.readWString(addy)
 				if len(strdata) > 2:
-					locinfo = ["ptr_str","%sptr to UNICODE '%s'" % (extra,strdata),"unicode"]
+					datastr = strdata
+					if len(strdata) > 80:
+						datastr = strdata[0:80] + "..."
+					locinfo = ["ptr_str","%sptr to UNICODE (0x%02x) '%s'" % (extra,len(strdata),datastr),"unicode"]
 					return locinfo
 			except:
 				pass
@@ -4325,6 +4331,35 @@ class MnPointer:
 			if not ptrf == "":
 				locinfo = ["ptr_func","%sptr to %s" % (extra,ptrf),str(addy)]
 				return locinfo
+
+
+			# BSTR Unicode ?
+			try:
+				bstr = struct.unpack('<L',dbg.readMemory(addy,4))[0]
+				strdata = dbg.readWString(addy+4)
+				if len(strdata) > 2 and (bstr == len(strdata)+1):
+					datastr = strdata
+					if len(strdata) > 80:
+						datastr = strdata[0:80] + "..."
+					locinfo = ["ptr_str","%sptr to BSTR UNICODE (0x%02x) '%s'" % (extra,bstr,datastr),"unicode"]
+					return locinfo
+			except:
+				pass
+
+
+			# pointer to a BSTR ASCII?
+			try:
+				strdata = dbg.readString(addy+4)
+				if len(strdata) > 2 and (bstr == len(strdata)/2):
+					datastr = strdata
+					if len(strdata) > 80:
+						datastr = strdata[0:80] + "..."
+					locinfo = ["ptr_str","%sptr to BSTR ASCII (0x%02x) '%s'" % (extra,bstr,datastr),"ascii"]
+					return locinfo
+			except:
+				pass
+
+
 
 		# pointer itself is a string ?
 		
