@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 525 $
-$Id: mona.py 525 2014-09-14 08:23:29Z corelanc0d3r $ 
+$Revision: 526 $
+$Id: mona.py 526 2014-09-14 08:28:19Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 525 $')
+__REV__ = filter(str.isdigit, '$Revision: 526 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -16395,7 +16395,7 @@ def main(args):
 						usedregs.append(reg)
 
 			if len(usedregs) > 0:
-				regsyntax = 'u eip L 1;.printf \\"'
+				regsyntax = '.printf \\"'
 				argsyntax = ""
 				
 				for ipart in instructionparts:
@@ -16411,7 +16411,7 @@ def main(args):
 								argsyntax += "%s," % ipart.replace("[","").replace("]","")
 
 								iparttxt = ipart.replace("[","").replace("]","")
-								dmpsyntax += ".echo;.echo %s;.echo;dds %s L 0x24/4;" % (iparttxt,iparttxt)
+								dmpsyntax += ".echo;.echo %s:;dds %s L 0x24/4;" % (iparttxt,iparttxt)
 
 							else:
 								argsyntax += "%s," % ipart 
@@ -16419,7 +16419,7 @@ def main(args):
 				regsyntax = regsyntax.strip(", ")
 				regsyntax += '\\",%s;' % argsyntax
 
-			bpsyntax = locsyntax + ' ".echo ---------------;' + regsyntax + dmpsyntax + ".echo;g" + '"'
+			bpsyntax = locsyntax + ' ".echo ---------------;u eip L 1;' + regsyntax + dmpsyntax + ".echo;g" + '"'
 			filename = "logbps.txt"
 			logfile = MnLog(filename)
 			thislog = logfile.reset(False,False)
