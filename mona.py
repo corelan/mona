@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 526 $
-$Id: mona.py 526 2014-09-14 08:28:19Z corelanc0d3r $ 
+$Revision: 527 $
+$Id: mona.py 527 2014-09-14 08:53:50Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 526 $')
+__REV__ = filter(str.isdigit, '$Revision: 527 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -16418,6 +16418,9 @@ def main(args):
 				argsyntax = argsyntax.strip(",")
 				regsyntax = regsyntax.strip(", ")
 				regsyntax += '\\",%s;' % argsyntax
+
+			if "CALL" in instruction.upper():
+				dmpsyntax += '.echo;.printf \\"Stack (esp: 0x%08x):\\",esp;.echo;dds esp L 0x4'
 
 			bpsyntax = locsyntax + ' ".echo ---------------;u eip L 1;' + regsyntax + dmpsyntax + ".echo;g" + '"'
 			filename = "logbps.txt"
