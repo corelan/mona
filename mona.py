@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 522 $
-$Id: mona.py 522 2014-09-13 22:24:37Z corelanc0d3r $ 
+$Revision: 523 $
+$Id: mona.py 523 2014-09-14 07:16:53Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 522 $')
+__REV__ = filter(str.isdigit, '$Revision: 523 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -7227,7 +7227,7 @@ def compareFileWithMemory(filename,startpos,skipmodules=False):
 					if not skipmodules or (skipmodules and (ptrinfo in ["Heap","Stack","??"])):
 						locations.append(ptr)
 		else:
-			startpos_fixed = hexStrToInt(startpos)
+			startpos_fixed = startpos
 			locations.append(startpos_fixed)
 		if len(locations) > 0:
 			dbg.log("    - Comparing %d location(s)" % (len(locations)))
