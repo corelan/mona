@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 529 $
-$Id: mona.py 529 2014-09-14 09:01:26Z corelanc0d3r $ 
+$Revision: 530 $
+$Id: mona.py 530 2014-09-20 22:02:48Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 529 $')
+__REV__ = filter(str.isdigit, '$Revision: 530 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -1328,6 +1328,23 @@ def haveRepetition(string, pos):
 			return True
 	return False
 
+
+def findAllPaths(graph,start_vertex,end_vertex,path=[]):
+	path = path + [start_vertex]
+	if start_vertex == end_vertex:
+		return [path]
+	if start_vertex not in graph:
+		return []
+	paths = []
+	for vertex in graph[start_vertex]:
+		if vertex not in path:
+			extended_paths = findAllPaths(graph,vertex,end_vertex,path)
+			for p in extended_paths:
+				paths.append(p)
+	return paths
+
+
+
 def isAsciiString(data):
 	"""
 	Check if a given string only contains ascii characters
@@ -2198,7 +2215,40 @@ class MnLog:
 			pass
 		return True
 	
-	
+
+#---------------------------------------#
+#  Simple Queue class                   #
+#---------------------------------------#
+class MnQueue:
+	"""
+	Simple queue class
+	"""
+	def __init__(self):
+		self.holder = []
+		
+	def enqueue(self,val):
+		self.holder.append(val)
+		
+	def dequeue(self):
+		val = None
+		try:
+			val = self.holder[0]
+			if len(self.holder) == 1:
+				self.holder = []
+			else:
+				self.holder = self.holder[1:]	
+		except:
+			pass
+			
+		return val	
+		
+	def IsEmpty(self):
+		result = False
+		if len(self.holder) == 0:
+			result = True
+		return result	
+
+
 #---------------------------------------#
 #  Class to access module properties    #
 #---------------------------------------#
@@ -16301,6 +16351,293 @@ def main(args):
 			return
 
 
+		def procTaint(args):
+
+			srplist = []
+			endlist = []
+			cregs = []
+			cregsc = []
+			endloc = 0
+			rellist = {}
+			branchstarts = {}
+			maxinstr = 40
+			maxcalllevel = 3
+			instrcnt = 0
+			regs = dbg.getRegs()
+			addy = regs["EIP"]
+			addyerror = False
+			eaddy = 0
+
+			if "cl" in args:
+				if type(args["cl"]).__name__.lower() != "bool":
+					try:
+						maxcalllevel = int(args["cl"])
+					except:
+						pass
+
+			if "cr" in args:
+				if type(args["cr"]).__name__.lower() != "bool":
+					crdata = args["cr"]
+					crdata = crdata.replace("'","").replace('"',"").replace(" ","")
+					crlist = crdata.split(",")
+					for c in crlist:
+						c1 = c.upper()
+						if c1 in regs:
+							cregs.append(c1)
+							if c1 == "EAX":
+								cregs.append("AX")
+								c1 = "AX"
+							if c1 == "AX":
+								cregs.append("AL")
+								cregs.append("AH")
+							if c1 == "EBX":
+								cregs.append("BX")
+								c1 = "BX"
+							if c1 == "BX":
+								cregs.append("BL")
+								cregs.append("BH")
+							if c1 == "CAX":
+								cregs.append("CX")
+								c1 = "CX"
+							if c1 == "CX":
+								cregs.append("CL")
+								cregs.append("CH")
+							if c1 == "EDX":
+								cregs.append("DX")
+								c1 = "DX"
+							if c1 == "DX":
+								cregs.append("DL")
+								cregs.append("DH")
+
+
+			if "crc" in args:
+				if type(args["crc"]).__name__.lower() != "bool":
+					crdata = args["crc"]
+					crdata = crdata.replace("'","").replace('"',"").replace(" ","")
+					crlist = crdata.split(",")
+					for c in crlist:
+						c1 = c.upper()
+						if c1 in regs:
+							cregsc.append(c1)
+							if c1 == "EAX":
+								cregsc.append("AX")
+								c1 = "AX"
+							if c1 == "AX":
+								cregsc.append("AL")
+								cregsc.append("AH")
+							if c1 == "EBX":
+								cregsc.append("BX")
+								c1 = "BX"
+							if c1 == "BX":
+								cregsc.append("BL")
+								cregsc.append("BH")
+							if c1 == "CAX":
+								cregsc.append("CX")
+								c1 = "CX"
+							if c1 == "CX":
+								cregsc.append("CL")
+								cregsc.append("CH")
+							if c1 == "EDX":
+								cregsc.append("DX")
+								c1 = "DX"
+							if c1 == "DX":
+								cregsc.append("DL")
+								cregsc.append("DH")
+
+			cregs = list(set(cregs))
+			cregsc = list(set(cregsc))
+
+			if "n" in args:
+				if type(args["n"]).__name__.lower() != "bool":
+					try:
+						maxinstr = int(args["n"])
+					except:
+						pass	
+
+			if "a" in args:
+				if type(args["a"]).__name__.lower() != "bool":
+					addy,addyok = getAddyArg(args["a"])
+					if not addyok:		
+						dbg.log(" ** Please provide a valid start location with argument -a **")
+						return
+
+			if "e" in args:
+				if type(args["e"]).__name__.lower() != "bool":
+					eaddy,eaddyok = getAddyArg(args["e"])
+					if not eaddyok:
+						dbg.log(" ** Please provide a valid end location with argument -e **")
+						return										
+
+
+			dbg.log("[+] Max nr of instructions per branch: %d" % maxinstr)
+			dbg.log("[+] Maximum CALL level: %d" % maxcalllevel)
+			if eaddy > 0:
+				dbg.log("[+] Searching all possible paths between 0x%08x and 0x%08x" % (addy,eaddy))
+			else:
+				dbg.log("[+] Searching all possible paths from 0x%08x" % (addy))
+			if len(cregs) > 0:
+				dbg.log("[+] Controlled registers: %s" % cregs)
+			if len(cregsc) > 0:
+				dbg.log("[+] Controlled register contents: %s" % cregsc)
+
+			# first, get SRPs at this point
+			if addy == regs["EIP"]:
+				cmd2run = "k"
+				srpdata = dbg.nativeCommand(cmd2run)
+				for line in srpdata.split("\n"):
+					linedata = line.split(" ")
+					if len(linedata) > 1:
+						childebp = linedata[0]
+						srp = linedata[1]
+						if isAddress(childebp) and isAddress(srp):
+							srplist.append(hexStrToInt(srp))
+
+			branchstarts[addy] = [0,srplist,0]
+			curlocs = [addy]
+
+			# create relations
+			while len(curlocs) > 0:
+				curloc = curlocs.pop(0)
+				#dbg.log("New start location: 0x%08x" % curloc)
+				prevloc = curloc
+				instrcnt = branchstarts[curloc][0]
+				srplist = branchstarts[curloc][1]
+				currcalllevel = branchstarts[curloc][2]
+				while instrcnt < maxinstr:
+					beforeloc = prevloc
+					prevloc = curloc
+					try:
+						thisopcode = dbg.disasm(curloc)
+						instruction = thisopcode.getDisasm()				
+						instructionbytes = thisopcode.getBytes()
+						instructionsize = thisopcode.opsize
+						opupper = instruction.upper()
+						if opupper.startswith("RET"): 
+							if currcalllevel > 0:
+								currcalllevel -= 1
+							if len(srplist) > 0:
+								newloc = srplist.pop(0)
+								rellist[curloc] = [newloc]
+								curloc = newloc
+							else:
+								break
+						elif opupper.startswith("JMP"):
+							if "(" in opupper and ")" in opupper:
+								ipartsa = opupper.split(")")
+								ipartsb = ipartsa[0].split("(")
+								if len(ipartsb) > 0:
+									jmptarget = ipartsb[1]
+									if isAddress(jmptarget):
+										newloc = hexStrToInt(jmptarget)
+										rellist[curloc] = [newloc]
+										curloc = newloc
+						elif opupper.startswith("J"):
+							if "(" in opupper and ")" in opupper:
+								ipartsa = opupper.split(")")
+								ipartsb = ipartsa[0].split("(")
+								if len(ipartsb) > 0:
+									jmptarget = ipartsb[1]
+									if isAddress(jmptarget):
+										newloc = hexStrToInt(jmptarget)
+										if not newloc in curlocs:
+											curlocs.append(newloc)
+										branchstarts[newloc] = [instrcnt,srplist,currcalllevel]
+										newloc2 = prevloc + instructionsize
+										rellist[curloc] = [newloc,newloc2]
+										curloc = newloc2
+										#dbg.log("    Added 0x%08x as alternative branch start" % newloc)
+						elif opupper.startswith("CALL"):
+							
+							if ("(" in opupper and ")" in opupper) and currcalllevel < maxcalllevel:
+								ipartsa = opupper.split(")")
+								ipartsb = ipartsa[0].split("(")
+								if len(ipartsb) > 0:
+									jmptarget = ipartsb[1]
+									if isAddress(jmptarget):
+										newloc = hexStrToInt(jmptarget)
+										rellist[curloc] = [newloc]
+										curloc = newloc
+								newretptr = prevloc + instructionsize
+								srplist.insert(0,newretptr)
+								currcalllevel += 1
+							else:
+								# don't follow the call
+								newloc = curloc+instructionsize
+								rellist[curloc] = [newloc]
+								curloc = newloc
+						else:
+							curloc += instructionsize
+							rellist[prevloc] = [curloc]
+					except:
+						#dbg.log("Unable to disasm at 0x%08x, past: 0x%08x" % (curloc,beforeloc))
+						if not beforeloc in endlist:
+							endlist.append(beforeloc)
+						instrcnt = maxinstr
+						break
+					#dbg.log("%d 0x%08x : %s  -> 0x%08x" % (instrcnt,prevloc,instruction,curloc))
+					instrcnt += 1
+				if not curloc in endlist:
+					endlist.append(curloc)
+
+
+			if eaddy > 0:
+				if eaddy in rellist:
+					endlist = [eaddy]
+				else:
+					dbg.log(" ** Unable to reach 0x%08x ** " % eaddy)
+					return
+
+			for endaddy in endlist:
+				allpaths = findAllPaths(rellist,addy,endaddy)
+				if len(allpaths) == 0:
+					dbg.log(" *** No paths from 0x%08x to 0x%08x *** " % (addy,endaddy))
+				for p in allpaths:
+					dbg.log("[ path from 0x%08x to 0x%08x (%d instructions) ]" % (addy,endaddy,len(p)))
+					for thisaddy in p:
+						thisopcode = dbg.disasm(thisaddy)
+						instruction = thisopcode.getDisasm()
+						clist = []
+						clistc = []
+						for c in cregs:
+							combins = []
+							combins.append(" %s" % c)
+							combins.append("[%s" % c)
+							combins.append(",%s" % c)
+							combins.append("%s]" % c)
+							combins.append("%s-" % c)
+							combins.append("%s+" % c)
+							combins.append("-%s" % c)
+							combins.append("+%s" % c)
+							for comb in combins:
+								if comb in instruction and not c in clist:
+									clist.append(c)
+
+						for c in cregsc:
+							combins = []
+							combins.append(" %s" % c)
+							combins.append("[%s" % c)
+							combins.append(",%s" % c)
+							combins.append("%s]" % c)
+							combins.append("%s-" % c)
+							combins.append("%s+" % c)
+							combins.append("-%s" % c)
+							combins.append("+%s" % c)
+							for comb in combins:
+								if comb in instruction and not c in clistc:
+									clistc.append(c)
+						extra = ""
+						if len(clist) > 0:
+							extra += " // Control: %s" % clist
+						if len(clistc) > 0:
+							extra += " // Control contents: %s" % clistc
+						dbg.log("0x%08x : %s  %s" % (thisaddy,instruction,extra))
+
+						# determine impact of instruction to controlled registers
+
+					dbg.log("")	
+			return
+
+
 		def procChangeACL(args):
 			size = 1
 			addy = 0
@@ -17089,6 +17426,9 @@ Arguments:
 Optional arguments:
     -e                : Execute breakpoint command right away"""
 
+		taintUsage = """Simulates execution flows, tries all conditional jump combinations
+and keeps track of tainted registers"""
+
 
 		commands["seh"] 			= MnCommand("seh", "Find pointers to assist with SEH overwrite exploits",sehUsage, procFindSEH)
 		commands["config"] 			= MnCommand("config","Manage configuration file (mona.ini)",configUsage,procConfig,"conf")
@@ -17141,6 +17481,7 @@ Optional arguments:
 			commands["changeacl"]   = MnCommand("changeacl","Change the ACL of a given page",changeaclUsage,procChangeACL,"ca")
 			commands["allocmem"]	= MnCommand("allocmem","Allocate some memory in the process",allocmemUsage,procAllocMem,"alloc")
 			commands["tobp"]		= MnCommand("tobp","Generate WinDBG syntax to create a logging breakpoint at given location",tobpUsage,procToBp,"2bp")
+			commands["taint"]		= MnCommand("taint","Simulate execution flows, including all branch combinations, trace tainted regs",taintUsage,procTaint,"tnt")
 		commands["fwptr"]			= MnCommand("fwptr", "Find Writeable Pointers that get called", fwptrUsage, procFwptr, "fwp")
 		commands["sehchain"]		= MnCommand("sehchain","Show the current SEH chain",sehchainUsage,procSehChain,"exchain")
 		commands["hidedebug"]		= MnCommand("hidedebug","Attempt to hide the debugger",hidedebugUsage,procHideDebug,"hd")
