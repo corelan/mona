@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 530 $
-$Id: mona.py 530 2014-09-20 22:02:48Z corelanc0d3r $ 
+$Revision: 531 $
+$Id: mona.py 531 2014-09-21 07:38:43Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 530 $')
+__REV__ = filter(str.isdigit, '$Revision: 531 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -96,6 +96,8 @@ from collections import defaultdict, namedtuple
 
 import cProfile
 import pstats
+
+import copy
 
 DESC = "Corelan Team exploit development swiss army knife"
 
@@ -782,7 +784,125 @@ def toJavaScript(input):
 	javascriptversion = str2js(allbytes)			
 	return javascriptversion
 	
+
+def getSourceDest(instruction):
+	"""
+	Determines source and destination register for a given instruction
+	"""
+	src = []
+	dst = []
+	srcp = []
+	dstp = []
+	srco = []
+	dsto = []
+	instr = []
+	haveboth = False
+	seensep = False
+	seeninstr = False
+
+	regs = getAllRegs()
+
+	instructionparts = multiSplit(instruction,[" ",","])
 	
+	if "," in instructionparts:
+		haveboth = True
+
+	delkeys = ["DWORD","PTR","BYTE"]
+
+	for d in delkeys:
+		if d in instructionparts:
+			instructionparts.remove(d)
+
+
+	for p in instructionparts:
+
+		regfound = False
+		for r in regs:
+			if r.upper() in p.upper() and not "!" in p and not len(instr) == 0:
+				regfound = True
+				seeninstr = True
+				break
+
+		if not regfound:
+			if not seeninstr and not seensep:
+				instr.append(p) 
+		
+			if "," in p:
+				seensep = True
+		else:
+			for r in regs:
+				if r.upper() in p.upper():
+					if not seensep or not haveboth:
+						dstp.append(p)
+						if not r in dsto:
+							dsto.append(r)
+							break
+					else:
+						srcp.append(p)
+						if not r in srco:
+							srco.append(r)
+							break
+
+	#dbg.log("dst: %s" % dsto)
+	#dbg.log("src: %s" % srco)
+	src = srcp
+	dst = dstp
+	return src,dst
+
+	
+
+def getAllRegs():
+	"""
+	Return an array with all 32bit, 16bit and 8bit registers
+	"""
+	regs = ["EAX","EBX","ECX","EDX","ESP","EBP","ESI","EDI","EIP"]
+	regs.append("AX")
+	regs.append("BX")
+	regs.append("CX")
+	regs.append("DX")
+	regs.append("BP")
+	regs.append("SP")
+	regs.append("SI")
+	regs.append("DI")
+	regs.append("AL")
+	regs.append("AH")
+	regs.append("BL")
+	regs.append("BH")
+	regs.append("CL")
+	regs.append("CH")
+	regs.append("DL")
+	regs.append("DH")
+	return regs
+
+def getSmallerRegs(reg):
+	if reg == "EAX":
+		return ["AX","AL","AH"]
+	if reg == "AX":
+		return ["AL","AH"]
+	if reg == "EBX":
+		return ["BX","BL","BH"]
+	if reg == "BX":
+		return ["BL","BH"]
+	if reg == "ECX":
+		return ["CX","CL","CH"]
+	if reg == "CX":
+		return ["CL","CH"]
+	if reg == "EDX":
+		return ["DX","DL","DH"]
+	if reg == "DX":
+		return ["DL","DH"]
+	if reg == "ESP":
+		return ["SP"]
+	if reg == "EBP":
+		return ["BP"]
+	if reg == "ESI":
+		return ["SI"]
+	if reg == "EDI":
+		return ["DI"]
+
+	return []
+
+
 def isReg(reg):
 	"""
 	Checks if a given string is a valid reg
@@ -16364,6 +16484,7 @@ def main(args):
 			maxcalllevel = 3
 			instrcnt = 0
 			regs = dbg.getRegs()
+			aregs = getAllRegs()
 			addy = regs["EIP"]
 			addyerror = False
 			eaddy = 0
@@ -16382,33 +16503,11 @@ def main(args):
 					crlist = crdata.split(",")
 					for c in crlist:
 						c1 = c.upper()
-						if c1 in regs:
+						if c1 in aregs:
 							cregs.append(c1)
-							if c1 == "EAX":
-								cregs.append("AX")
-								c1 = "AX"
-							if c1 == "AX":
-								cregs.append("AL")
-								cregs.append("AH")
-							if c1 == "EBX":
-								cregs.append("BX")
-								c1 = "BX"
-							if c1 == "BX":
-								cregs.append("BL")
-								cregs.append("BH")
-							if c1 == "CAX":
-								cregs.append("CX")
-								c1 = "CX"
-							if c1 == "CX":
-								cregs.append("CL")
-								cregs.append("CH")
-							if c1 == "EDX":
-								cregs.append("DX")
-								c1 = "DX"
-							if c1 == "DX":
-								cregs.append("DL")
-								cregs.append("DH")
-
+							csmall = getSmallerRegs(c1)
+							for cs in csmall:
+								cregs.append(cs)
 
 			if "crc" in args:
 				if type(args["crc"]).__name__.lower() != "bool":
@@ -16417,32 +16516,11 @@ def main(args):
 					crlist = crdata.split(",")
 					for c in crlist:
 						c1 = c.upper()
-						if c1 in regs:
+						if c1 in aregs:
 							cregsc.append(c1)
-							if c1 == "EAX":
-								cregsc.append("AX")
-								c1 = "AX"
-							if c1 == "AX":
-								cregsc.append("AL")
-								cregsc.append("AH")
-							if c1 == "EBX":
-								cregsc.append("BX")
-								c1 = "BX"
-							if c1 == "BX":
-								cregsc.append("BL")
-								cregsc.append("BH")
-							if c1 == "CAX":
-								cregsc.append("CX")
-								c1 = "CX"
-							if c1 == "CX":
-								cregsc.append("CL")
-								cregsc.append("CH")
-							if c1 == "EDX":
-								cregsc.append("DX")
-								c1 = "DX"
-							if c1 == "DX":
-								cregsc.append("DL")
-								cregsc.append("DH")
+							csmall = getSmallerRegs(c1)
+							for cs in csmall:
+								cregsc.append(cs)
 
 			cregs = list(set(cregs))
 			cregsc = list(set(cregsc))
@@ -16585,6 +16663,7 @@ def main(args):
 					endlist = [eaddy]
 				else:
 					dbg.log(" ** Unable to reach 0x%08x ** " % eaddy)
+					dbg.log("    Try increasing max nr of instructions with parameter -n")
 					return
 
 			for endaddy in endlist:
@@ -16593,12 +16672,18 @@ def main(args):
 					dbg.log(" *** No paths from 0x%08x to 0x%08x *** " % (addy,endaddy))
 				for p in allpaths:
 					dbg.log("[ path from 0x%08x to 0x%08x (%d instructions) ]" % (addy,endaddy,len(p)))
+					cregsb = []
+					for c in cregs:
+						cregsb.append(c)
+					cregscb = []
+					for c in cregsc:
+						cregscb.append(c)
 					for thisaddy in p:
 						thisopcode = dbg.disasm(thisaddy)
 						instruction = thisopcode.getDisasm()
 						clist = []
 						clistc = []
-						for c in cregs:
+						for c in cregsb:
 							combins = []
 							combins.append(" %s" % c)
 							combins.append("[%s" % c)
@@ -16612,7 +16697,7 @@ def main(args):
 								if comb in instruction and not c in clist:
 									clist.append(c)
 
-						for c in cregsc:
+						for c in cregscb:
 							combins = []
 							combins.append(" %s" % c)
 							combins.append("[%s" % c)
@@ -16625,14 +16710,63 @@ def main(args):
 							for comb in combins:
 								if comb in instruction and not c in clistc:
 									clistc.append(c)
-						extra = ""
-						if len(clist) > 0:
-							extra += " // Control: %s" % clist
-						if len(clistc) > 0:
-							extra += " // Control contents: %s" % clistc
-						dbg.log("0x%08x : %s  %s" % (thisaddy,instruction,extra))
+						#extra = ""
+						#if len(clist) > 0:
+						#	extra += " // reg: %s" % clist
+						#if len(clistc) > 0:
+						#	extra += " // contents: %s" % clistc
 
 						# determine impact of instruction to controlled registers
+						rsrc,rdst = getSourceDest(instruction)
+
+						csource = False
+						cdest = False
+
+						if rsrc in cregsb or rsrc in cregscb:
+							csource = True
+						if rdst in cregsb or rdst in cregscb:
+							cdest = True
+
+						destructregs = ["MOV","XOR","OR"]
+						writeregs = ["INC","DEC","AND"]
+
+
+						ocregsb = copy.copy(cregsb)
+
+						if not instruction.startswith("TEST") and not instruction.startswith("CMP"):
+							for d in destructregs:
+								if instruction.startswith(d):
+									sourcefound = False
+									sourcereg = ""
+									destfound = False
+									destreg = ""
+
+									for s in clist:
+										for sr in rsrc:
+											if s in sr and not sourcefound:
+												sourcefound = True
+												sourcereg = s
+										for sr in rdst:
+											if s in sr and not destfound:
+												destfound = True
+												destreg = s
+
+									if sourcefound and destfound:
+										if not destreg in cregsb:
+											cregsb.append(destreg)
+									if destfound and not sourcefound:
+										sregs = getSmallerRegs(destreg)
+										if destreg in cregsb:
+											cregsb.remove(destreg)
+										for s in sregs:
+											if s in cregsb:
+												cregsb.remove(s)
+									break
+
+						dbg.log("0x%08x : %s" % (thisaddy,instruction))
+						if cmp(ocregsb,cregsb) == -1:
+							dbg.log("    Before: %s" % ocregsb)
+							dbg.log("    After : %s" % cregsb)
 
 					dbg.log("")	
 			return
