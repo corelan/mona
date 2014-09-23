@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 533 $
-$Id: mona.py 533 2014-09-23 12:08:01Z corelanc0d3r $ 
+$Revision: 534 $
+$Id: mona.py 534 2014-09-23 12:10:55Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 533 $')
+__REV__ = filter(str.isdigit, '$Revision: 534 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -16674,11 +16674,13 @@ def main(args):
 
 			dbg.log("[+] Processing %d endings" % len(endlist))
 			for endaddy in endlist:
-				dbg.log("[+] Ending: 0x%08x" % endaddy)
+
 				allpaths = findAllPaths(rellist,addy,endaddy)
 				if len(allpaths) == 0:
 					dbg.log("    *** No paths from 0x%08x to 0x%08x *** " % (addy,endaddy))
-					return
+					continue
+				
+				dbg.log("[+] Ending: 0x%08x" % endaddy)
 
 				for p in allpaths:
 					logl = "Path from 0x%08x to 0x%08x (%d instructions) :" % (addy,endaddy,len(p))
