@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 535 $
-$Id: mona.py 535 2014-09-23 12:41:52Z corelanc0d3r $ 
+$Revision: 536 $
+$Id: mona.py 536 2014-09-23 12:49:22Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 535 $')
+__REV__ = filter(str.isdigit, '$Revision: 536 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -16503,6 +16503,7 @@ def main(args):
 			cregsc = []
 			endloc = 0
 			rellist = {}
+			funcnamecache = {}
 			branchstarts = {}
 			maxinstr = 60
 			maxcalllevel = 3
@@ -16512,6 +16513,7 @@ def main(args):
 			addy = regs["EIP"]
 			addyerror = False
 			eaddy = 0
+			showfuncposition = False
 
 			if "cl" in args:
 				if type(args["cl"]).__name__.lower() != "bool":
@@ -16555,6 +16557,9 @@ def main(args):
 						maxinstr = int(args["n"])
 					except:
 						pass	
+
+			if "pos" in args:
+				showfuncposition = True
 
 			if "a" in args:
 				if type(args["a"]).__name__.lower() != "bool":
@@ -16724,15 +16729,20 @@ def main(args):
 					foffset = ""
 					previnstruction = ""
 					for thisaddy in p:
-
-						if previnstruction == "" or previnstruction.startswith("RET") or previnstruction.startswith("J") or previnstruction.startswith("CALL"):
-							fname,foffset = getFunctionName(thisaddy)
-							if fname != prevfname:
-								prevfname = fname
-								locname = fname
-								if foffset != "":
-									locname += "+%s" % foffset
-								logfile.write("#--- %s ---" % locname,thislog)
+						if showfuncposition:
+							if previnstruction == "" or previnstruction.startswith("RET") or previnstruction.startswith("J") or previnstruction.startswith("CALL"):
+								if not thisaddy in funcnamecache:
+									fname,foffset = getFunctionName(thisaddy)
+									funcnamecache[thisaddy] = [fname,foffset]
+								else:
+									fname = funcnamecache[thisaddy][0]
+									foffset = funcnamecache[thisaddy][0]
+								if fname != prevfname:
+									prevfname = fname
+									locname = fname
+									if foffset != "":
+										locname += "+%s" % foffset
+									logfile.write("#--- %s ---" % locname,thislog)
 								#dbg.log("%s" % locname)
 
 						thisopcode = dbg.disasm(thisaddy)
@@ -17618,7 +17628,8 @@ Optional arguments:
 Optional arguments:
     -e <address>      : Show execution flows that will reach specified address
     -n <nr>           : Max nr of instructions, default: 60
-    -cl <nr>          : Max level of CALL to follow in detail, default: 3"""
+    -cl <nr>          : Max level of CALL to follow in detail, default: 3
+    -func             : Show function names (slows down process)."""
 
 
 		commands["seh"] 			= MnCommand("seh", "Find pointers to assist with SEH overwrite exploits",sehUsage, procFindSEH)
