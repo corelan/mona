@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 532 $
-$Id: mona.py 532 2014-09-23 10:49:47Z corelanc0d3r $ 
+$Revision: 533 $
+$Id: mona.py 533 2014-09-23 12:08:01Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 532 $')
+__REV__ = filter(str.isdigit, '$Revision: 533 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -16672,10 +16672,12 @@ def main(args):
 			logfile = MnLog(filename)
 			thislog = logfile.reset()
 
+			dbg.log("[+] Processing %d endings" % len(endlist))
 			for endaddy in endlist:
+				dbg.log("[+] Ending: 0x%08x" % endaddy)
 				allpaths = findAllPaths(rellist,addy,endaddy)
 				if len(allpaths) == 0:
-					dbg.log(" *** No paths from 0x%08x to 0x%08x *** " % (addy,endaddy))
+					dbg.log("    *** No paths from 0x%08x to 0x%08x *** " % (addy,endaddy))
 					return
 
 				for p in allpaths:
@@ -16683,7 +16685,7 @@ def main(args):
 					logfile.write("\n",thislog)
 					logfile.write(logl,thislog)
 					logfile.write("-" * len(logl),thislog)
-					dbg.log("[+] Simulating path from 0x%08x to 0x%08x (%d instructions)" % (addy,endaddy,len(p)))
+					dbg.log("    > Simulating path from 0x%08x to 0x%08x (%d instructions)" % (addy,endaddy,len(p)))
 					cregsb = []
 					for c in cregs:
 						cregsb.append(c)
