@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 534 $
-$Id: mona.py 534 2014-09-23 12:10:55Z corelanc0d3r $ 
+$Revision: 535 $
+$Id: mona.py 535 2014-09-23 12:41:52Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 534 $')
+__REV__ = filter(str.isdigit, '$Revision: 535 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -349,7 +349,31 @@ def getFunctionAddress(modname,funcname):
 				return f
 	return funcaddy
 
-
+def getFunctionName(addy):
+	"""
+	Returns symbol name closest to the specified address
+	Only works in WinDBG
+	Returns function name and optional offset
+	"""
+	fname = ""
+	foffset = ""
+	cmd2run = "ln 0x%08x" % addy
+	output = dbg.nativeCommand(cmd2run)
+	for line in output.split("\n"):
+		if "|" in line:
+			lineparts = line.split(" ")
+			partcnt = 0
+			for p in lineparts:
+				if not p == "":
+					if partcnt == 1:
+						fname = p
+						break
+					partcnt += 1
+	if "+" in fname:
+		fnameparts = fname.split("+")
+		if len(fnameparts) > 1:
+			return fnameparts[0],fnameparts[1]
+	return fname,foffset
 
 
 def printDataArray(data,charsperline=16,prefix=""):
@@ -16677,9 +16701,9 @@ def main(args):
 
 				allpaths = findAllPaths(rellist,addy,endaddy)
 				if len(allpaths) == 0:
-					dbg.log("    *** No paths from 0x%08x to 0x%08x *** " % (addy,endaddy))
+					#dbg.log("    *** No paths from 0x%08x to 0x%08x *** " % (addy,endaddy))
 					continue
-				
+
 				dbg.log("[+] Ending: 0x%08x" % endaddy)
 
 				for p in allpaths:
@@ -16694,9 +16718,26 @@ def main(args):
 					cregscb = []
 					for c in cregsc:
 						cregscb.append(c)
+
+					prevfname = ""
+					fname = ""
+					foffset = ""
+					previnstruction = ""
 					for thisaddy in p:
+
+						if previnstruction == "" or previnstruction.startswith("RET") or previnstruction.startswith("J") or previnstruction.startswith("CALL"):
+							fname,foffset = getFunctionName(thisaddy)
+							if fname != prevfname:
+								prevfname = fname
+								locname = fname
+								if foffset != "":
+									locname += "+%s" % foffset
+								logfile.write("#--- %s ---" % locname,thislog)
+								#dbg.log("%s" % locname)
+
 						thisopcode = dbg.disasm(thisaddy)
 						instruction = thisopcode.getDisasm()
+						previnstruction = instruction
 						clist = []
 						clistc = []
 						for c in cregsb:
