@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 537 $
-$Id: mona.py 537 2014-09-23 12:55:22Z corelanc0d3r $ 
+$Revision: 538 $
+$Id: mona.py 538 2014-09-23 12:59:27Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 537 $')
+__REV__ = filter(str.isdigit, '$Revision: 538 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -16736,7 +16736,7 @@ def main(args):
 									funcnamecache[thisaddy] = [fname,foffset]
 								else:
 									fname = funcnamecache[thisaddy][0]
-									foffset = funcnamecache[thisaddy][0]
+									foffset = funcnamecache[thisaddy][1]
 								if fname != prevfname:
 									prevfname = fname
 									locname = fname
