@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 531 $
-$Id: mona.py 531 2014-09-21 07:38:43Z corelanc0d3r $ 
+$Revision: 532 $
+$Id: mona.py 532 2014-09-23 10:49:47Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 531 $')
+__REV__ = filter(str.isdigit, '$Revision: 532 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -13631,7 +13631,7 @@ def main(args):
 
 					if searchtype == "lfh" or (searchtype == "all" and win7mode):
 						dbg.log("[+] FrontEnd Allocator : Low Fragmentation Heap")
-						dbg.log("     ** Not implemented yet, stay tuned **")
+						dbg.log("     ** Not implemented yet **")
 						
 					if searchtype == "freelist" or (searchtype == "all" and not win7mode):
 						flindex = 0
@@ -16471,7 +16471,7 @@ def main(args):
 			return
 
 
-		def procTaint(args):
+		def procFlow(args):
 
 			srplist = []
 			endlist = []
@@ -16480,7 +16480,7 @@ def main(args):
 			endloc = 0
 			rellist = {}
 			branchstarts = {}
-			maxinstr = 40
+			maxinstr = 60
 			maxcalllevel = 3
 			instrcnt = 0
 			regs = dbg.getRegs()
@@ -16657,21 +16657,33 @@ def main(args):
 				if not curloc in endlist:
 					endlist.append(curloc)
 
+			dbg.log("[+] Found total of %d possible flows" % len(endlist))
 
 			if eaddy > 0:
 				if eaddy in rellist:
 					endlist = [eaddy]
+					dbg.log("[+] Limit flows to cases that contain 0x%08x" % eaddy)
 				else:
 					dbg.log(" ** Unable to reach 0x%08x ** " % eaddy)
 					dbg.log("    Try increasing max nr of instructions with parameter -n")
 					return
 
+			filename = "flows.txt"
+			logfile = MnLog(filename)
+			thislog = logfile.reset()
+
 			for endaddy in endlist:
 				allpaths = findAllPaths(rellist,addy,endaddy)
 				if len(allpaths) == 0:
 					dbg.log(" *** No paths from 0x%08x to 0x%08x *** " % (addy,endaddy))
+					return
+
 				for p in allpaths:
-					dbg.log("[ path from 0x%08x to 0x%08x (%d instructions) ]" % (addy,endaddy,len(p)))
+					logl = "Path from 0x%08x to 0x%08x (%d instructions) :" % (addy,endaddy,len(p))
+					logfile.write("\n",thislog)
+					logfile.write(logl,thislog)
+					logfile.write("-" * len(logl),thislog)
+					dbg.log("[+] Simulating path from 0x%08x to 0x%08x (%d instructions)" % (addy,endaddy,len(p)))
 					cregsb = []
 					for c in cregs:
 						cregsb.append(c)
@@ -16710,13 +16722,7 @@ def main(args):
 							for comb in combins:
 								if comb in instruction and not c in clistc:
 									clistc.append(c)
-						#extra = ""
-						#if len(clist) > 0:
-						#	extra += " // reg: %s" % clist
-						#if len(clistc) > 0:
-						#	extra += " // contents: %s" % clistc
-
-						# determine impact of instruction to controlled registers
+						
 						rsrc,rdst = getSourceDest(instruction)
 
 						csource = False
@@ -16762,13 +16768,16 @@ def main(args):
 											if s in cregsb:
 												cregsb.remove(s)
 									break
+						#else:
+							#dbg.log("    Control: %s" % ocregsb)
 
-						dbg.log("0x%08x : %s" % (thisaddy,instruction))
-						if cmp(ocregsb,cregsb) == -1:
-							dbg.log("    Before: %s" % ocregsb)
-							dbg.log("    After : %s" % cregsb)
 
-					dbg.log("")	
+						logfile.write("0x%08x : %s" % (thisaddy,instruction),thislog)
+						
+						#if len(cregs) > 0 or len(cregsb) > 0:
+						#	if cmp(ocregsb,cregsb) == -1:
+						#		dbg.log("    Before: %s" % ocregsb)
+						#		dbg.log("    After : %s" % cregsb)
 			return
 
 
@@ -17560,8 +17569,11 @@ Arguments:
 Optional arguments:
     -e                : Execute breakpoint command right away"""
 
-		taintUsage = """Simulates execution flows, tries all conditional jump combinations
-and keeps track of tainted registers"""
+		flowUsage = """Simulates execution flows from current location (EIP), tries all conditional jump combinations
+Optional arguments:
+    -e <address>      : Show execution flows that will reach specified address
+    -n <nr>           : Max nr of instructions, default: 60
+    -cl <nr>          : Max level of CALL to follow in detail, default: 3"""
 
 
 		commands["seh"] 			= MnCommand("seh", "Find pointers to assist with SEH overwrite exploits",sehUsage, procFindSEH)
@@ -17615,7 +17627,7 @@ and keeps track of tainted registers"""
 			commands["changeacl"]   = MnCommand("changeacl","Change the ACL of a given page",changeaclUsage,procChangeACL,"ca")
 			commands["allocmem"]	= MnCommand("allocmem","Allocate some memory in the process",allocmemUsage,procAllocMem,"alloc")
 			commands["tobp"]		= MnCommand("tobp","Generate WinDBG syntax to create a logging breakpoint at given location",tobpUsage,procToBp,"2bp")
-			commands["taint"]		= MnCommand("taint","Simulate execution flows, including all branch combinations, trace tainted regs",taintUsage,procTaint,"tnt")
+			commands["flow"]		= MnCommand("flow","Simulate execution flows, including all branch combinations",flowUsage,procFlow,"flw")
 		commands["fwptr"]			= MnCommand("fwptr", "Find Writeable Pointers that get called", fwptrUsage, procFwptr, "fwp")
 		commands["sehchain"]		= MnCommand("sehchain","Show the current SEH chain",sehchainUsage,procSehChain,"exchain")
 		commands["hidedebug"]		= MnCommand("hidedebug","Attempt to hide the debugger",hidedebugUsage,procHideDebug,"hd")
