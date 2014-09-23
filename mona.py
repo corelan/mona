@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 538 $
-$Id: mona.py 538 2014-09-23 12:59:27Z corelanc0d3r $ 
+$Revision: 539 $
+$Id: mona.py 539 2014-09-23 14:19:08Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 538 $')
+__REV__ = filter(str.isdigit, '$Revision: 539 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -16507,6 +16507,7 @@ def main(args):
 			branchstarts = {}
 			maxinstr = 60
 			maxcalllevel = 3
+			callskip = 0
 			instrcnt = 0
 			regs = dbg.getRegs()
 			aregs = getAllRegs()
@@ -16521,6 +16522,13 @@ def main(args):
 						maxcalllevel = int(args["cl"])
 					except:
 						pass
+
+			if "cs" in args:
+				if type(args["cs"]).__name__.lower() != "bool":
+					try:
+						callskip = int(args["cs"])
+					except:
+						pass				
 
 			if "cr" in args:
 				if type(args["cr"]).__name__.lower() != "bool":
@@ -16578,6 +16586,8 @@ def main(args):
 
 			dbg.log("[+] Max nr of instructions per branch: %d" % maxinstr)
 			dbg.log("[+] Maximum CALL level: %d" % maxcalllevel)
+			if callskip > 0:
+				dbg.log("[+] Skipping details of the first %d child functions" % callskip)
 			if eaddy > 0:
 				dbg.log("[+] Searching all possible paths between 0x%08x and 0x%08x" % (addy,eaddy))
 			else:
@@ -16605,6 +16615,7 @@ def main(args):
 			# create relations
 			while len(curlocs) > 0:
 				curloc = curlocs.pop(0)
+				callcnt = 0
 				#dbg.log("New start location: 0x%08x" % curloc)
 				prevloc = curloc
 				instrcnt = branchstarts[curloc][0]
@@ -16655,7 +16666,7 @@ def main(args):
 										#dbg.log("    Added 0x%08x as alternative branch start" % newloc)
 						elif opupper.startswith("CALL"):
 							
-							if ("(" in opupper and ")" in opupper) and currcalllevel < maxcalllevel:
+							if ("(" in opupper and ")" in opupper) and currcalllevel < maxcalllevel and callcnt > callskip:
 								ipartsa = opupper.split(")")
 								ipartsb = ipartsa[0].split("(")
 								if len(ipartsb) > 0:
@@ -16668,10 +16679,11 @@ def main(args):
 								srplist.insert(0,newretptr)
 								currcalllevel += 1
 							else:
-								# don't follow the call
+								# don't show the function details, simply continue after the call
 								newloc = curloc+instructionsize
 								rellist[curloc] = [newloc]
 								curloc = newloc
+							callcnt += 1
 						else:
 							curloc += instructionsize
 							rellist[prevloc] = [curloc]
@@ -16702,6 +16714,8 @@ def main(args):
 			thislog = logfile.reset()
 
 			dbg.log("[+] Processing %d endings" % len(endlist))
+			endingcnt = 1
+			processedresults = []
 			for endaddy in endlist:
 
 				allpaths = findAllPaths(rellist,addy,endaddy)
@@ -16709,130 +16723,135 @@ def main(args):
 					#dbg.log("    *** No paths from 0x%08x to 0x%08x *** " % (addy,endaddy))
 					continue
 
-				dbg.log("[+] Ending: 0x%08x" % endaddy)
+				dbg.log("[+] Ending: 0x%08x (%d/%d)" % (endaddy,endingcnt,len(endlist)))
+				endingcnt += 1
 
 				for p in allpaths:
-					logl = "Path from 0x%08x to 0x%08x (%d instructions) :" % (addy,endaddy,len(p))
-					logfile.write("\n",thislog)
-					logfile.write(logl,thislog)
-					logfile.write("-" * len(logl),thislog)
-					dbg.log("    > Simulating path from 0x%08x to 0x%08x (%d instructions)" % (addy,endaddy,len(p)))
-					cregsb = []
-					for c in cregs:
-						cregsb.append(c)
-					cregscb = []
-					for c in cregsc:
-						cregscb.append(c)
+					if p in processedresults:
+						dbg.log("    > Skipping duplicate path from 0x%08x to 0x%08x" % (addy,endaddy))
+					else:
+						processedresults.append(p)
+						logl = "Path from 0x%08x to 0x%08x (%d instructions) :" % (addy,endaddy,len(p))
+						logfile.write("\n",thislog)
+						logfile.write(logl,thislog)
+						logfile.write("-" * len(logl),thislog)
+						dbg.log("    > Simulating path from 0x%08x to 0x%08x (%d instructions)" % (addy,endaddy,len(p)))
+						cregsb = []
+						for c in cregs:
+							cregsb.append(c)
+						cregscb = []
+						for c in cregsc:
+							cregscb.append(c)
 
-					prevfname = ""
-					fname = ""
-					foffset = ""
-					previnstruction = ""
-					for thisaddy in p:
-						if showfuncposition:
-							if previnstruction == "" or previnstruction.startswith("RET") or previnstruction.startswith("J") or previnstruction.startswith("CALL"):
-								if not thisaddy in funcnamecache:
-									fname,foffset = getFunctionName(thisaddy)
-									funcnamecache[thisaddy] = [fname,foffset]
-								else:
-									fname = funcnamecache[thisaddy][0]
-									foffset = funcnamecache[thisaddy][1]
-								if fname != prevfname:
-									prevfname = fname
-									locname = fname
-									if foffset != "":
-										locname += "+%s" % foffset
-									logfile.write("#--- %s ---" % locname,thislog)
-								#dbg.log("%s" % locname)
+						prevfname = ""
+						fname = ""
+						foffset = ""
+						previnstruction = ""
+						for thisaddy in p:
+							if showfuncposition:
+								if previnstruction == "" or previnstruction.startswith("RET") or previnstruction.startswith("J") or previnstruction.startswith("CALL"):
+									if not thisaddy in funcnamecache:
+										fname,foffset = getFunctionName(thisaddy)
+										funcnamecache[thisaddy] = [fname,foffset]
+									else:
+										fname = funcnamecache[thisaddy][0]
+										foffset = funcnamecache[thisaddy][1]
+									if fname != prevfname:
+										prevfname = fname
+										locname = fname
+										if foffset != "":
+											locname += "+%s" % foffset
+										logfile.write("#--- %s ---" % locname,thislog)
+									#dbg.log("%s" % locname)
 
-						thisopcode = dbg.disasm(thisaddy)
-						instruction = thisopcode.getDisasm()
-						previnstruction = instruction
-						clist = []
-						clistc = []
-						for c in cregsb:
-							combins = []
-							combins.append(" %s" % c)
-							combins.append("[%s" % c)
-							combins.append(",%s" % c)
-							combins.append("%s]" % c)
-							combins.append("%s-" % c)
-							combins.append("%s+" % c)
-							combins.append("-%s" % c)
-							combins.append("+%s" % c)
-							for comb in combins:
-								if comb in instruction and not c in clist:
-									clist.append(c)
+							thisopcode = dbg.disasm(thisaddy)
+							instruction = thisopcode.getDisasm()
+							previnstruction = instruction
+							clist = []
+							clistc = []
+							for c in cregsb:
+								combins = []
+								combins.append(" %s" % c)
+								combins.append("[%s" % c)
+								combins.append(",%s" % c)
+								combins.append("%s]" % c)
+								combins.append("%s-" % c)
+								combins.append("%s+" % c)
+								combins.append("-%s" % c)
+								combins.append("+%s" % c)
+								for comb in combins:
+									if comb in instruction and not c in clist:
+										clist.append(c)
 
-						for c in cregscb:
-							combins = []
-							combins.append(" %s" % c)
-							combins.append("[%s" % c)
-							combins.append(",%s" % c)
-							combins.append("%s]" % c)
-							combins.append("%s-" % c)
-							combins.append("%s+" % c)
-							combins.append("-%s" % c)
-							combins.append("+%s" % c)
-							for comb in combins:
-								if comb in instruction and not c in clistc:
-									clistc.append(c)
-						
-						rsrc,rdst = getSourceDest(instruction)
+							for c in cregscb:
+								combins = []
+								combins.append(" %s" % c)
+								combins.append("[%s" % c)
+								combins.append(",%s" % c)
+								combins.append("%s]" % c)
+								combins.append("%s-" % c)
+								combins.append("%s+" % c)
+								combins.append("-%s" % c)
+								combins.append("+%s" % c)
+								for comb in combins:
+									if comb in instruction and not c in clistc:
+										clistc.append(c)
+							
+							rsrc,rdst = getSourceDest(instruction)
 
-						csource = False
-						cdest = False
+							csource = False
+							cdest = False
 
-						if rsrc in cregsb or rsrc in cregscb:
-							csource = True
-						if rdst in cregsb or rdst in cregscb:
-							cdest = True
+							if rsrc in cregsb or rsrc in cregscb:
+								csource = True
+							if rdst in cregsb or rdst in cregscb:
+								cdest = True
 
-						destructregs = ["MOV","XOR","OR"]
-						writeregs = ["INC","DEC","AND"]
-
-
-						ocregsb = copy.copy(cregsb)
-
-						if not instruction.startswith("TEST") and not instruction.startswith("CMP"):
-							for d in destructregs:
-								if instruction.startswith(d):
-									sourcefound = False
-									sourcereg = ""
-									destfound = False
-									destreg = ""
-
-									for s in clist:
-										for sr in rsrc:
-											if s in sr and not sourcefound:
-												sourcefound = True
-												sourcereg = s
-										for sr in rdst:
-											if s in sr and not destfound:
-												destfound = True
-												destreg = s
-
-									if sourcefound and destfound:
-										if not destreg in cregsb:
-											cregsb.append(destreg)
-									if destfound and not sourcefound:
-										sregs = getSmallerRegs(destreg)
-										if destreg in cregsb:
-											cregsb.remove(destreg)
-										for s in sregs:
-											if s in cregsb:
-												cregsb.remove(s)
-									break
-						#else:
-							#dbg.log("    Control: %s" % ocregsb)
+							destructregs = ["MOV","XOR","OR"]
+							writeregs = ["INC","DEC","AND"]
 
 
-						logfile.write("0x%08x : %s" % (thisaddy,instruction),thislog)
-						
-						#if len(cregs) > 0 or len(cregsb) > 0:
-						#	if cmp(ocregsb,cregsb) == -1:
-						#		dbg.log("    Before: %s" % ocregsb)
-						#		dbg.log("    After : %s" % cregsb)
+							ocregsb = copy.copy(cregsb)
+
+							if not instruction.startswith("TEST") and not instruction.startswith("CMP"):
+								for d in destructregs:
+									if instruction.startswith(d):
+										sourcefound = False
+										sourcereg = ""
+										destfound = False
+										destreg = ""
+
+										for s in clist:
+											for sr in rsrc:
+												if s in sr and not sourcefound:
+													sourcefound = True
+													sourcereg = s
+											for sr in rdst:
+												if s in sr and not destfound:
+													destfound = True
+													destreg = s
+
+										if sourcefound and destfound:
+											if not destreg in cregsb:
+												cregsb.append(destreg)
+										if destfound and not sourcefound:
+											sregs = getSmallerRegs(destreg)
+											if destreg in cregsb:
+												cregsb.remove(destreg)
+											for s in sregs:
+												if s in cregsb:
+													cregsb.remove(s)
+										break
+							#else:
+								#dbg.log("    Control: %s" % ocregsb)
+
+
+							logfile.write("0x%08x : %s" % (thisaddy,instruction),thislog)
+							
+							#if len(cregs) > 0 or len(cregsb) > 0:
+							#	if cmp(ocregsb,cregsb) == -1:
+							#		dbg.log("    Before: %s" % ocregsb)
+							#		dbg.log("    After : %s" % cregsb)
 			return
 
 
@@ -17629,6 +17648,7 @@ Optional arguments:
     -e <address>      : Show execution flows that will reach specified address
     -n <nr>           : Max nr of instructions, default: 60
     -cl <nr>          : Max level of CALL to follow in detail, default: 3
+    -cs <nr>          : Don't show details of first <nr> CALL/child functions. default: 0
     -func             : Show function names (slows down process)."""
 
 
