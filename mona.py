@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 540 $
-$Id: mona.py 540 2014-09-23 16:37:33Z corelanc0d3r $ 
+$Revision: 541 $
+$Id: mona.py 541 2014-02-22 22:46:02Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 540 $')
+__REV__ = filter(str.isdigit, '$Revision: 541 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -16495,6 +16495,22 @@ def main(args):
 			return
 
 
+		def procEval(args):
+			# put all args together
+			argline = ""
+			if len(sys.argv) > 1:
+				for a in sys.argv[1:]:
+					argline += a 
+				argline = argline.replace(" ","")
+			dbg.log("[+] Evaluating expression '%s'" % argline)
+			val,valok = getAddyArg(argline)
+			if valok:
+				dbg.log("    Result: 0x%08x" % val)
+			else:
+				dbg.log("    *** Unable to evaluate expression ***")
+			return
+
+
 		def procFlow(args):
 
 			srplist = []
@@ -17651,6 +17667,10 @@ Optional arguments:
     -cs <nr>          : Don't show details of first <nr> CALL/child functions. default: 0
     -func             : Show function names (slows down process)."""
 
+		evalUsage = """Evaluates an expression
+Arguments:
+    <the expression to evaluate>"""
+
 
 		commands["seh"] 			= MnCommand("seh", "Find pointers to assist with SEH overwrite exploits",sehUsage, procFindSEH)
 		commands["config"] 			= MnCommand("config","Manage configuration file (mona.ini)",configUsage,procConfig,"conf")
@@ -17713,6 +17733,7 @@ Optional arguments:
 		commands["teb"]				= MnCommand("teb","Show TEB related information",tebUsage,procTEB,"teb")
 		commands["string"]			= MnCommand("string","Read or write a string from/to memory",stringUsage,procString,"str")
 		commands["copy"]			= MnCommand("copy","Copy bytes from one location to another",copyUsage,procCopy,"cp")
+		commands["?"]				= MnCommand("?","Evaluate an expression",evalUsage,procEval,"eval")
 		# get the options
 		opts = {}
 		last = ""
