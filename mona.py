@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 541 $
-$Id: mona.py 541 2014-02-22 22:46:02Z corelanc0d3r $ 
+$Revision: 542 $
+$Id: mona.py 542 2014-02-22 22:46:02Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 541 $')
+__REV__ = filter(str.isdigit, '$Revision: 542 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -298,6 +298,8 @@ def getIntForPart(part):
 	regs = dbg.getRegs()
 	if partclean in regs:
 		partval = regs[partclean]
+	elif partclean.lower() == "heap" or partclean.lower() == "processheap":
+		partval = getDefaultProcessHeap()
 	else:
 		if partclean.lower().startswith("0n"):
 			partclean = partclean.lower().replace("0n","")
@@ -4169,11 +4171,13 @@ class MnPointer:
 							thischunk.showChunk(showdata = True)
 							self.showObjectInfo()
 							self.showHeapStackTrace(thischunk)
-							if thissize < 1025:
+							thissize = thischunk.usersize
+							if thissize > 0 and thissize < 1025:
 								self.dumpObjectAtLocation(thissize)									
 						foundinchunk = thischunk
 						foundinva = vaptr
 						foundinheap = heapbase
+						break
 
 			# perhaps chunk is in FEA
 			if not win7mode:
@@ -4210,7 +4214,7 @@ class MnPointer:
 									dbg.log("%sChunkPtr: 0x%08x, UserPtr: 0x%08x, Flink: 0x%08x, ChunkSize: 0x%x, UserSize: 0x%x, UserSpace: 0x%x (%s)" % (extra,lalchunk.chunkptr,lalchunk.userptr,lalchunk.flink,chunksize,lalchunk.usersize,lalchunk.usersize + lalchunk.remaining,flag))
 							if not silent:
 								self.showObjectInfo()
-								if chunksize < 1025:
+								if chunksize > 0 and chunksize < 1025:
 									self.dumpObjectAtLocation(chunksize)
 							break
 
@@ -17669,7 +17673,13 @@ Optional arguments:
 
 		evalUsage = """Evaluates an expression
 Arguments:
-    <the expression to evaluate>"""
+    <the expression to evaluate>
+
+Accepted syntax includes: 
+    hex values, decimal values (prefixed with 0n), registers, 
+    module names, 'heap' ( = address of default process heap),
+    module!functionname
+    simple math operations"""
 
 
 		commands["seh"] 			= MnCommand("seh", "Find pointers to assist with SEH overwrite exploits",sehUsage, procFindSEH)
