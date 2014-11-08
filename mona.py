@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 542 $
-$Id: mona.py 542 2014-02-22 22:46:02Z corelanc0d3r $ 
+$Revision: 543 $
+$Id: mona.py 543 2014-02-22 22:46:02Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 542 $')
+__REV__ = filter(str.isdigit, '$Revision: 543 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -4109,6 +4109,9 @@ class MnPointer:
 		foundinsegment = None
 		foundinva = None
 		foundinchunk = None
+		dumpedobj = False
+		dumpsize = 0
+		dodump = False
 
 		try:
 			allheaps = dbg.getHeapsAddress()
@@ -4149,8 +4152,8 @@ class MnPointer:
 							thischunk.showChunk(showdata = True)
 							self.showObjectInfo()
 							self.showHeapStackTrace(thischunk)
-							if thissize < 1025:
-								self.dumpObjectAtLocation(thissize)
+							dodump = True
+							dumpsize = thissize
 						foundinchunk = thischunk
 						foundinsegment = seg
 						foundinheap = heapbase
@@ -4172,8 +4175,8 @@ class MnPointer:
 							self.showObjectInfo()
 							self.showHeapStackTrace(thischunk)
 							thissize = thischunk.usersize
-							if thissize > 0 and thissize < 1025:
-								self.dumpObjectAtLocation(thissize)									
+							dumpsize = thissize
+							dodump = True					
 						foundinchunk = thischunk
 						foundinva = vaptr
 						foundinheap = heapbase
@@ -4214,8 +4217,8 @@ class MnPointer:
 									dbg.log("%sChunkPtr: 0x%08x, UserPtr: 0x%08x, Flink: 0x%08x, ChunkSize: 0x%x, UserSize: 0x%x, UserSpace: 0x%x (%s)" % (extra,lalchunk.chunkptr,lalchunk.userptr,lalchunk.flink,chunksize,lalchunk.usersize,lalchunk.usersize + lalchunk.remaining,flag))
 							if not silent:
 								self.showObjectInfo()
-								if chunksize > 0 and chunksize < 1025:
-									self.dumpObjectAtLocation(chunksize)
+								dumpsize = chunksize
+								dodump = True
 							break
 
 				if not foundinlal:
@@ -4256,9 +4259,11 @@ class MnPointer:
 									dbg.log("     ** FreeListsInUseBitmap mismatch for index %d! **" % flindex, highlight = True)
 							if not silent:
 								self.showObjectInfo()
-								if chunksize < 1025:
-									self.dumpObjectAtLocation(chunksize)							
-							break					
+								dumpsize = chunksize
+								dodump = True
+							break		
+		if dodump and dumpsize > 0 and dumpsize < 1025 and not silent:
+			self.dumpObjectAtLocation(dumpsize)			
 		return foundinheap, foundinsegment, foundinva, foundinchunk
 
 	def showHeapStackTrace(self,thischunk):
@@ -4459,6 +4464,8 @@ class MnPointer:
 						dbg.log(line)
 					logfile.write(line,thislog)
 					offset += 4
+			if len(sortedkeys) > 0:
+				dbg.log("")
 		return
 
 	def getLocInfo(self,loc,addy,startaddy,endaddy):
