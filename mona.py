@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 543 $
-$Id: mona.py 543 2014-02-22 22:46:02Z corelanc0d3r $ 
+$Revision: 544 $
+$Id: mona.py 544 2014-02-22 22:46:02Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 543 $')
+__REV__ = filter(str.isdigit, '$Revision: 544 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -166,6 +166,34 @@ memProtConstants["WC"] = ["PAGE_WRITECOMBINE",0x400]
 #---------------------------------------#
 #  Utility functions                    #
 #---------------------------------------#	
+
+def resetGlobals():
+	"""
+	Clears all global variables
+	"""
+	global CritCache
+	global vtableCache
+	global stacklistCache
+	global segmentlistCache
+	global VACache
+	global NtGlobalFlag
+	global FreeListBitmap
+	global memProtConstants
+	global currentArgs
+
+	CritCache = None
+	vtableCache = None
+	stacklistCache = None
+	segmentlistCache = None
+	VACache = None
+	NtGlobalFlag = None
+	FreeListBitmap = None
+	memProtConstants = None
+	currentArgs = None
+
+
+	return
+
 def toHex(n):
 	"""
 	Converts a numeric value to hex (pointer to hex)
@@ -4109,7 +4137,6 @@ class MnPointer:
 		foundinsegment = None
 		foundinva = None
 		foundinchunk = None
-		dumpedobj = False
 		dumpsize = 0
 		dodump = False
 
@@ -4183,87 +4210,91 @@ class MnPointer:
 						break
 
 			# perhaps chunk is in FEA
-			if not win7mode:
-				foundinlal = False
-				foundinfreelist = False
-				FrontEndHeap = mHeap.getFrontEndHeap()
-				if FrontEndHeap > 0:
-					fea_lal = mHeap.getLookAsideList()
-					for lal_table_entry in sorted(fea_lal.keys()):
-						nr_of_chunks = len(fea_lal[lal_table_entry])
-						lalhead = struct.unpack('<L',dbg.readMemory(FrontEndHeap + (0x30 * lal_table_entry),4))[0]
-						for chunkindex in fea_lal[lal_table_entry]:
-							lalchunk = fea_lal[lal_table_entry][chunkindex]
-							chunksize = lalchunk.size * 8
-							flag = getHeapFlag(lalchunk.flag)
-							if (self.address >= lalchunk.chunkptr) and (self.address < lalchunk.chunkptr+chunksize):
-								foundinlal = True
-								if not silent:
-									dbg.log("Address is part of chunk on LookAsideList[%d], heap 0x%08x" % (lal_table_entry,mHeap.heapbase))
-								break
-						if foundinlal:
-							expectedsize = lal_table_entry * 8
-							if not silent:
-								dbg.log("     LAL [%d] @0x%08x, Expected Chunksize: 0x%x (%d), %d chunks, Flink: 0x%08x" % (lal_table_entry,FrontEndHeap + (0x30 * lal_table_entry),expectedsize,expectedsize,nr_of_chunks,lalhead))
+			# if it is, it won't be a VA chunk
+			if foundinva == None:
+				if not win7mode:
+					foundinlal = False
+					foundinfreelist = False
+					FrontEndHeap = mHeap.getFrontEndHeap()
+					if FrontEndHeap > 0:
+						fea_lal = mHeap.getLookAsideList()
+						for lal_table_entry in sorted(fea_lal.keys()):
+							nr_of_chunks = len(fea_lal[lal_table_entry])
+							lalhead = struct.unpack('<L',dbg.readMemory(FrontEndHeap + (0x30 * lal_table_entry),4))[0]
 							for chunkindex in fea_lal[lal_table_entry]:
 								lalchunk = fea_lal[lal_table_entry][chunkindex]
-								foundchunk = lalchunk
 								chunksize = lalchunk.size * 8
 								flag = getHeapFlag(lalchunk.flag)
-								extra = "       "
 								if (self.address >= lalchunk.chunkptr) and (self.address < lalchunk.chunkptr+chunksize):
-									extra = "   --> "
+									foundinlal = True
+									if not silent:
+										dbg.log("Address is part of chunk on LookAsideList[%d], heap 0x%08x" % (lal_table_entry,mHeap.heapbase))
+									break
+							if foundinlal:
+								expectedsize = lal_table_entry * 8
 								if not silent:
-									dbg.log("%sChunkPtr: 0x%08x, UserPtr: 0x%08x, Flink: 0x%08x, ChunkSize: 0x%x, UserSize: 0x%x, UserSpace: 0x%x (%s)" % (extra,lalchunk.chunkptr,lalchunk.userptr,lalchunk.flink,chunksize,lalchunk.usersize,lalchunk.usersize + lalchunk.remaining,flag))
-							if not silent:
-								self.showObjectInfo()
-								dumpsize = chunksize
-								dodump = True
-							break
-
-				if not foundinlal:
-					# or maybe in BEA
-					thisfreelist = mHeap.getFreeList()
-					thisfreelistinusebitmap = mHeap.getFreeListInUseBitmap()				
-					for flindex in thisfreelist:
-						freelist_addy = heapbase + 0x178 + (8 * flindex)
-						expectedsize = ">1016"
-						expectedsize2 = ">0x%x" % 1016
-						if flindex != 0:
-							expectedsize2 = str(8 * flindex)
-							expectedsize = "0x%x" % (8 * flindex)
-						for flentry in thisfreelist[flindex]:
-							freelist_chunk = thisfreelist[flindex][flentry]
-							chunksize = freelist_chunk.size * 8
-							if (self.address >= freelist_chunk.chunkptr) and (self.address < freelist_chunk.chunkptr+chunksize):
-								foundinfreelist = True
+									dbg.log("     LAL [%d] @0x%08x, Expected Chunksize: 0x%x (%d), %d chunks, Flink: 0x%08x" % (lal_table_entry,FrontEndHeap + (0x30 * lal_table_entry),expectedsize,expectedsize,nr_of_chunks,lalhead))
+								for chunkindex in fea_lal[lal_table_entry]:
+									lalchunk = fea_lal[lal_table_entry][chunkindex]
+									foundchunk = lalchunk
+									chunksize = lalchunk.size * 8
+									flag = getHeapFlag(lalchunk.flag)
+									extra = "       "
+									if (self.address >= lalchunk.chunkptr) and (self.address < lalchunk.chunkptr+chunksize):
+										extra = "   --> "
+									if not silent:
+										dbg.log("%sChunkPtr: 0x%08x, UserPtr: 0x%08x, Flink: 0x%08x, ChunkSize: 0x%x, UserSize: 0x%x, UserSpace: 0x%x (%s)" % (extra,lalchunk.chunkptr,lalchunk.userptr,lalchunk.flink,chunksize,lalchunk.usersize,lalchunk.usersize + lalchunk.remaining,flag))
 								if not silent:
-									dbg.log("Address is part of chunk on FreeLists[%d] at 0x%08x, heap 0x%08x:" % (flindex,freelist_addy,mHeap.heapbase))
+									self.showObjectInfo()
+									dumpsize = chunksize
+									dodump = True
 								break
-						if foundinfreelist:
-							flindicator = 0
+
+					if not foundinlal:
+						# or maybe in BEA
+						thisfreelist = mHeap.getFreeList()
+						thisfreelistinusebitmap = mHeap.getFreeListInUseBitmap()				
+						for flindex in thisfreelist:
+							freelist_addy = heapbase + 0x178 + (8 * flindex)
+							expectedsize = ">1016"
+							expectedsize2 = ">0x%x" % 1016
+							if flindex != 0:
+								expectedsize2 = str(8 * flindex)
+								expectedsize = "0x%x" % (8 * flindex)
 							for flentry in thisfreelist[flindex]:
 								freelist_chunk = thisfreelist[flindex][flentry]
-								chunksize = freelist_chunk.size * 8	
-								extra = "     "
-								if (self.address >= freelist_chunk.chunkptr) and (self.address < freelist_chunk.chunkptr+chunksize):						
-									extra = " --> "
-									foundchunk = freelist_chunk
+								chunksize = freelist_chunk.size * 8
+								if (self.address >= freelist_chunk.chunkptr) and (self.address < freelist_chunk.chunkptr+chunksize):
+									foundinfreelist = True
+									if not silent:
+										dbg.log("Address is part of chunk on FreeLists[%d] at 0x%08x, heap 0x%08x:" % (flindex,freelist_addy,mHeap.heapbase))
+									break
+							if foundinfreelist:
+								flindicator = 0
+								for flentry in thisfreelist[flindex]:
+									freelist_chunk = thisfreelist[flindex][flentry]
+									chunksize = freelist_chunk.size * 8	
+									extra = "     "
+									if (self.address >= freelist_chunk.chunkptr) and (self.address < freelist_chunk.chunkptr+chunksize):						
+										extra = " --> "
+										foundchunk = freelist_chunk
+									if not silent:
+										dbg.log("%sChunkPtr: 0x%08x, UserPtr: 0x%08x, Flink: 0x%08x, Blink: 0x%08x, ChunkSize: 0x%x (%d), Usersize: 0x%x (%d)" % (extra,freelist_chunk.chunkptr,freelist_chunk.userptr,freelist_chunk.flink,freelist_chunk.blink,chunksize,chunksize,freelist_chunk.usersize,freelist_chunk.usersize))
+									if flindex != 0 and chunksize != (8*flindex):
+										dbg.log("     ** Header may be corrupted! **", highlight = True)
+									flindicator = 1
+								if flindex > 1 and int(thisfreelistinusebitmap[flindex]) != flindicator:
+									if not silent:
+										dbg.log("     ** FreeListsInUseBitmap mismatch for index %d! **" % flindex, highlight = True)
 								if not silent:
-									dbg.log("%sChunkPtr: 0x%08x, UserPtr: 0x%08x, Flink: 0x%08x, Blink: 0x%08x, ChunkSize: 0x%x (%d), Usersize: 0x%x (%d)" % (extra,freelist_chunk.chunkptr,freelist_chunk.userptr,freelist_chunk.flink,freelist_chunk.blink,chunksize,chunksize,freelist_chunk.usersize,freelist_chunk.usersize))
-								if flindex != 0 and chunksize != (8*flindex):
-									dbg.log("     ** Header may be corrupted! **", highlight = True)
-								flindicator = 1
-							if flindex > 1 and int(thisfreelistinusebitmap[flindex]) != flindicator:
-								if not silent:
-									dbg.log("     ** FreeListsInUseBitmap mismatch for index %d! **" % flindex, highlight = True)
-							if not silent:
-								self.showObjectInfo()
-								dumpsize = chunksize
-								dodump = True
-							break		
+									self.showObjectInfo()
+									dumpsize = chunksize
+									dodump = True
+								break		
+
 		if dodump and dumpsize > 0 and dumpsize < 1025 and not silent:
-			self.dumpObjectAtLocation(dumpsize)			
+			self.dumpObjectAtLocation(dumpsize)	
+
 		return foundinheap, foundinsegment, foundinva, foundinchunk
 
 	def showHeapStackTrace(self,thischunk):
@@ -17853,9 +17884,10 @@ if __name__ == "__main__":
 	if __DEBUGGERAPP__ == "WinDBG":
 		dbglib.clearvars()
 	try:
-		allvars = [var for var in globals() if var[0] != "_"]
-		for var in allvars:
-			del globals()[var]
+	#	allvars = [var for var in globals() if var[0] != "_"]
+	#	for var in allvars:
+	#		del globals()[var]
+		resetGlobals()
 		dbg = None
 	except:
 		pass
