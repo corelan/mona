@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 544 $
-$Id: mona.py 544 2014-02-22 22:46:02Z corelanc0d3r $ 
+$Revision: 545 $
+$Id: mona.py 545 2014-02-22 22:46:02Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 544 $')
+__REV__ = filter(str.isdigit, '$Revision: 545 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -10754,7 +10754,7 @@ def main(args):
 			bannertext += "    | / /__/ /_/ / /  /  __/ / /_/ / / / /  / /_/  __/ /_/ / / / / / / |\n"
 			bannertext += "    | \___/\____/_/   \___/_/\__,_/_/ /_/   \__/\___/\__,_/_/ /_/ /_/  |\n"
 			bannertext += "    |                                                                  |\n"
-			bannertext += "    |         https://www.corelan.be | http://redmine.corelan.be       |\n"
+			bannertext += "    |     https://www.corelan.be | https://www.corelan-training.com    |\n"
 			bannertext += "    |------------------------------------------------------------------|\n"
 			banners[0] = bannertext
 
@@ -10773,9 +10773,9 @@ def main(args):
 			bannertext += "    |------------------------------------------------------------------|\n"
 			bannertext += "    |                                                                  |\n"
 			bannertext += "    |    _____ ___  ____  ____  ____ _                                 |\n"
-			bannertext += "    |    / __ `__ \/ __ \/ __ \/ __ `/    https://www.corelan.be       |\n"
-			bannertext += "    |   / / / / / / /_/ / / / / /_/ /     http://redmine.corelan.be    |\n"
-			bannertext += "    |  /_/ /_/ /_/\____/_/ /_/\__,_/      #corelan (Freenode IRC)      |\n"
+			bannertext += "    |    / __ `__ \/ __ \/ __ \/ __ `/  https://www.corelan.be         |\n"
+			bannertext += "    |   / / / / / / /_/ / / / / /_/ /  https://www.corelan-training.com|\n"
+			bannertext += "    |  /_/ /_/ /_/\____/_/ /_/\__,_/  #corelan (Freenode IRC)          |\n"
 			bannertext += "    |                                                                  |\n"
 			bannertext += "    |------------------------------------------------------------------|\n"
 			banners[2] = bannertext
@@ -10807,7 +10807,7 @@ def main(args):
 				pykdversion = dbg.getPyKDVersionNr()
 				dbg.log("     PyKD version %s" % pykdversion)
 			dbg.log("     Written by Corelan - https://www.corelan.be")
-			dbg.log("     Project page : https://redmine.corelan.be/projects/mona")
+			dbg.log("     Project page : https://github.com/corelan/mona")
 			dbg.logLines(getBanner(),highlight=1)
 			dbg.log("Global options :")
 			dbg.log("----------------")
@@ -12401,16 +12401,19 @@ def main(args):
 			"""
 
 			updateproto = "https"
-			if "http" in args:
-				updateproto  = "http"
+			#if "http" in args:
+			#	updateproto  = "http"
+			
 			#debugger version	
 			imversion = __IMM__
 			#url
 			dbg.setStatusBar("Running update process...")
 			dbg.updateLog()
 			updateurl = "https://github.com/corelan/mona/raw/master/mona.py"
-			if updateproto == "http":
-				updateurl = "http://redmine.corelan.be/projects/mona/repository/git/revisions/master/raw/mona.py"
+			
+			#if updateproto == "http":
+			#	updateurl = "http://redmine.corelan.be/projects/mona/repository/git/revisions/master/raw/mona.py"
+			
 			currentversion,currentrevision = getVersionInfo(inspect.stack()[0][1])
 			u = ""
 			try:
@@ -12464,8 +12467,8 @@ def main(args):
 				else:
 					dbg.log("[+] Checking if %s needs an update..." % libfile)
 					updateurl = "https://github.com/corelan/windbglib/raw/master/windbglib.py"
-					if updateproto == "http":
-						updateurl = updateproto + "://redmine.corelan.be/projects/windbglib/repository/raw/windbglib.py"
+					#if updateproto == "http":
+					#	updateurl = updateproto + "://redmine.corelan.be/projects/windbglib/repository/raw/windbglib.py"
 					currentversion,currentrevision = getVersionInfo(libfile)
 					u = ""
 					try:
