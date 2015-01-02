@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 546 $
-$Id: mona.py 546 2015-01-02 22:46:02Z corelanc0d3r $ 
+$Revision: 547 $
+$Id: mona.py 547 2015-01-02 22:46:02Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 546 $')
+__REV__ = filter(str.isdigit, '$Revision: 547 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -1358,35 +1358,47 @@ def getModuleObj(modname):
 	# Method 2
 
 	suffixes = ["",".exe",".dll"]
+	allmod = dbg.getAllModules()
 	for suf in suffixes:
-		modname_search = modname + suf
-		allmod = dbg.getAllModules()
-		for tmod_s in allmod:
-			tmod = dbg.getModule(tmod_s)
-			if not tmod == None:
-				if tmod.getName() == modname_search:
-					return MnModule(tmod_s)
-				imname = dbg.getImageNameForModule(tmod.getName())
-				if not imname == None:
-					if imname == modname_search:
-						return MnModule(tmod)
-		# Method 3
-		for tmod_s in allmod:
-			tmod = dbg.getModule(tmod_s)
-			if not tmod == None:
-				if tmod.getName().lower() == modname_search.lower():
-					return MnModule(tmod_s)
-				imname = dbg.getImageNameForModule(tmod.getName().lower())
-				if not imname == None:
-					if imname.lower() == modname_search.lower():
-						return MnModule(tmod)
-
-		# Method 4
-		for tmod_s in allmod:
-			tmod = dbg.getModule(tmod_s)
-			if not tmod == None:
-				if tmod_s.lower() == modname_search.lower():
-					return MnModule(tmod_s)
+		modname_search = modname + suf	
+		
+		#WinDBG optimized
+		if __DEBUGGERAPP__ == "WinDBG":	
+			for tmod_s in allmod:
+				tmod = dbg.getModule(tmod_s)
+				if not tmod == None:
+					if tmod.getName() == modname_search:
+						return MnModule(tmod_s)
+					imname = dbg.getImageNameForModule(tmod.getName())
+					if not imname == None:
+						if imname == modname_search:
+							return MnModule(tmod)
+			for tmod_s in allmod:
+				tmod = dbg.getModule(tmod_s)
+				if not tmod == None:
+					if tmod.getName().lower() == modname_search.lower():
+						return MnModule(tmod_s)
+					imname = dbg.getImageNameForModule(tmod.getName().lower())
+					if not imname == None:
+						if imname.lower() == modname_search.lower():
+							return MnModule(tmod)
+			for tmod_s in allmod:
+				tmod = dbg.getModule(tmod_s)
+				if not tmod == None:
+					if tmod_s.lower() == modname_search.lower():
+						return MnModule(tmod_s)
+		else:
+			# Immunity
+			for tmod_s in allmod:
+				if not tmod_s == None:
+					mname = tmod_s.getName()
+					if mname == modname_search:
+						return MnModule(mname)
+			for tmod_s in allmod:
+				if not tmod_s == None:
+					mname = tmod_s.getName()
+					if mname.lower() == modname_search.lower():
+						return MnModule(mname)
 		
 	return None
 	
@@ -16557,16 +16569,23 @@ def main(args):
 		def procEval(args):
 			# put all args together
 			argline = ""
-			if len(sys.argv) > 1:
-				for a in sys.argv[1:]:
-					argline += a 
+			if len(currentArgs) > 1:
+				if __DEBUGGERAPP__ == "WinDBG":
+					for a in currentArgs[2:]:
+						argline += a
+				else:
+					for a in currentArgs[1:]:
+						argline += a 
 				argline = argline.replace(" ","")
-			dbg.log("[+] Evaluating expression '%s'" % argline)
-			val,valok = getAddyArg(argline)
-			if valok:
-				dbg.log("    Result: 0x%08x" % val)
+			if argline.replace(" ","") != "":
+				dbg.log("[+] Evaluating expression '%s'" % argline)
+				val,valok = getAddyArg(argline)
+				if valok:
+					dbg.log("    Result: 0x%08x" % val)
+				else:
+					dbg.log("    *** Unable to evaluate expression ***")
 			else:
-				dbg.log("    *** Unable to evaluate expression ***")
+				dbg.log("    *** No expression found***")	
 			return
 
 
@@ -17809,6 +17828,8 @@ Accepted syntax includes:
 		aline = " ".join(a for a in argcopy)
 		if __DEBUGGERAPP__ == "WinDBG":
 			aline = "!py " + aline
+		else:
+			aline = "!mona " + aline
 		dbg.log("[+] Command used:")
 		dbg.log("%s" % aline)	
 
@@ -17879,7 +17900,7 @@ Accepted syntax includes:
 		endtime = datetime.datetime.now()
 		delta = endtime - starttime
 		dbg.log("")
-		dbg.log("[+] This mona.py action took %s\n" % str(delta))	
+		dbg.log("[+] This mona.py action took %s" % str(delta))	
 		dbg.setStatusBar("Done")
 				
 	except:
