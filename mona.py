@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 545 $
-$Id: mona.py 545 2014-02-22 22:46:02Z corelanc0d3r $ 
+$Revision: 546 $
+$Id: mona.py 546 2015-01-02 22:46:02Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 545 $')
+__REV__ = filter(str.isdigit, '$Revision: 546 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -2475,8 +2475,8 @@ class MnModule:
 				modisnx = True
 				modrebased = False
 				modisos = False
-				if self.moduleobj == None:
-					dbg.log("*** Error - self.moduleobj is None, key %s" % modulename, highlight=1)
+				#if self.moduleobj == None:
+				#	dbg.log("*** Error - self.moduleobj is None, key %s" % modulename, highlight=1)
 				mod       = self.moduleobj
 				mzbase    = mod.getBaseAddress()
 				mzrebase  = mod.getFixupbase()
@@ -6140,9 +6140,14 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 			objprogressfile.write(updatetext.strip(),progressfile)
 			suggtowrite=""
 			for suggestedtype in suggestions:
-				if suggestedtype.find("pop ") == -1:		#too many, don't write to file
-					suggtowrite += "[%s]\n" % suggestedtype
-					for suggestedpointer in suggestions[suggestedtype]:
+				limitnr = 0x7fffffff
+				if suggestedtype.startswith("pop "):		# only write up to 10 pop r32 into suggestions file
+					limitnr = 10
+				gcnt = 0
+
+				suggtowrite += "[%s]\n" % suggestedtype
+				for suggestedpointer in suggestions[suggestedtype]:
+					if gcnt < limitnr:
 						sptr = MnPointer(suggestedpointer)
 						modname = sptr.belongsTo()
 						modinfo = MnModule(modname)
@@ -6154,6 +6159,9 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 						else:
 							ptrinfo = "0x" + toHex(suggestedpointer) + " : " + suggesteddata + "    ** [" + modname + "] **   |  " + sptr.__str__()+"\n"
 						suggtowrite += ptrinfo
+					else:
+						break
+					gcnt += 1
 			dbg.log("[+] Launching ROP generator")
 			updatetext = "Attempting to create rop chain proposals"
 			objprogressfile.write(updatetext.strip(),progressfile)
@@ -6227,6 +6235,7 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 				fh.write("\n")
 			nrsugg = len(suggtowrite.split("\n"))
 			dbg.log("    Wrote %d suggestions to file" % nrsugg)
+
 		if not split:
 			logfile = MnLog("rop.txt")
 			thislog = logfile.reset()
@@ -7436,7 +7445,7 @@ def findPattern(modulecriteria,criteria,pattern,ptype,base,top,consecutive=False
 	return allpointers
 		
 
-def compareFileWithMemory(filename,startpos,skipmodules=False):
+def compareFileWithMemory(filename,startpos,skipmodules=False,findunicode=False):
 	dbg.log("[+] Reading file %s..." % filename)
 	srcdata_normal=[]
 	srcdata_unicode=[]
@@ -7459,6 +7468,8 @@ def compareFileWithMemory(filename,startpos,skipmodules=False):
 	# loop normal and unicode
 	comparetable=dbg.createTable('mona Memory comparison results',['Address','Status','BadChars','Type','Location'])	
 	modes = ["normal", "unicode"]
+	if not findunicode:
+		modes.remove("unicode")
 	objlogfile = MnLog("compare.txt")
 	logfile = objlogfile.reset()
 	for mode in modes:
@@ -7497,6 +7508,8 @@ def compareFileWithMemory(filename,startpos,skipmodules=False):
 					ptrinfo = MnPointer(ptr).memLocation()
 					if not skipmodules or (skipmodules and (ptrinfo in ["Heap","Stack","??"])):
 						locations.append(ptr)
+			if len(locations) == 0:
+				dbg.log("      Oops, no copies found")
 		else:
 			startpos_fixed = startpos
 			locations.append(startpos_fixed)
@@ -10735,7 +10748,7 @@ def doManageBpOnFunc(modulecriteria,criteria,funcfilter,mode="add",type="export"
 def main(args):
 	dbg.createLogWindow()
 	global currentArgs
-	currentArgs = args
+	currentArgs = copy.copy(args)
 	try:
 		starttime = datetime.datetime.now()
 		ptr_counter = 0
@@ -11064,8 +11077,6 @@ def main(args):
 			processResults(all_opcodes,logfile,thislog,specialcases)
 			
 			
-			
-
 		# ----- MODULES ------ #
 		def procShowMODULES(args):
 			modulecriteria={}
@@ -11654,6 +11665,7 @@ def main(args):
 			startpos = 0
 			filename = ""
 			skipmodules = False
+			findunicode = False
 			allregs = dbg.getRegs()
 			if "f" in args:
 				filename = args["f"].replace('"',"").replace("'","")
@@ -11671,7 +11683,9 @@ def main(args):
 					return
 			if "s" in args:
 				skipmodules = True
-			compareFileWithMemory(filename,startpos,skipmodules)
+			if "unicode" in args:
+				findunicode = True
+			compareFileWithMemory(filename,startpos,skipmodules,findunicode)
 			
 			
 		# ----- offset: Calculate the offset between two addresses ----- #
@@ -17424,7 +17438,8 @@ Optional argument :
     -a <address> : the exact address of the bytes in memory (address or register). 
                    If you don't specify an address, I will try to locate the bytes in memory 
                    by looking at the first 8 bytes.
-    -s : skip locations that belong to a module"""
+    -s : skip locations that belong to a module
+    -unicode : perform unicode search. Note: input should *not* be unicode, it will be expanded automatically"""
 				   
 		offsetUsage = """Calculate the number of bytes between two addresses. You can use 
 registers instead of addresses. 
@@ -17789,11 +17804,20 @@ Accepted syntax includes:
 		opts = {}
 		last = ""
 		arguments = []
+		argcopy = copy.copy(args)
+
+		aline = " ".join(a for a in argcopy)
+		if __DEBUGGERAPP__ == "WinDBG":
+			aline = "!py " + aline
+		dbg.log("[+] Command used:")
+		dbg.log("%s" % aline)	
+
 
 		# in case we're not using Immunity
 		if "-showargs" in args:
-			dbg.log("-" * 40)
+			dbg.log("-" * 50)
 			dbg.log("args: %s" % args)
+
 		if len(args) > 0:
 			if args[0].lower().startswith("mona") or args[0].lower().endswith("mona") or args[0].lower().endswith("mona.py"):
 				args.pop(0)
@@ -17829,7 +17853,9 @@ Accepted syntax includes:
 		command = args[0]
 		if "-showargs" in args:
 			dbg.log("command: %s" % command)
-			dbg.log("-" * 40)
+			dbg.log("-" * 50)
+			args.remove("-showargs")
+			arguments.remove("-showargs")			
 		
 		# ----- execute the chosen command ----- #
 		if command in commands:
@@ -17853,7 +17879,7 @@ Accepted syntax includes:
 		endtime = datetime.datetime.now()
 		delta = endtime - starttime
 		dbg.log("")
-		dbg.logLines("[+] This mona.py action took %s\n" % str(delta))
+		dbg.log("[+] This mona.py action took %s\n" % str(delta))	
 		dbg.setStatusBar("Done")
 				
 	except:
