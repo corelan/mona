@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 547 $
-$Id: mona.py 547 2015-01-02 22:46:02Z corelanc0d3r $ 
+$Revision: 548 $
+$Id: mona.py 548 2015-01-02 22:46:02Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 547 $')
+__REV__ = filter(str.isdigit, '$Revision: 548 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -1167,8 +1167,8 @@ def getHeapFlag(flag):
 	0x40 : "FFU-2",
 	0x80 : "No Coalesce"
 	}
-	if win7mode:
-		flags[0x8] = "Internal"
+	#if win7mode:
+	#	flags[0x8] = "Internal"
 	if flag in flags:
 		return flags[flag]
 	else:
@@ -3288,8 +3288,10 @@ class MnHeap:
 		"""
 		global VACache
 		offset = 0x50
+		encodingkey = 0
 		if win7mode:
 			offset = 0xa0
+			encodingkey = self.getEncodingKey()
 		if not self.heapbase in VACache:
 			try:
 				# get virtualallocdBlocks for this heap
@@ -3301,12 +3303,22 @@ class MnHeap:
 					vaheader = dbg.readMemory(valistentry,32)
 					flink = struct.unpack('<L',vaheader[0:4])[0]
 					blink = struct.unpack('<L',vaheader[4:8])[0]
-					commitsize = struct.unpack('<L',vaheader[16:20])[0]
-					reservesize = struct.unpack('<L',vaheader[20:24])[0]
-					size = struct.unpack('<H',vaheader[24:26])[0]
-					prevsize = struct.unpack('<H',vaheader[26:28])[0]
+					
+					commitsize = struct.unpack('<H',vaheader[16:18])[0] * 0x10
+					reservesize = struct.unpack('<H',vaheader[20:22])[0] * 0x10
+
+					size_e = struct.unpack('<H',vaheader[24:26])[0]
+					if win7mode:
+						size = (size_e ^ (encodingkey & 0xFFFF)) * 0x10
+					else:
+						size = size_e
+					
+					#prevsize = struct.unpack('<H',vaheader[26:28])[0]
+					prevsize = 0
 					segmentid = struct.unpack('<B',vaheader[28:29])[0]
 					flag = struct.unpack('<B',vaheader[29:30])[0]
+					if win7mode:
+						flag = struct.unpack('<B',vaheader[22:23])[0]
 					unused = struct.unpack('<B',vaheader[30:31])[0]
 					tag = struct.unpack('<B',vaheader[31:])[0]
 					chunkobj = MnChunk(valistentry,"virtualalloc",headersize,self.heapbase,0,size,prevsize,segmentid,flag,unused,tag,flink,blink,commitsize,reservesize)
@@ -3589,7 +3601,7 @@ class MnChunk:
 		# if ust/hpa is enabled, the chunk header is followed by 32bytes of DPH_BLOCK_INFORMATION header info
 		currentflagnames = getNtGlobalFlagNames(getNtGlobalFlag())
 		if "ust" in currentflagnames:
-						self.hasust = True				
+			self.hasust = True				
 		if "hpa" in currentflagnames:
 			self.extraheadersize = 0x20
 			# reader header info
