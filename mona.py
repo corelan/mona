@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 549 $
-$Id: mona.py 549 2015-01-02 22:46:02Z corelanc0d3r $ 
+$Revision: 550 $
+$Id: mona.py 550 2015-01-02 22:46:02Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 549 $')
+__REV__ = filter(str.isdigit, '$Revision: 550 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -8244,7 +8244,7 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 				regsequences.append(reg)
 		
 
-		
+		regimpact = {}
 		# create the current chain
 		ropdbchain = ""
 		tohex_array = []
@@ -8340,6 +8340,7 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 			thisinstr = interestinggadgets[shortest_pushad].lstrip()
 			if thisinstr.startswith("#"):
 				thisinstr = thisinstr[2:len(thisinstr)]
+			regimpact = getRegImpact(thisinstr)
 			thismodname = MnPointer(shortest_pushad).belongsTo()
 			thisinstr += " [" + thismodname + "]"
 			tmod = MnModule(thismodname)
@@ -8547,6 +8548,35 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 	objprogressfile.write("Done creating rop chains",progressfile)
 	return vplogtxt
 
+
+def getRegImpact(instructionstr):
+	rimpact = {}
+	instrlineparts = instructionstr.split(" # ")
+	changers = ["ADD","SUB","ADC","INC","DEC","XOR"]
+	for i in instrlineparts:
+		instrparts = i.split(" ")
+		dreg = ""
+		dval = 0
+		if len(instrparts) > 1:
+			if instrparts[0] in changers:
+				dreg = instrparts[1]
+				if instrparts[0] == "INC":
+					dval = -1
+				elif instrparts[0] == "DEC":
+					dval = 1
+				else:
+					vparts = i.split(",")
+					if len(vparts) > 1:
+						vpart = vparts[1]
+						dval = vpart
+
+		if dreg != "":
+			if not dreg in rimpact:
+				rimpact[dreg] = dval
+			else:
+				rimpact[dreg] = rimpact[dreg] + dval
+
+	return rimpact
 
 
 def getPickupGadget(targetreg,targetval,freetext,suggestions,interestinggadgets,criteria,modulecriteria,routine=""):
