@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 550 $
-$Id: mona.py 550 2015-01-02 22:46:02Z corelanc0d3r $ 
+$Revision: 551 $
+$Id: mona.py 551 2015-01-02 22:46:02Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 550 $')
+__REV__ = filter(str.isdigit, '$Revision: 551 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -3057,6 +3057,7 @@ class MnHeap:
 		Return: Int, containing the Encoding key (on Windows 7 and up)
 		or zero on older Operating Systems
 		"""
+		self.Encoding = 0
 		if win7mode:
 			self.EncodeFlagMask = struct.unpack('<L',dbg.readMemory(self.heapbase+0x4c,4))[0]
 			if self.EncodeFlagMask == 0x100000:
@@ -3299,13 +3300,25 @@ class MnHeap:
 				valistentry = struct.unpack('<L',dbg.readMemory(vaptr,4))[0]
 				while valistentry != vaptr:
 					# get VA Header info
+					# header:
+					# FLINK (4)
+					# BLINK (4)
+					# Normal header (8), encoded on Win7
+					# CommitSize (8)
+					# ReserveSize (8)  ( = requested size)
+
 					headersize = 0x20
 					vaheader = dbg.readMemory(valistentry,32)
 					flink = struct.unpack('<L',vaheader[0:4])[0]
-					blink = struct.unpack('<L',vaheader[4:8])[0]
-					
+					blink = struct.unpack('<L',vaheader[4:8])[0]			
+								
 					commitsize = struct.unpack('<H',vaheader[16:18])[0] * 0x10
 					reservesize = struct.unpack('<H',vaheader[20:22])[0] * 0x10
+
+					# TO DO : fix VirtualAllocdBlock header parsing. Broken stuff.
+					if commitsize == 0:
+						commitsize = struct.unpack('<L',vaheader[0x10:0x14])[0] / 8
+						reservesize = struct.unpack('<L',vaheader[0x14:0x18])[0] / 8
 
 					size_e = struct.unpack('<H',vaheader[24:26])[0]
 					if win7mode:
@@ -3321,6 +3334,7 @@ class MnHeap:
 						flag = struct.unpack('<B',vaheader[22:23])[0]
 					unused = struct.unpack('<B',vaheader[30:31])[0]
 					tag = struct.unpack('<B',vaheader[31:])[0]
+
 					chunkobj = MnChunk(valistentry,"virtualalloc",headersize,self.heapbase,0,size,prevsize,segmentid,flag,unused,tag,flink,blink,commitsize,reservesize)
 					self.VirtualAllocdBlocks[valistentry] = chunkobj
 					valistentry = struct.unpack('<L',dbg.readMemory(valistentry,4))[0]
@@ -3644,8 +3658,9 @@ class MnChunk:
 				iHeap = MnHeap(self.heapbase)
 				if iHeap.usesLFH():
 					dbg.log("    Heap has LFH enabled. LFH Heap starts at 0x%08x" % iHeap.getLFHAddress())
-					if "busy" in self.flagtxt.lower() and "internal" in self.flagtxt.lower() and self.usersize > 0x1ff0:
-						dbg.log("    This chunk may be managed by LFH")
+					if "busy" in self.flagtxt.lower() and "virtallocd" in self.flagtxt.lower():
+						dbg.log("    ** This chunk may be managed by LFH")
+						self.flagtxt = self.flagtxt.replace("Virtallocd","Internal")
 			dbg.log("                      (         bytes        )                   (bytes)")						
 			dbg.log("      HEAP_ENTRY      Size  PrevSize    Unused Flags    UserPtr  UserSize Remaining - state")
 			dbg.log("        %08x  %08x  %08x  %08x  [%02x]   %08x  %08x  %08x   %s  (hex)" % (self.chunkptr,self.size*8,self.prevsize*8,self.unused,self.flag,self.userptr,self.usersize,self.unused-self.headersize,self.flagtxt))
@@ -3947,6 +3962,7 @@ class MnPointer:
 			if len(valist) > 0:
 				for vachunk in valist:
 					thischunk = valist[vachunk]
+					#dbg.log("self: 0x%08x, vachunk: 0x%08x, commitsize: 0x%08x, vachunk+(thischunk.commitsize)*8: 0x%08x" % (self.address,vachunk,thischunk.commitsize,vachunk+(thischunk.commitsize*8)))
 					if self.address >= vachunk and self.address <= (vachunk+(thischunk.commitsize*8)):
 						return True
 		return False
@@ -13578,6 +13594,7 @@ def main(args):
 					segmentinfo = " : " + segmentinfo
 					defheap = ""
 					lfhheap = ""
+					keyinfo = ""
 					if heap == getDefaultProcessHeap():
 						defheap = "* Default process heap"
 					if win7mode:
@@ -13585,7 +13602,9 @@ def main(args):
 						if iHeap.usesLFH():
 							lfhheapaddress = iHeap.getLFHAddress()
 							lfhheap = "[LFH enabled, _LFH_HEAP at 0x%08x]" % lfhheapaddress
-					dbg.log("0x%08x (%d segment(s)%s) %s %s" % (heap,len(segments),segmentinfo,defheap,lfhheap))
+						if iHeap.getEncodingKey() > 0:
+							keyinfo = "Encoding key: 0x%08x" % iHeap.getEncodingKey()
+					dbg.log("0x%08x (%d segment(s)%s) %s %s %s" % (heap,len(segments),segmentinfo,defheap,lfhheap,keyinfo))
 			else:
 				dbg.log(" ** No heaps found")
 			dbg.log("")
@@ -14238,6 +14257,9 @@ def main(args):
 											unused = thischunk.unused
 											headersize = thischunk.headersize
 											flagtxt = getHeapFlag(thischunk.flag)
+											if not infotype == "virtualallocdblocks" and "virtallocd" in flagtxt.lower():
+												flagtxt += " (LFH)"
+												flagtxt = flagtxt.replace("Virtallocd","Internal")
 											userptr = block + headersize
 											psize = thischunk.prevsize * 8
 											blocksize = thischunk.size * 8
