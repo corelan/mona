@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 553 $
-$Id: mona.py 553 2015-01-02 22:46:02Z corelanc0d3r $ 
+$Revision: 554 $
+$Id: mona.py 554 2015-01-02 22:46:02Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 553 $')
+__REV__ = filter(str.isdigit, '$Revision: 554 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -16764,7 +16764,9 @@ def main(args):
 			dbg.log("[+] Max nr of instructions per branch: %d" % maxinstr)
 			dbg.log("[+] Maximum CALL level: %d" % maxcalllevel)
 			if len(avoidlist) > 0:
-				dbg.log("[+] Only showing flows that don't contains these pointer(s): %s" % avoidlist)
+				dbg.log("[+] Only showing flows that don't contains these pointer(s):")
+				for a in avoidlist:
+					dbg.log("    0x%08x" % a)
 			if callskip > 0:
 				dbg.log("[+] Skipping details of the first %d child functions" % callskip)
 			if eaddy > 0:
