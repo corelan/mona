@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 551 $
-$Id: mona.py 551 2015-01-02 22:46:02Z corelanc0d3r $ 
+$Revision: 552 $
+$Id: mona.py 552 2015-01-02 22:46:02Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 551 $')
+__REV__ = filter(str.isdigit, '$Revision: 552 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -11652,12 +11652,7 @@ def main(args):
 				section = ""
 			if section != "":
 				dbg.log("    Section : %s" % section)
-			if rva != 0:
-				dbg.log("    Offset from module base: 0x%x" % rva)
-				if modinfo:
-					eatlist = modinfo.getEAT()
-					if address in eatlist:
-						dbg.log("    Address is start of function %s in %s" % (eatlist[address],modname))
+			
 			if ptr.isOnStack():
 				stacks = getStacks()
 				stackref = ""
@@ -11668,7 +11663,19 @@ def main(args):
 						break
 				dbg.log("    This address is in a stack segment %s" % stackref)
 			if modinfo:
-				dbg.log("    Module: %s" % modinfo.__str__())
+				dbg.log("    Address is part of a module:")
+				dbg.log("    %s" % modinfo.__str__())
+				if rva != 0:
+					dbg.log("    Offset from module base: 0x%x" % rva)
+					if modinfo:
+						eatlist = modinfo.getEAT()
+						if address in eatlist:
+							dbg.log("    Address is start of function '%s' in %s" % (eatlist[address],modname))
+						else:
+							iatlist = modinfo.getIAT()
+							if address in iatlist:
+								iatentry = iatlist[address]
+								dbg.log("    Address is part of IAT, and contains pointer to '%s'" % iatentry)				
 			else:
 				output = ""
 				if ptr.isInHeap():
