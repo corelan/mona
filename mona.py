@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 554 $
-$Id: mona.py 554 2015-01-02 22:46:02Z corelanc0d3r $ 
+$Revision: 555 $
+$Id: mona.py 555 2015-01-02 22:46:02Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 554 $')
+__REV__ = filter(str.isdigit, '$Revision: 555 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -11287,7 +11287,13 @@ def main(args):
 			pattern = ""
 			if "?" in args and args["?"] != "":
 				try:
-					size = int(args["?"])
+					if "0x" in args["?"].lower():
+						try:
+							size = int(args["?"],16)
+						except:
+							size = 0
+					else:
+						size = int(args["?"])
 				except:
 					size = 0
 			if size == 0:
