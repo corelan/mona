@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 555 $
-$Id: mona.py 555 2015-01-02 22:46:02Z corelanc0d3r $ 
+$Revision: 556 $
+$Id: mona.py 556 2015-01-02 22:46:02Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 555 $')
+__REV__ = filter(str.isdigit, '$Revision: 556 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -11650,7 +11650,10 @@ def main(args):
 			dbg.log("[+] Information about address 0x%s" % toHex(address))
 			dbg.log("    %s" % ptr.__str__())
 			thepage = dbg.getMemoryPageByAddress(address)
-			dbg.log("    Address is part of page 0x%08x - 0x%08x" % (thepage.getBaseAddress(),thepage.getBaseAddress()+thepage.getSize()))
+			if not thepage == None:
+				dbg.log("    Address is part of page 0x%08x - 0x%08x" % (thepage.getBaseAddress(),thepage.getBaseAddress()+thepage.getSize()))
+			else:
+				dbg.log("    This address does not seem to be mapped in this process")
 			section = ""
 			try:
 				section = thepage.getSection()
@@ -15803,16 +15806,16 @@ def main(args):
 				dbg.log("Address     Next SEH    Handler")
 				dbg.log("-------     --------    -------")
 				for sehrecord in sehchain:
-					address = sehrecord[0]
+					recaddress = sehrecord[0]
 					sehandler = sehrecord[1]
 					nseh = ""
 					try:
-						nsehvalue = struct.unpack('<L',dbg.readMemory(address,4))[0]
+						nsehvalue = struct.unpack('<L',dbg.readMemory(recaddress,4))[0]
 						nseh = "0x%08x" % nsehvalue
 					except:
 						nseh = 0
 						sehandler = 0
-					overwritedata = checkSEHOverwrite(address,nseh,sehandler)
+					overwritedata = checkSEHOverwrite(recaddress,nseh,sehandler)
 					overwritemark = ""
 					funcinfo = ""
 					if sehandler > 0:
@@ -15825,7 +15828,7 @@ def main(args):
 						else:
 							nseh = "0x%08x" % int(nseh)
 					if len(overwritedata) > 0:
-						handlersoverwritten[address] = overwritedata
+						handlersoverwritten[recaddress] = overwritedata
 						smashoffset = int(overwritedata[1])
 						typeinfo = ""
 						if overwritedata[0] == "unicode":
@@ -15833,7 +15836,7 @@ def main(args):
 							typeinfo = " [unicode]"
 						overwritemark = " (record smashed at offset %d%s)" % (smashoffset,typeinfo)
 						
-					dbg.log("0x%08x  %s  0x%08x %s%s" % (address,nseh,sehandler,funcinfo, overwritemark))
+					dbg.log("0x%08x  %s  0x%08x %s%s" % (recaddress,nseh,sehandler,funcinfo, overwritemark), recaddress)
 			if len(handlersoverwritten) > 0:
 				dbg.log("")
 				dbg.log("Payload structure suggestion(s):")
@@ -16030,7 +16033,7 @@ def main(args):
 									size = 0xfff
 			if size > 0xfff and osize > 0:
 				errorsfound = True
-				dbg.log("*** Please keep the size below 0xfff (argument -s) ***",highlight=1)
+				dbg.log("*** Please keep the size below 0xfff (argument -s), for performance reasons ***",highlight=1)
 			if size == 0:
 				size = 0x28
 			if levels > 0 and nestedsize == 0:
