@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 556 $
-$Id: mona.py 556 2015-01-02 22:46:02Z corelanc0d3r $ 
+$Revision: 557 $
+$Id: mona.py 557 2015-01-02 22:46:02Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 556 $')
+__REV__ = filter(str.isdigit, '$Revision: 557 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -11306,9 +11306,17 @@ def main(args):
 				ignoremodules = True
 				objpatternfile = MnLog("pattern.txt")
 				patternfile = objpatternfile.reset()
+				# ASCII
 				objpatternfile.write("\nPattern of " + str(size) + " bytes :\n",patternfile)
 				objpatternfile.write("-" * (19 + len(str(size))),patternfile)
+				objpatternfile.write("\nASCII:",patternfile)
 				objpatternfile.write("\n" + pattern,patternfile)
+				# Hex
+				patternhex = ""
+				for patternchar in pattern:
+					patternhex += str(hex(ord(patternchar))).replace("0x","\\x")
+				objpatternfile.write("\n\nHEX:\n",patternfile)
+				objpatternfile.write(patternhex,patternfile)
 				if not silent:
 					dbg.log("Note: don't copy this pattern from the log window, it might be truncated !",highlight=1)
 					dbg.log("It's better to open %s and copy the pattern from the file" % patternfile,highlight=1)
@@ -11650,10 +11658,7 @@ def main(args):
 			dbg.log("[+] Information about address 0x%s" % toHex(address))
 			dbg.log("    %s" % ptr.__str__())
 			thepage = dbg.getMemoryPageByAddress(address)
-			if not thepage == None:
-				dbg.log("    Address is part of page 0x%08x - 0x%08x" % (thepage.getBaseAddress(),thepage.getBaseAddress()+thepage.getSize()))
-			else:
-				dbg.log("    This address does not seem to be mapped in this process")
+			dbg.log("    Address is part of page 0x%08x - 0x%08x" % (thepage.getBaseAddress(),thepage.getBaseAddress()+thepage.getSize()))
 			section = ""
 			try:
 				section = thepage.getSection()
@@ -16033,7 +16038,7 @@ def main(args):
 									size = 0xfff
 			if size > 0xfff and osize > 0:
 				errorsfound = True
-				dbg.log("*** Please keep the size below 0xfff (argument -s), for performance reasons ***",highlight=1)
+				dbg.log("*** Please keep the size below 0xfff (argument -s) ***",highlight=1)
 			if size == 0:
 				size = 0x28
 			if levels > 0 and nestedsize == 0:
