@@ -1354,7 +1354,10 @@ def getModuleObj(modname):
 	# Method 1
 	mod = dbg.getModule(modname)
 	if mod is not None:
-		return MnModule(modname)
+		try:
+			return MnModule(modname)
+		else:
+			pass
 	# Method 2
 
 	suffixes = ["",".exe",".dll"]
@@ -1368,37 +1371,58 @@ def getModuleObj(modname):
 				tmod = dbg.getModule(tmod_s)
 				if not tmod == None:
 					if tmod.getName() == modname_search:
-						return MnModule(tmod_s)
+						try:
+							return MnModule(tmod_s)
+						except:
+							pass
 					imname = dbg.getImageNameForModule(tmod.getName())
 					if not imname == None:
 						if imname == modname_search:
-							return MnModule(tmod)
+							try:
+								return MnModule(tmod)
+							except:
+								pass
 			for tmod_s in allmod:
 				tmod = dbg.getModule(tmod_s)
 				if not tmod == None:
 					if tmod.getName().lower() == modname_search.lower():
-						return MnModule(tmod_s)
+						try:
+							return MnModule(tmod_s)
+						except:
+							pass
 					imname = dbg.getImageNameForModule(tmod.getName().lower())
 					if not imname == None:
 						if imname.lower() == modname_search.lower():
-							return MnModule(tmod)
+							try:
+								return MnModule(tmod)
+							except:
+								pass
 			for tmod_s in allmod:
 				tmod = dbg.getModule(tmod_s)
 				if not tmod == None:
 					if tmod_s.lower() == modname_search.lower():
-						return MnModule(tmod_s)
+						try:
+							return MnModule(tmod_s)
+						except:
+							pass
 		else:
 			# Immunity
 			for tmod_s in allmod:
 				if not tmod_s == None:
 					mname = tmod_s.getName()
 					if mname == modname_search:
-						return MnModule(mname)
+						try:
+							return MnModule(mname)
+						except:
+							pass
 			for tmod_s in allmod:
 				if not tmod_s == None:
 					mname = tmod_s.getName()
 					if mname.lower() == modname_search.lower():
-						return MnModule(mname)
+						try:
+							return MnModule(mname)
+						except:
+							pass
 		
 	return None
 	
@@ -1490,7 +1514,10 @@ def getAPointer(modules,criteria,accesslevel):
 				pageptr = MnPointer(a)
 				thismodulename = pageptr.belongsTo()
 				if thismodulename != "" and thismodulename in modules:
-					thismod = MnModule(thismodulename)
+					try:
+						thismod = MnModule(thismodulename)
+					except:
+						continue
 					start = thismod.moduleBase
 					end = thismod.moduleTop
 					random.seed()
@@ -2373,8 +2400,11 @@ class MnLog:
 			if entry > 0:
 				ptrx = MnPointer(entry)
 				modname = ptrx.belongsTo()
-				modinfo = MnModule(modname)
-				towrite = "0x" + toHex(entry) + " : " + ptrx.__str__() + " " + modinfo.__str__()
+				try:
+					modinfo_str = MnModule(modname).__str__()
+				except:
+					modinfo_str = "Module info unavailable"
+				towrite = "0x" + toHex(entry) + " : " + ptrx.__str__() + " " + modinfo_str
 			else:
 				towrite = entry
 		else:
@@ -2482,13 +2512,14 @@ class MnModule:
 			else:
 				#gather info manually - this code should only get called from populateModuleInfo()
 				self.moduleobj = dbg.getModule(modulename)	
+				if self.moduleobj == None:
+					dbg.log("*** Error - self.moduleobj is None, key %s" % modulename, highlight=1)
+					raise Exception("Unable to load module")
 				modissafeseh = True
 				modisaslr = True
 				modisnx = True
 				modrebased = False
 				modisos = False
-				#if self.moduleobj == None:
-				#	dbg.log("*** Error - self.moduleobj is None, key %s" % modulename, highlight=1)
 				mod       = self.moduleobj
 				mzbase    = mod.getBaseAddress()
 				mzrebase  = mod.getFixupbase()
@@ -2559,7 +2590,7 @@ class MnModule:
 			#print "No module specified !!!"
 			#print "stacktrace : "
 			#print traceback.format_exc()
-			return None
+			raise Exception("No module specified!")
 
 		#check if module is excluded
 		thisconfig = MnConfig()
@@ -2719,7 +2750,10 @@ class MnModule:
 							ptr = iatEntry
 							ptrx = MnPointer(iatEntry)
 							modname = ptrx.belongsTo()
-							tmod = MnModule(modname)
+							try:
+								tmod = MnModule(modname)
+							except:
+								tmod = None
 							thisfunc = dbglib.Function(dbg,ptr)
 							thisfuncfullname = thisfunc.getName().lower()
 							if thisfuncfullname.endswith(".unknown") or thisfuncfullname.endswith(".%08x" % ptr):
@@ -2752,7 +2786,10 @@ class MnModule:
 										# see if we can find the original function name using the EAT
 										tptr = MnPointer(ptr)
 										modname = tptr.belongsTo()
-										tmod = MnModule(modname)
+										try:
+											tmod = MnModule(modname)
+										except:
+											tmod = None
 										ofullname = thisfuncfullname
 										
 										if not tmod is None:
@@ -4398,7 +4435,10 @@ class MnPointer:
 		if funcinfo == "":
 			memloc = self.belongsTo()
 			if not memloc == "":
-				mod = MnModule(memloc)
+				try:
+					mod = MnModule(memloc)
+				except:
+					mod = None
 				if not mod is None:
 					start = mod.moduleBase
 					offset = self.address - start
@@ -5374,7 +5414,10 @@ def getModulesToQuery(criteria):
 	modulestoquery=[]
 	for thismodule,modproperties in g_modules.iteritems():
 		#is this module excluded ?
-		thismod = MnModule(thismodule)	
+		try:
+			thismod = MnModule(thismodule)
+		except:
+			continue
 		included = True
 		if not thismod.isExcluded:
 			#check other criteria
@@ -5485,7 +5528,10 @@ def populateModuleInfo():
 	curmod = ""
 	for key in allmodules.keys():
 		modinfo={}
-		thismod = MnModule(key)
+		try:
+			thismod = MnModule(key)
+		except:
+			thismod = None
 		if not thismod is None:
 			modinfo["path"]		= thismod.modulePath
 			modinfo["base"] 	= thismod.moduleBase
@@ -5611,13 +5657,18 @@ def processResults(all_opcodes,logfile,thislog,specialcases = {},ptronly = False
 					ptrx = MnPointer(ptr)
 					modname = ptrx.belongsTo()
 					if not modname == "":
-						modobj = MnModule(modname)
-						ptrextra = ""
-						rva=0
-						if (modobj.isRebase or modobj.isAslr):
-							rva = ptr - modobj.moduleBase
-							ptrextra = " (b+0x" + toHex(rva)+") "
-						ptrinfo = "0x" + toHex(ptr) + ptrextra + " : " + optext + " | " + ptrx.__str__()  + " " + modobj.__str__()
+						try:
+							modobj = MnModule(modname)
+						except:
+							modobj = None
+						if modobj is not None:
+							ptrextra = ""
+							rva=0
+							if (modobj.isRebase or modobj.isAslr):
+								rva = ptr - modobj.moduleBase
+								ptrextra = " (b+0x" + toHex(rva)+") "
+							ptrinfo = "0x" + toHex(ptr) + ptrextra + " : " + optext + " | " + ptrx.__str__()  + " " + modobj.__str__()
+
 					else:
 						ptrinfo = "0x" + toHex(ptr) + " : " + optext + " | " + ptrx.__str__() 
 						if ptrx.isOnStack():
@@ -5817,23 +5868,26 @@ def findROPFUNC(modulecriteria={},criteria={},searchfuncs=[]):
 		fnames = offsets[themod]
 		try:
 			themodule = MnModule(themod)
-			if not themodule is None:
-				allfuncs = themodule.getEAT()
-				for fn in allfuncs:
-					for fname in fnames:
-						if allfuncs[fn].lower().find(fname.lower()) > -1:
-							fname = allfuncs[fn].lower()
-							if not fname in offsetpointers:
-								offsetpointers[fname] = fn
-							break
 		except:
 			continue
+		allfuncs = themodule.getEAT()
+		for fn in allfuncs:
+			for fname in fnames:
+				if allfuncs[fn].lower().find(fname.lower()) > -1:
+					fname = allfuncs[fn].lower()
+					if not fname in offsetpointers:
+						offsetpointers[fname] = fn
+					break
+
 
 	isrebased = False
 	for key in modulestosearch:
 		curmod = dbg.getModule(key)
 		#is this module going to get rebase ?
-		themodule = MnModule(key)
+		try:
+			themodule = MnModule(key)
+		except:
+			continue
 		isrebased = themodule.isRebase
 		if not silent:
 			dbg.log("     - Querying %s" % (key))		
@@ -6078,8 +6132,12 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 					# we now have a range to mine
 					startptr = thisptr
 					currentmodulename = MnPointer(thisptr).belongsTo()
-					modinfo = MnModule(currentmodulename)
-					issafeseh = modinfo.isSafeSEH
+					try:
+						modinfo = MnModule(currentmodulename)
+						issafeseh = modinfo.isSafeSEH
+					except:
+						dbg.log('SafeSEH info unavailable, result may be inaccurate')
+						issafeseh = False
 					while startptr <= endingtypeptr and startptr != 0x0:
 						# get the entire chain from startptr to endingtypeptr
 						thischain = ""
@@ -6135,8 +6193,11 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 						modname = ptrx.belongsTo()
 						issafeseh = False
 						if modname != "":
-							thism = MnModule(modname)
-							issafeseh = thism.isSafeSEH
+							try:
+								thism = MnModule(modname)
+								issafeseh = thism.isSafeSEH
+							except:
+								pass
 						if isGoodGadgetPtr(startptr,criteria) and not startptr in ropgadgets and not startptr in interestinggadgets:
 							fullchain = thischain
 							if isInterestingGadget(fullchain):
@@ -6190,11 +6251,14 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 					if gcnt < limitnr:
 						sptr = MnPointer(suggestedpointer)
 						modname = sptr.belongsTo()
-						modinfo = MnModule(modname)
-						if not modinfo.moduleBase.__class__.__name__ == "instancemethod":
-							rva = suggestedpointer - modinfo.moduleBase	
+						try:
+							modinfo = MnModule(modname)
+						except:
+							modinfo = None
+
 						suggesteddata = suggestions[suggestedtype][suggestedpointer]
-						if not modinfo.moduleBase.__class__.__name__ == "instancemethod":
+						if modinfo and modinfo.moduleBase.__class__.__name__ != "instancemethod":
+							rva = suggestedpointer - modinfo.moduleBase
 							ptrinfo = "0x" + toHex(suggestedpointer) + " (RVA : 0x" + toHex(rva) + ") : " + suggesteddata + "    ** [" + modname + "] **   |  " + sptr.__str__()+"\n"
 						else:
 							ptrinfo = "0x" + toHex(suggestedpointer) + " : " + suggesteddata + "    ** [" + modname + "] **   |  " + sptr.__str__()+"\n"
@@ -6333,12 +6397,15 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 			for gadget in interestinggadgets:
 				ptrx = MnPointer(gadget)
 				modname = ptrx.belongsTo()
-				modinfo = MnModule(modname)
+				try:
+					modinfo_str = MnModule(modname).__str__()
+				except:
+					modinfo_str = 'Module info unavailable'
 				thismodversion = getModuleProperty(modname,"version")
 				thismodname = modname.replace(" ","_")
 				logfile = MnLog("rop_"+thismodname+"_"+thismodversion+".txt")
 				thislog = logfile.reset(False)
-				ptrinfo = "0x" + toHex(gadget) + " : " + interestinggadgets[gadget] + "    ** " + modinfo.__str__() + " **   |  " + ptrx.__str__()+"\n"
+				ptrinfo = "0x" + toHex(gadget) + " : " + interestinggadgets[gadget] + "    ** " + modinfo_str + " **   |  " + ptrx.__str__()+"\n"
 				with open(thislog, "a") as fh:
 					fh.write(ptrinfo)
 			if not fast:
@@ -6351,12 +6418,15 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 				for gadget in ropgadgets:
 					ptrx = MnPointer(gadget)
 					modname = ptrx.belongsTo()
-					modinfo = MnModule(modname)
+					try:
+						modinfo_str = MnModule(modname).__str__()
+					except:
+						modinfo_str = 'Module info unavailable'
 					thismodversion = getModuleProperty(modname,"version")
 					thismodname = modname.replace(" ","_")
 					logfile = MnLog("rop_"+thismodname+"_"+thismodversion+".txt")
 					thislog = logfile.reset(False)
-					ptrinfo = "0x" + toHex(gadget) + " : " + ropgadgets[gadget] + "    ** " + modinfo.__str__() + " **   |  " + ptrx.__str__()+"\n"
+					ptrinfo = "0x" + toHex(gadget) + " : " + ropgadgets[gadget] + "    ** " + modinfo_str + " **   |  " + ptrx.__str__()+"\n"
 					with open(thislog, "a") as fh:
 						fh.write(ptrinfo)
 	thistimestamp=datetime.datetime.now().strftime("%a %Y/%m/%d %I:%M:%S %p")
@@ -6520,8 +6590,11 @@ def findJOPGADGETS(modulecriteria={},criteria={},depth=6):
 			for gadget in interestinggadgets:
 					ptrx = MnPointer(gadget)
 					modname = ptrx.belongsTo()
-					modinfo = MnModule(modname)
-					ptrinfo = "0x" + toHex(gadget) + " : " + interestinggadgets[gadget] + "    ** " + modinfo.__str__() + " **   |  " + ptrx.__str__()+"\n"
+					try:
+						modinfo_str = MnModule(modname).__str__()
+					except:
+						modinfo_str = 'Module info unavailable'
+					ptrinfo = "0x" + toHex(gadget) + " : " + interestinggadgets[gadget] + "    ** " + modinfo_str + " **   |  " + ptrx.__str__()+"\n"
 					arrtowrite += ptrinfo
 			objprogressfile.write("Writing results to file " + thislog + " (" + str(len(interestinggadgets))+" interesting gadgets)",progressfile)
 			fh.writelines(arrtowrite)
@@ -6923,7 +6996,10 @@ def findPatternWild(modulecriteria,criteria,pattern,base,top,patterntype):
 		modulestosearch = getModulesToQuery(modulecriteria)
 		# convert modules to ranges
 		for modulename in modulestosearch:
-			objmod = MnModule(modulename)
+			try:
+				objmod = MnModule(modulename)
+			except:
+				continue
 			mBase = objmod.moduleBase
 			mTop = objmod.moduleTop
 			if mBase < base and base < mTop:
@@ -7191,7 +7267,10 @@ def findPattern(modulecriteria,criteria,pattern,ptype,base,top,consecutive=False
 		modulestosearch = getModulesToQuery(modulecriteria)
 		# convert modules to ranges
 		for modulename in modulestosearch:
-			objmod = MnModule(modulename)
+			try:
+				objmod = MnModule(modulename)
+			except:
+				continue
 			mBase = objmod.moduleBase
 			mTop = objmod.moduleTop
 			if mBase < base and base < mTop:
@@ -8281,6 +8360,7 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 							showfills = True
 						thismodname = MnPointer(gadgetstep).belongsTo()
 						thisinstr += " [" + thismodname + "]"
+						# Not sure what to do if creating the MnModule fails.
 						tmod = MnModule(thismodname)
 						if not thismodname in modused:
 							modused[thismodname] = [tmod.moduleBase,tmod.__str__()]	
@@ -8317,6 +8397,7 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 						# still could be a pointer
 						thismodname = MnPointer(gadgetstep).belongsTo()
 						if thismodname != "":
+							# Not sure what to do if creating the MnModule fails.
 							tmod = MnModule(thismodname)
 							if not thismodname in modused:
 								modused[thismodname] = [tmod.moduleBase,tmod.__str__()]
@@ -8359,6 +8440,7 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 			regimpact = getRegImpact(thisinstr)
 			thismodname = MnPointer(shortest_pushad).belongsTo()
 			thisinstr += " [" + thismodname + "]"
+			# Not sure what to do if creating the MnModule fails.
 			tmod = MnModule(thismodname)
 			if not thismodname in modused:
 				modused[thismodname] = [tmod.moduleBase,tmod.__str__()]				
@@ -8397,6 +8479,7 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 				if theptr > 0:
 					thismodname = MnPointer(theptr).belongsTo()
 					freetext += " [" + thismodname + "]"
+					# Not sure what to do if creating the MnModule fails.
 					tmod = MnModule(thismodname)
 					if not thismodname in modused:
 						modused[thismodname] = [tmod.moduleBase,tmod.__str__()]				
@@ -8529,6 +8612,7 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 			modulename = ""
 			for modname in modused:
 				modulename = modname
+			# Not sure what to do if creating the MnModule fails.
 			objMod = MnModule(modulename)
 			modversion = objMod.moduleVersion
 			modbase = objMod.moduleBase
@@ -8886,7 +8970,10 @@ def getRopFuncPtr(apiname,modulecriteria,criteria,mode = "iat"):
 		# read EAT
 		modulestosearch = getModulesToQuery(modulecriteria)
 		for mod in modulestosearch:
-			tmod = MnModule(mod)
+			try:
+				tmod = MnModule(mod)
+			except:
+				continue
 			funcs = tmod.getEAT()
 			for func in funcs:
 				funcname = funcs[func].lower()
@@ -10723,7 +10810,10 @@ def doManageBpOnFunc(modulecriteria,criteria,funcfilter,mode="add",type="export"
 				dbg.log(" Querying module %s" % thismodule)
 			# get all
 			themod = dbg.getModule(thismodule)
-			tmod = MnModule(thismodule)
+			try:
+				tmod = MnModule(thismodule)
+			except:
+				continue
 			shortname = tmod.getShortName()
 			syms = themod.getSymbols()
 			# get funcs
@@ -11648,7 +11738,10 @@ def main(args):
 			modname = ptr.belongsTo()
 			modinfo = None
 			if modname != "":
-				modinfo = MnModule(modname)
+				try:
+					modinfo = MnModule(modname)
+				except:
+					pass
 			rebase = ""
 			rva=0
 			if modinfo :
@@ -11847,8 +11940,11 @@ def main(args):
 					modname = modparts[0]
 					if not modname.lower().endswith(".dll"):
 						modname += ".dll" 
-					themodule = MnModule(modname)											
-					if themodule != None and len(modparts) > 1:
+					try:
+						themodule = MnModule(modname)
+					except:
+						themodule = None
+					if themodule is not None and len(modparts) > 1:
 						eatlist = themodule.getEAT()
 						funcname = modparts[1].lower()
 						addyfound = False
@@ -11972,7 +12068,10 @@ def main(args):
 					if not objMod.isAnalysed:
 						dbg.log("    Analysing code...")
 						objMod.Analyse()
-					themod = MnModule(thismod)
+					try:
+						themod = MnModule(thismod)
+					except:
+						continue
 					modcodebase = themod.moduleCodebase
 					modcodetop = themod.moduleCodetop		
 					dbg.setStatusBar("Placing hooks in %s..." % thismod)
@@ -14608,7 +14707,10 @@ def main(args):
 				xatfile = objxatfilename.reset()
 			
 				for thismodule in modulestosearch:
-					thismod = MnModule(thismodule) 
+					try:
+						thismod = MnModule(thismodule)
+					except:
+						continue
 					if mode == "iat":
 						thisxat = thismod.getIAT()
 					else:
@@ -16588,8 +16690,12 @@ def main(args):
 					pageptr = MnPointer(page_base)
 					thismodulename = pageptr.belongsTo()
 					if thismodulename != "":
-						thismod = MnModule(thismodulename)
-						if thismod.isAslr or thismod.isRebase:
+						try:
+							thismod = MnModule(thismodulename)
+							if thismod.isAslr or thismod.isRebase:
+								processpage = False
+						except:
+							# We don't have info about this mod, skipping it
 							processpage = False
 					if processpage:
 						dbg.log("[+] Walking page 0x%08x - 0x%08x (%s)" % (page_base,page_end,acl))
@@ -17133,12 +17239,16 @@ def main(args):
 			ptrx = MnPointer(addy)
 			modname = ptrx.belongsTo()
 			if not modname == "":
-				mod = MnModule(modname)
-				m = mod.moduleBase
-				rva = addy - m
-				bpdest = "%s+0x%02x" % (modname,rva)
-				thisopcode = dbg.disasm(addy)
-				instruction = thisopcode.getDisasm()
+				try:
+					mod = MnModule(modname)
+				except:
+					mod = None
+				if mod is not None:
+					m = mod.moduleBase
+					rva = addy - m
+					bpdest = "%s+0x%02x" % (modname,rva)
+					thisopcode = dbg.disasm(addy)
+					instruction = thisopcode.getDisasm()
 
 			locsyntax = "bp %s" % bpdest
 
