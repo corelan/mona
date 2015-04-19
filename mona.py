@@ -2590,7 +2590,7 @@ class MnModule:
 			#print "No module specified !!!"
 			#print "stacktrace : "
 			#print traceback.format_exc()
-			return None
+			raise Exception("No module specified!")
 
 		#check if module is excluded
 		thisconfig = MnConfig()
