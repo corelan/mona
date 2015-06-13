@@ -2,7 +2,7 @@
  
 U{Corelan<https://www.corelan.be>}
 
-Copyright (c) 2011-2013, Peter Van Eeckhoutte - Corelan GCV
+Copyright (c) 2011-2015, Peter Van Eeckhoutte - Corelan GCV
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 557 $
-$Id: mona.py 557 2015-01-02 22:46:02Z corelanc0d3r $ 
+$Revision: 559 $
+$Id: mona.py 559 2015-06-13 11:46:02Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 557 $')
+__REV__ = filter(str.isdigit, '$Revision: 559 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -2444,7 +2444,7 @@ class MnModule:
 	Class to access module properties
 	"""
 	def __init__(self, modulename):
-		
+		#dbg.log("MnModule(%s)" % modulename)
 		modisaslr = True
 		modissafeseh = True
 		modrebased = True
@@ -2481,7 +2481,7 @@ class MnModule:
 				mcodetop = getModuleProperty(modulename,"codetop")
 			else:
 				#gather info manually - this code should only get called from populateModuleInfo()
-				self.moduleobj = dbg.getModule(modulename)	
+				self.moduleobj = dbg.getModule(modulename)
 				modissafeseh = True
 				modisaslr = True
 				modisnx = True
@@ -17182,6 +17182,9 @@ def main(args):
 
 			if "CALL" in instruction.upper():
 				dmpsyntax += '.echo;.printf \\"Stack (esp: 0x%08x):\\",esp;.echo;dds esp L 0x4;'
+
+			if instruction.upper().startswith("RET") and addy == regs["EIP"]:
+				dmpsyntax += '.echo;.printf \\"EAX: 0x%08x, Ret To: 0x%08x, Arg1: 0x%08x, Arg2: 0x%08x, Arg3: 0x%08x, Arg4: 0x%08x\\",eax,poi(esp),poi(esp+4),poi(esp+8),poi(esp+c),poi(esp+10);'
 
 			bpsyntax = locsyntax + ' ".echo ---------------;u eip L 1;' + regsyntax + dmpsyntax + ".echo;g" + '"'
 			filename = "logbps.txt"
