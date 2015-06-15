@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 559 $
-$Id: mona.py 559 2015-06-13 11:46:02Z corelanc0d3r $ 
+$Revision: 560 $
+$Id: mona.py 560 2015-06-13 11:46:02Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 559 $')
+__REV__ = filter(str.isdigit, '$Revision: 560 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -14624,6 +14624,7 @@ def main(args):
 							thisfuncname = thisfuncname[firstindex+1:len(thisfuncname)]
 						addtolist = False
 						iatptr_modname = ""
+						modinfohr = ""
 						theptr = 0
 						if mode == "iat":
 							theptr = struct.unpack('<L',dbg.readMemory(thisfunc,4))[0]
@@ -14640,6 +14641,14 @@ def main(args):
 								oparts = origfuncname.split("!")
 								origfuncname = iatptr_modname + "." + oparts[1]
 								thisfuncname = origfuncname
+
+							try:
+								ModObj = MnModule(iatptr_modname)
+								modinfohr = " - %s" % (ModObj.__str__())
+							except:
+								modinfohr = ""
+								pass
+
 						if len(keywords) > 0:
 							for keyword in keywords:
 								keyword = keyword.lower().strip()
@@ -14662,9 +14671,11 @@ def main(args):
 							addtolist = True
 						if addtolist:
 							entriesfound += 1
+							# add info about the module
+
 							if mode == "iat":
 								thedelta = thisfunc - thismod.moduleBase
-								logentry = "At 0x%s in %s (base + 0x%s) : 0x%s (ptr to %s)" % (toHex(thisfunc),thismodule.lower(),toHex(thedelta),toHex(theptr),origfuncname)
+								logentry = "At 0x%s in %s (base + 0x%s) : 0x%s (ptr to %s) %s" % (toHex(thisfunc),thismodule.lower(),toHex(thedelta),toHex(theptr),origfuncname,modinfohr)
 							else:
 								thedelta = thisfunc - thismod.moduleBase
 								logentry = "0x%08x : %s!%s (0x%08x+0x%08x)" % (thisfunc,thismodule.lower(),origfuncname,thismod.moduleBase,thedelta)
