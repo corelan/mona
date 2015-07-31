@@ -1356,7 +1356,7 @@ def getModuleObj(modname):
 	if mod is not None:
 		try:
 			return MnModule(modname)
-		else:
+		except:
 			pass
 	# Method 2
 
