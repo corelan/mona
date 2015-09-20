@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 562 $
-$Id: mona.py 562 2015-06-16 11:46:02Z corelanc0d3r $ 
+$Revision: 563 $
+$Id: mona.py 563 2015-09-20 08:46:02Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 562 $')
+__REV__ = filter(str.isdigit, '$Revision: 563 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -16114,7 +16114,7 @@ def main(args):
 
 
 
-		# unicode alignment routines written by floyd (http://www.floyd.cd, twitter: @floyd_ch)
+		# unicode alignment routines written by floyd (http://www.floyd.ch, twitter: @floyd_ch)
 		def procUnicodeAlign(args):
 			leaks = False
 			address = 0
