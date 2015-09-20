@@ -7948,7 +7948,7 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
  ESI = ptr to VirtualProtect()
  EDI = ROP NOP (RETN)
  --- alternative chain ---
- EAX = tr to &VirtualProtect()
+ EAX = ptr to &VirtualProtect()
  ECX = lpOldProtect (ptr to W address)
  EDX = NewProtect (0x40)
  EBX = dwSize
