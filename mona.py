@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 563 $
-$Id: mona.py 563 2015-09-20 08:46:02Z corelanc0d3r $ 
+$Revision: 564 $
+$Id: mona.py 564 2015-11-03 08:46:02Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 563 $')
+__REV__ = filter(str.isdigit, '$Revision: 564 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -607,13 +607,13 @@ def bin2hexstr(binbytes):
 
 def str2js(inputstring):
 	"""
-	Converts a string to an unicode escaped javascript string
+	Converts a string to a javascript string
 	
 	Arguments:
 	inputstring - the input string to convert 
 
 	Return :
-	string in unicode escaped javascript format
+	string in javascript format
 	"""
 	length = len(inputstring)
 	if length % 2 == 1:
@@ -627,7 +627,38 @@ def str2js(inputstring):
 			thisunibyte = "%02x" % ord(thisbyte) + thisunibyte
 		toreturn += "%u" + thisunibyte
 	return toreturn		
+
+
+def str2unescapejs(inputstring):
+	"""
+	Converts a string to an unicode escaped javascript string
 	
+	Arguments:
+	inputstring - the input string to convert 
+
+	Return :
+	string in unicode escaped javascript format
+	"""
+	toreturn=""
+	for thismatch in re.compile("..").findall(inputstring):
+		thisunibyte = ""
+		for thisbyte in thismatch:
+			thisunibyte += "%02x" % ord(thisbyte)
+		toreturn += "%u" + thisunibyte
+	
+	# flip order into unescape format
+	jstoreturn = ""
+	jsparts = toreturn.split("%u")
+	jspartlen = len(jsparts)
+	# start at 1, string starts with %u, so index 0 is unused
+	cnt = 1	
+	while cnt < jspartlen-1:
+		neworder = "%u" + jsparts[cnt+1] + "%u" + jsparts[cnt]
+		jstoreturn += neworder
+		cnt += 2
+
+	return jstoreturn	
+
 	
 def opcodesToHex(opcodes):
 	"""
@@ -2153,6 +2184,11 @@ class MnConfig:
 	def __init__(self):
 	
 		self.configfile = "mona.ini"
+		self.currpath = os.path.dirname(os.path.realpath(self.configfile))
+		# first check if we will be saving the file into Immunity folder
+		if __DEBUGGERAPP__ == "Immunity Debugger":
+			if not os.path.exists(os.path.join(self.currpath,"immunitydebugger.exe")):
+				dbg.log(" ** Warning: using mona.ini file from %s" % self.currpath)
 	
 	def get(self,parameter):
 		"""
@@ -2226,6 +2262,7 @@ class MnConfig:
 				FILE=open(self.configfile,"w")
 				FILE.writelines(newcontent)
 				FILE.close()
+				dbg.log("     mona.ini saved under %s" % self.currpath)
 			except:
 				dbg.log("Error writing config file : %s : %s" % (sys.exc_type,sys.exc_value),highlight=1)
 				return ""
@@ -6746,11 +6783,6 @@ def createPattern(size,args={}):
 	if "c3" in args and args["c3"] != "":
 		char3 = args["c3"]
 			
-	if "js" in args:
-		js_output = True
-	else:
-		js_output = False
-
 	if not silent:
 		if not "extended" in args and size > 20280 and (len(char1) <= 26 or len(char2) <= 26 or len(char3) <= 10):
 			msg = "** You have asked to create a pattern > 20280 bytes, but with the current settings\n"
@@ -6777,8 +6809,6 @@ def createPattern(size,args={}):
 						pattern.append(ch3)
 
 	pattern = "".join(pattern)
-	if js_output:
-		return str2js(pattern)
 	return pattern
 
 def findOffsetInPattern(searchpat,size=20280,args = {}):
@@ -7948,7 +7978,7 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
  ESI = ptr to VirtualProtect()
  EDI = ROP NOP (RETN)
  --- alternative chain ---
- EAX = tr to &VirtualProtect()
+ EAX = ptr to &VirtualProtect()
  ECX = lpOldProtect (ptr to W address)
  EDX = NewProtect (0x40)
  EBX = dwSize
@@ -11317,6 +11347,10 @@ def main(args):
 					patternhex += str(hex(ord(patternchar))).replace("0x","\\x")
 				objpatternfile.write("\n\nHEX:\n",patternfile)
 				objpatternfile.write(patternhex,patternfile)
+				# Javascript
+				patternjs = str2unescapejs(pattern)
+				objpatternfile.write("\n\nJAVASCRIPT (unescape() friendly):\n",patternfile)
+				objpatternfile.write(patternjs,patternfile)
 				if not silent:
 					dbg.log("Note: don't copy this pattern from the log window, it might be truncated !",highlight=1)
 					dbg.log("It's better to open %s and copy the pattern from the file" % patternfile,highlight=1)
@@ -17503,9 +17537,9 @@ Optional parameters :
     -ptronly : only show matching pointers (slightly faster). Doesn't work when 'range' is used"""
 
 		patcreateUsage="""Create a cyclic pattern of a given size. Output will be written to pattern.txt
+in ascii, hex and unescape() javascript format
 Mandatory argument : size (numberic value)
 Optional arguments :
-    -js : output pattern in unicode escaped javascript format
     -extended : extend the 3rd characterset (numbers) with punctuation marks etc
     -c1 <chars> : set the first charset to this string of characters
     -c2 <chars> : set the second charset to this string of characters
