@@ -10927,7 +10927,7 @@ def main(args):
 			dbg.log("You can use one or more of the following global options on any command that will perform")
 			dbg.log("a search in one or more modules, returning a list of pointers :")
 			dbg.log(" -n                     : Skip modules that start with a null byte. If this is too broad, use")
-			dbg.log("                          option -cm nonull instead")
+			dbg.log("                          option -cp nonull instead")
 			dbg.log(" -o                     : Ignore OS modules")
 			dbg.log(" -p <nr>                : Stop search after <nr> pointers.")
 			dbg.log(" -m <module,module,...> : only query the given modules. Be sure what you are doing !")
@@ -10949,7 +10949,7 @@ def main(args):
 			dbg.log(" -cpb '\\x00\\x01'        : Provide list with bad chars, applies to pointers")
 			dbg.log("                          You can use .. to indicate a range of bytes (in between 2 bad chars)")
 			dbg.log(" -x <access>            : Specify desired access level of the returning pointers. If not specified,")
-			dbg.log("                          only executable pointers will be return.")
+			dbg.log("                          only executable pointers will be returned.")
 			dbg.log("                          Access levels can be one of the following values : R,W,X,RW,RX,WX,RWX or *")
 			
 			if not args:
