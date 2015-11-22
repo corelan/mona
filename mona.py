@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 564 $
-$Id: mona.py 564 2015-11-03 08:46:02Z corelanc0d3r $ 
+$Revision: 565 $
+$Id: mona.py 565 2015-11-22 08:46:02Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 564 $')
+__REV__ = filter(str.isdigit, '$Revision: 565 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -90,6 +90,8 @@ import datetime
 import binascii
 import itertools
 import traceback
+import pickle
+import json
 
 from operator import itemgetter
 from collections import defaultdict, namedtuple
@@ -629,35 +631,40 @@ def str2js(inputstring):
 	return toreturn		
 
 
-def str2unescapejs(inputstring):
+def readJSONDict(filename):
 	"""
-	Converts a string to an unicode escaped javascript string
-	
-	Arguments:
-	inputstring - the input string to convert 
-
-	Return :
-	string in unicode escaped javascript format
+	Retrieve stored dict from JSON file
 	"""
-	toreturn=""
-	for thismatch in re.compile("..").findall(inputstring):
-		thisunibyte = ""
-		for thisbyte in thismatch:
-			thisunibyte += "%02x" % ord(thisbyte)
-		toreturn += "%u" + thisunibyte
-	
-	# flip order into unescape format
-	jstoreturn = ""
-	jsparts = toreturn.split("%u")
-	jspartlen = len(jsparts)
-	# start at 1, string starts with %u, so index 0 is unused
-	cnt = 1	
-	while cnt < jspartlen-1:
-		neworder = "%u" + jsparts[cnt+1] + "%u" + jsparts[cnt]
-		jstoreturn += neworder
-		cnt += 2
+	jsondict = {}
+	with open(filename, 'rb') as infile:
+		jsondata = infile.read()
+		jsondict = json.loads(jsondata)
+	return jsondict
 
-	return jstoreturn	
+
+def writeJSONDict(filename, dicttosave):
+	"""
+	Write dict as JSON to file
+	"""
+	with open(filename, 'wb') as outfile:
+		json.dump(dicttosave, outfile)
+	return
+
+
+def readPickleDict(filename):
+	"""
+	Retrieve stored dict from file (pickle load)
+	"""
+	pdict = {}
+	pdict = pickle.load( open(filename,"rb"))
+	return pdict
+
+def writePickleDict(filename, dicttosave):
+	"""
+	Write a dict to file as a pickle
+	"""
+	pickle.dump(dicttosave, open(filename, "wb"))
+	return
 
 	
 def opcodesToHex(opcodes):
@@ -3417,6 +3424,30 @@ class MnHeap:
 		"""
 		return struct.unpack('<L',dbg.readMemory(self.heapbase+0xd4,4))[0]
 
+
+	def getState(self):
+		"""
+		Enumerates all segments, chunks and VirtualAllocdBlocks in the current heap
+
+		Return: array of dicts 
+			0 : segments  (with segment addy as key), contains list of chunks 
+			1 : vablocks 
+		Key: Heap
+		Contents:
+			Segment -> Chunks
+			VA Blocks
+		"""
+		statedata = {}
+		segments = getSegmentsForHeap(self.heapbase)
+		for seg in segments:
+			segstart = segments[seg][0]
+			segend = segments[seg][1]
+			FirstEntry = segments[seg][2]
+			LastValidEntry = segments[seg][3]
+			datablocks = walkSegment(FirstEntry,LastValidEntry,self.heapbase)
+			statedata[seg] = datablocks
+		return statedata
+
 """
 Low Fragmentation Heap
 """
@@ -5970,6 +6001,9 @@ def assemble(instructions,encoder=""):
 		dbg.log(" Full opcode : %s " % allopcodes)
 	return allopcodes
 	
+
+
+
 	
 def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5,split=False,pivotdistance=0,fast=False,mode="all"):
 	"""
@@ -6754,8 +6788,27 @@ def findFILECOMPARISON(modulecriteria={},criteria={},allfiles=[],tomatch="",chec
 	return
 
 
+
 #------------------#
-# Cyclic pattern	#
+# Heap state       #
+#------------------#
+
+def getCurrentHeapState():
+	heapstate = {}
+	allheaps = []
+	try:
+		allheaps = dbg.getHeapsAddress()
+	except:
+		allheaps = []
+	if len(allheaps) > 0:
+		for heap in allheaps:
+			objHeap = MnHeap(heap)
+			thisheapstate = objHeap.getState()
+			heapstate[heap] = thisheapstate
+	return heapstate
+
+#------------------#
+# Cyclic pattern   #
 #------------------#	
 
 def createPattern(size,args={}):
@@ -11348,7 +11401,7 @@ def main(args):
 				objpatternfile.write("\n\nHEX:\n",patternfile)
 				objpatternfile.write(patternhex,patternfile)
 				# Javascript
-				patternjs = str2unescapejs(pattern)
+				patternjs = str2js(pattern)
 				objpatternfile.write("\n\nJAVASCRIPT (unescape() friendly):\n",patternfile)
 				objpatternfile.write(patternjs,patternfile)
 				if not silent:
@@ -15686,6 +15739,7 @@ def main(args):
 					dbg.logLines(traceback.format_exc(),highlight=True)			
 			return
 
+
 		def procKb(args):
 			validcommands = ['set','list','del']
 			validcommandfound = False
@@ -16113,16 +16167,21 @@ def main(args):
 
 			if "n" in args:
 				if type(args["n"]).__name__.lower() != "bool":
-					if str(args['n']).lower().startswith("0x"):
-						try:
-							nrbytes = int(args["n"],16)
-						except:
-							nrbytes = 0
+					if "+" in str(args['n']) or "-" in str(args['n']):
+						nrbytes,bytesok = getAddyArg(args['n'])
+						if not bytesok:
+							errorsfound = True
 					else:
-						try:
-							nrbytes = int(args["n"])
-						except:
-							nrbytes = 0
+						if str(args['n']).lower().startswith("0x"):
+							try:
+								nrbytes = int(args["n"],16)
+							except:
+								nrbytes = 0
+						else:
+							try:
+								nrbytes = int(args["n"])
+							except:
+								nrbytes = 0
 
 			errorsfound = False
 			if src == 0:
@@ -16716,6 +16775,79 @@ def main(args):
 					dbg.log("    *** Unable to evaluate expression ***")
 			else:
 				dbg.log("    *** No expression found***")	
+			return
+
+
+
+		def procDiffHeap(args):
+
+			global ignoremodules
+			filenamebefore = "heapstate_before.db"
+			filenameafter = "heapstate_after.db"
+
+			ignoremodules = True
+
+			statefilebefore = MnLog(filenamebefore)
+			thisstatefilebefore = statefilebefore.reset(clear=False)
+
+			statefileafter = MnLog(filenameafter)
+			thisstatefileafter = statefileafter.reset(clear=False)
+
+			ignoremodules = False
+
+
+			beforestate = {}
+			afterstate = {}
+
+			#do we want to save states, or diff them?
+
+			if not "before" in args and not "after" in args and not "diff" in args:
+				dbg.log("*** Missing mandatory argument -before, -after or -diff ***", highlight=1)
+				return
+
+			if "diff" in args:
+				# check if before and after state file exists
+				if os.path.exists(thisstatefilebefore) and os.path.exists(thisstatefileafter):
+					# read contents from both states into dict
+					dbg.log("[+] Reading 'before' state from %s" % thisstatefilebefore)
+					beforestate = readPickleDict(thisstatefilebefore)
+					dbg.log("[+] Reading 'after' state from %s" % thisstatefileafter)
+					afterstate = readPickleDict(thisstatefileafter)
+					# compare
+					dbg.log("[+] Diffing heap states...")
+
+				else:
+					if not os.path.exists(thisstatefilebefore):
+						dbg.log("[-] Oops, unable to find 'before' state file %s" % thisstatefilebefore)
+					if not os.path.exists(thisstatefileafter):
+						dbg.log("[-] Oops, unable to find 'after' state file %s" % thisstatefileafter)
+				return
+
+			elif "before" in args:
+				thisstatefilebefore = statefilebefore.reset(showheader=False)
+				dbg.log("[+] Enumerating current heap layout, please wait...")
+				currentstate = getCurrentHeapState()
+				dbg.log("[+] Saving current heap layout to 'before' heap state file %s" % thisstatefilebefore)
+				# save dict to file
+				try:
+					writePickleDict(thisstatefilebefore, currentstate)
+					dbg.log("[+] Done")
+				except:
+					dbg.log("[-] Error while saving current state to file")
+				return
+
+			elif "after" in args:
+				thisstatefileafter = statefileafter.reset(showheader=False)
+				dbg.log("[+] Enumerating current heap layout, please wait...")
+				currentstate = getCurrentHeapState()
+				dbg.log("[+] Saving current heap layout to 'after' heap state file %s" % thisstatefileafter)
+				try:
+					writePickleDict(thisstatefileafter, currentstate)
+					dbg.log("[+] Done")
+				except:
+					dbg.log("[-] Error while saving current state to file")				
+				return			
+
 			return
 
 
@@ -17914,6 +18046,11 @@ Accepted syntax includes:
     module!functionname
     simple math operations"""
 
+		diffheapUsage = """Compare current heap layout with previously saved state
+Arguments:
+    -save     : save current state to disk 
+    -diff     : compare current state with previously saved state""" 
+
 
 		commands["seh"] 			= MnCommand("seh", "Find pointers to assist with SEH overwrite exploits",sehUsage, procFindSEH)
 		commands["config"] 			= MnCommand("config","Manage configuration file (mona.ini)",configUsage,procConfig,"conf")
@@ -17967,6 +18104,7 @@ Accepted syntax includes:
 			commands["allocmem"]	= MnCommand("allocmem","Allocate some memory in the process",allocmemUsage,procAllocMem,"alloc")
 			commands["tobp"]		= MnCommand("tobp","Generate WinDBG syntax to create a logging breakpoint at given location",tobpUsage,procToBp,"2bp")
 			commands["flow"]		= MnCommand("flow","Simulate execution flows, including all branch combinations",flowUsage,procFlow,"flw")
+			#commands["diffheap"]	= MnCommand("diffheap", "Compare current heap layout with previously saved state", diffheapUsage, procDiffHeap, "dh")
 		commands["fwptr"]			= MnCommand("fwptr", "Find Writeable Pointers that get called", fwptrUsage, procFwptr, "fwp")
 		commands["sehchain"]		= MnCommand("sehchain","Show the current SEH chain",sehchainUsage,procSehChain,"exchain")
 		commands["hidedebug"]		= MnCommand("hidedebug","Attempt to hide the debugger",hidedebugUsage,procHideDebug,"hd")
