@@ -5334,47 +5334,47 @@ def getSearchSequences(searchtype,searchcriteria="",type="",criteria={}):
 
 		search.append(["jmp dword ptr ss:[esp+08]","\xff\x64\x24\x08"])
 		search.append(["jmp dword ptr ss:[esp+08]","\xff\xa4\x24\x08\x00\x00\x00"])
-		search.append(["jmp dword ptr ds:[esp+08]","\x3e\ff\x64\x24\x08"])
+		search.append(["jmp dword ptr ds:[esp+08]","\x3e\xff\x64\x24\x08"])
 		
 		search.append(["call dword ptr ss:[esp+14]","\xff\x54\x24\x14"])
 		search.append(["call dword ptr ss:[esp+14]","\xff\x94\x24\x14\x00\x00\x00"])	
 		search.append(["call dword ptr ds:[esp+14]","\x3e\xff\x54\x24\x14"])
 		
-		search.append(["jmp dword ptr ss:[esp+14]","\xff\x54\x24\x14"])
+		search.append(["jmp dword ptr ss:[esp+14]","\xff\x64\x24\x14"])
 		search.append(["jmp dword ptr ss:[esp+14]","\xff\xa4\x24\x14\x00\x00\x00"])		
-		search.append(["jmp dword ptr ds:[esp+14]","\x3e\xff\x54\x24\x14"])
+		search.append(["jmp dword ptr ds:[esp+14]","\x3e\xff\x64\x24\x14"])
 		
 		search.append(["call dword ptr ss:[esp+1c]","\xff\x54\x24\x1c"])
 		search.append(["call dword ptr ss:[esp+1c]","\xff\x94\x24\x1c\x00\x00\x00"])		
 		search.append(["call dword ptr ds:[esp+1c]","\x3e\xff\x54\x24\x1c"])
 		
-		search.append(["jmp dword ptr ss:[esp+1c]","\xff\x54\x24\x1c"])
+		search.append(["jmp dword ptr ss:[esp+1c]","\xff\x64\x24\x1c"])
 		search.append(["jmp dword ptr ss:[esp+1c]","\xff\xa4\x24\x1c\x00\x00\x00"])		
-		search.append(["jmp dword ptr ds:[esp+1c]","\x3e\xff\x54\x24\x1c"])
+		search.append(["jmp dword ptr ds:[esp+1c]","\x3e\xff\x64\x24\x1c"])
 		
 		search.append(["call dword ptr ss:[esp+2c]","\xff\x54\x24\x2c"])
-		search.append(["call dword ptr ss:[esp+2c]","\xff\94\x24\x2c\x00\x00\x00"])
+		search.append(["call dword ptr ss:[esp+2c]","\xff\x94\x24\x2c\x00\x00\x00"])
 		search.append(["call dword ptr ds:[esp+2c]","\x3e\xff\x54\x24\x2c"])
 
-		search.append(["jmp dword ptr ss:[esp+2c]","\xff\x54\x24\x2c"])
+		search.append(["jmp dword ptr ss:[esp+2c]","\xff\x64\x24\x2c"])
 		search.append(["jmp dword ptr ss:[esp+2c]","\xff\xa4\x24\x2c\x00\x00\x00"])		
-		search.append(["jmp dword ptr ds:[esp+2c]","\x3e\xff\x54\x24\x2c"])
+		search.append(["jmp dword ptr ds:[esp+2c]","\x3e\xff\x64\x24\x2c"])
 		
 		search.append(["call dword ptr ss:[esp+44]","\xff\x54\x24\x44"])
 		search.append(["call dword ptr ss:[esp+44]","\xff\x94\x24\x44\x00\x00\x00"])		
 		search.append(["call dword ptr ds:[esp+44]","\x3e\xff\x54\x24\x44"])		
 		
-		search.append(["jmp dword ptr ss:[esp+44]","\xff\x54\x24\x44"])
+		search.append(["jmp dword ptr ss:[esp+44]","\xff\x64\x24\x44"])
 		search.append(["jmp dword ptr ss:[esp+44]","\xff\xa4\x24\x44\x00\x00\x00"])
-		search.append(["jmp dword ptr ds:[esp+44]","\x3e\xff\x54\x24\x44"])
+		search.append(["jmp dword ptr ds:[esp+44]","\x3e\xff\x64\x24\x44"])
 		
 		search.append(["call dword ptr ss:[esp+50]","\xff\x54\x24\x50"])
 		search.append(["call dword ptr ss:[esp+50]","\xff\x94\x24\x50\x00\x00\x00"])		
 		search.append(["call dword ptr ds:[esp+50]","\x3e\xff\x54\x24\x50"])		
 		
-		search.append(["jmp dword ptr ss:[esp+50]","\xff\x54\x24\x50"])
+		search.append(["jmp dword ptr ss:[esp+50]","\xff\x64\x24\x50"])
 		search.append(["jmp dword ptr ss:[esp+50]","\xff\xa4\x24\x50\x00\x00\x00"])
-		search.append(["jmp dword ptr ds:[esp+50]","\x3e\xff\x54\x24\x50"])
+		search.append(["jmp dword ptr ds:[esp+50]","\x3e\xff\x64\x24\x50"])
 		
 		search.append(["call dword ptr ss:[ebp+0c]","\xff\x55\x0c"])
 		search.append(["call dword ptr ss:[ebp+0c]","\xff\x95\x0c\x00\x00\x00"])		
