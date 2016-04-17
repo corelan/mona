@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 565 $
-$Id: mona.py 565 2015-11-22 08:46:02Z corelanc0d3r $ 
+$Revision: 566 $
+$Id: mona.py 566 2016-04-17 09:29:02Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 565 $')
+__REV__ = filter(str.isdigit, '$Revision: 566 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -1666,7 +1666,7 @@ def getSkeletonHeader(exploittype,portnr,extension,url,badchars='\x00\x0a\x0d'):
 	skeletonheader += "# Current source: https://github.com/rapid7/metasploit-framework\n"
 	skeletonheader += "##\n\n"
 	skeletonheader += "require 'msf/core'\n\n"
-	skeletonheader += "class Metasploit3 < Msf::Exploit::Remote\n"
+	skeletonheader += "class MetasploitModule < Msf::Exploit::Remote\n"
 	skeletonheader += "  #Rank definition: http://dev.metasploit.com/redmine/projects/framework/wiki/Exploit_Ranking\n"
 	skeletonheader += "  #ManualRanking/LowRanking/AverageRanking/NormalRanking/GoodRanking/GreatRanking/ExcellentRanking\n"
 	skeletonheader += "  Rank = NormalRanking\n\n"
