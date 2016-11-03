@@ -276,6 +276,7 @@ def getAddyArg(argaddy):
 	if thispart != "":
 		addyparts.append(thispart)
 
+	partok = False
 	for part in addyparts:
 		cleaned = part
 		if not part in delimchars:
