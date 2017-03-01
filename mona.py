@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 567 $
-$Id: mona.py 567 2016-11-03 09:29:02Z corelanc0d3r $ 
+$Revision: 568 $
+$Id: mona.py 568 2017-03-01 17:00:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 567 $')
+__REV__ = filter(str.isdigit, '$Revision: 568 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -119,6 +119,8 @@ global NtGlobalFlag
 global FreeListBitmap
 global memProtConstants
 global currentArgs
+global disasmUpperChecked
+global disasmIsUpper
 
 NtGlobalFlag = -1
 FreeListBitmap = {}
@@ -134,6 +136,8 @@ silent = False
 ignoremodules = False
 noheader = False
 dbg = dbglib.Debugger()
+disasmUpperChecked = False
+disasmIsUpper = False
 
 if __DEBUGGERAPP__ == "WinDBG":
 	if dbglib.getSymbolPath().replace(" ","") == "":
@@ -192,7 +196,7 @@ def resetGlobals():
 	FreeListBitmap = None
 	memProtConstants = None
 	currentArgs = None
-
+	disasmUpperChecked = False
 
 	return
 
@@ -231,6 +235,26 @@ def DwordToBits(srcDword):
 		bit_array.append(int(bit))
 	return bit_array
 
+
+def getDisasmInstruction(disasmentry):
+	""" returns instruction string, checks if ASM is uppercase and converts to upper if needed """
+	instrline = disasmentry.getDisasm()
+	global disasmUpperChecked
+	global disasmIsUpper
+	if disasmUpperChecked:
+		if not disasmIsUpper:
+			instrline = instrline.upper()
+	else:
+		disasmUpperChecked = True
+		interim_instr = instrline.upper()
+		if interim_instr == instrline:
+			disasmIsUpper = True
+		else:
+			disasmIsUpper = False
+			dbg.log("** It looks like you've configured the debugger to produce lowercase disassembly. Got it, all good **", highlight=1)
+			instrline = instrline.upper()
+	return instrline
+	
 
 def multiSplit(thisarg,delimchars):
 	""" splits a string into an array, based on provided delimeters"""
@@ -6162,7 +6186,7 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 							invalidinstr = False
 							while chainptr < endingtypeptr and not invalidinstr:
 								thisopcode = dbg.disasm(chainptr)
-								thisinstruction = thisopcode.getDisasm()
+								thisinstruction = getDisasmInstruction(thisopcode)
 								if isGoodGadgetInstr(thisinstruction) and not isGadgetEnding(thisinstruction,search):						
 									thischain =  thischain + " # " + thisinstruction
 									msfchain.append([chainptr,thisinstruction])
@@ -6551,7 +6575,7 @@ def findJOPGADGETS(modulecriteria={},criteria={},depth=6):
 						invalidinstr = False
 						while chainptr < endingtypeptr and not invalidinstr:
 							thisopcode = dbg.disasm(chainptr)
-							thisinstruction = thisopcode.getDisasm()
+							thisinstruction = getDisasmInstruction(thisopcode)
 							if isGoodJopGadgetInstr(thisinstruction) and not isGadgetEnding(thisinstruction,search):
 								thischain =  thischain + " # " + thisinstruction
 								msfchain.append([chainptr,thisinstruction])
@@ -7147,7 +7171,7 @@ def findPatternWild(modulecriteria,criteria,pattern,base,top,patterntype):
 			thisline = ""
 			try:
 				for depth in xrange(maxdepth):
-					tinstr = dbg.disasmForward(ptrs, depth).getDisasm().lower() + "\n"
+					tinstr = getDisasmInstruction(dbg.disasmForward(ptrs, depth)).lower() + "\n"
 					if tinstr != "???":
 						thisline += tinstr
 					else:
@@ -11790,7 +11814,7 @@ def main(args):
 				dbg.log("")
 				dbg.log("[+] Disassembly:")
 				op = dbg.disasm(address)
-				opstring=op.getDisasm()
+				opstring=getDisasmInstruction(op)
 				dbg.log("    Instruction at %s : %s" % (toHex(address),opstring))
 			except:
 				pass
@@ -12080,7 +12104,7 @@ def main(args):
 								else:
 									thisopcode = dbg.disasmForward(thisaddr,1)
 									thisaddr = thisopcode.getAddress()
-								instruction = thisopcode.getDisasm()
+								instruction = getDisasmInstruction(thisopcode)
 								if instruction.startswith("CALL "):
 									ignore_this_instruction = False
 									for ignores in toignore:
@@ -12176,7 +12200,7 @@ def main(args):
 					cnt = 1
 					while not endAfound:
 						objInstr = dbg.disasmForward(loadlibraryA, cnt)
-						strInstr = objInstr.getDisasm()
+						strInstr = getDisasmInstruction(objInstr)
 						if strInstr.startswith("RETN"):
 							endAfound = True
 							loadlibraryA = objInstr.getAddress()
@@ -12185,7 +12209,7 @@ def main(args):
 					cnt = 1
 					while not endWfound:
 						objInstr = dbg.disasmForward(loadlibraryW, cnt)
-						strInstr = objInstr.getDisasm()
+						strInstr = getDisasmInstruction(objInstr)
 						if strInstr.startswith("RETN"):
 							endWfound = True
 							loadlibraryW = objInstr.getAddress()
@@ -14595,7 +14619,7 @@ def main(args):
 							instrbytes = thisinstr.getDump()
 							if thisinstr.isJmp() or thisinstr.isCall():
 								# check if it's reading a pointer from somewhere
-								instrtext = thisinstr.getDisasm()
+								instrtext = getDisasmInstruction(thisinstr)
 								opcodepart = instrbytes.upper()[0:4]
 								if opcodepart == "FF15" or opcodepart == "FF25":
 									if "[" in instrtext and "]" in instrtext:
@@ -16999,7 +17023,7 @@ def main(args):
 					prevloc = curloc
 					try:
 						thisopcode = dbg.disasm(curloc)
-						instruction = thisopcode.getDisasm()				
+						instruction = getDisasmInstruction(thisopcode)				
 						instructionbytes = thisopcode.getBytes()
 						instructionsize = thisopcode.opsize
 						opupper = instruction.upper()
@@ -17146,7 +17170,7 @@ def main(args):
 										#dbg.log("%s" % locname)
 
 								thisopcode = dbg.disasm(thisaddy)
-								instruction = thisopcode.getDisasm()
+								instruction = getDisasmInstruction(thisopcode)
 								previnstruction = instruction
 								clist = []
 								clistc = []
@@ -17316,7 +17340,7 @@ def main(args):
 				rva = addy - m
 				bpdest = "%s+0x%02x" % (modname,rva)
 				thisopcode = dbg.disasm(addy)
-				instruction = thisopcode.getDisasm()
+				instruction = getDisasmInstruction(thisopcode)
 
 			locsyntax = "bp %s" % bpdest
 
