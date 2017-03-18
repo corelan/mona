@@ -2,7 +2,7 @@
  
 U{Corelan<https://www.corelan.be>}
 
-Copyright (c) 2011-2015, Peter Van Eeckhoutte - Corelan GCV
+Copyright (c) 2011-2017, Peter Van Eeckhoutte - Corelan GCV
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 568 $
-$Id: mona.py 568 2017-03-01 17:00:00Z corelanc0d3r $ 
+$Revision: 569 $
+$Id: mona.py 569 2017-03-18 17:00:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 568 $')
+__REV__ = filter(str.isdigit, '$Revision: 569 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -48,7 +48,7 @@ try:
 	__DEBUGGERAPP__ = "Immunity Debugger"
 except:		
 	try:
-		from pykd import *
+		import pykd
 		import windbglib as dbglib
 		from windbglib import LogBpHook
 		dbglib.checkVersion()
@@ -140,12 +140,12 @@ disasmUpperChecked = False
 disasmIsUpper = False
 
 if __DEBUGGERAPP__ == "WinDBG":
-	if dbglib.getSymbolPath().replace(" ","") == "":
+	if pykd.getSymbolPath().replace(" ","") == "":
 		dbg.log("")
 		dbg.log("** Warning, no symbol path set ! ** ",highlight=1)
 		sympath = "srv*c:\symbols*http://msdl.microsoft.com/download/symbols"
 		dbg.log("   I'll set the symbol path to %s" % sympath)
-		dbglib.setSymbolPath(sympath)
+		pykd.setSymbolPath(sympath)
 		dbg.log("   Symbol path set, now reloading symbols...")
 		dbg.nativeCommand(".reload")
 		dbg.log("   All set. Please restart WinDBG.")
