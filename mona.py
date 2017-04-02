@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 569 $
-$Id: mona.py 569 2017-03-18 17:00:00Z corelanc0d3r $ 
+$Revision: 570 $
+$Id: mona.py 570 2017-04-02 07:28:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 569 $')
+__REV__ = filter(str.isdigit, '$Revision: 570 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -152,7 +152,7 @@ if __DEBUGGERAPP__ == "WinDBG":
 		dbg.log("")
 
 osver = dbg.getOsVersion()
-if osver in ["6", "7", "8", "vista", "win7", "2008server", "win8"]:
+if osver in ["6", "7", "8", "vista", "win7", "2008server", "win8", "win8.1", "win10"]:
 	win7mode = True
 
 
