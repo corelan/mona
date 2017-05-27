@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 571 $
-$Id: mona.py 571 2017-05-27 22:20:00Z corelanc0d3r $ 
+$Revision: 572 $
+$Id: mona.py 572 2017-05-27 22:32:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 571 $')
+__REV__ = filter(str.isdigit, '$Revision: 572 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -2280,6 +2280,7 @@ class MnConfig:
 		Return:
 		nothing
 		"""
+		global configFileCache
 		configFileCache[parameter.strip().lower()] = paramvalue
 		if os.path.exists(self.configfile):
 			#modify file
