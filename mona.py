@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 570 $
-$Id: mona.py 570 2017-04-02 07:28:00Z corelanc0d3r $ 
+$Revision: 571 $
+$Id: mona.py 571 2017-05-27 22:20:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 570 $')
+__REV__ = filter(str.isdigit, '$Revision: 571 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -121,6 +121,7 @@ global memProtConstants
 global currentArgs
 global disasmUpperChecked
 global disasmIsUpper
+global configFileCache
 
 NtGlobalFlag = -1
 FreeListBitmap = {}
@@ -129,6 +130,7 @@ CritCache={}
 vtableCache={}
 stacklistCache={}
 segmentlistCache={}
+configFileCache={}
 VACache={}
 ptr_counter = 0
 ptr_to_get = -1
@@ -2225,7 +2227,8 @@ class MnConfig:
 	def get(self,parameter):
 		"""
 		Retrieves the contents of a given parameter from the config file
-
+		or from memory if the config file has been read already
+		(configFileCache)
 		Arguments:
 		parameter - the name of the parameter 
 
@@ -2236,24 +2239,33 @@ class MnConfig:
 		#format :  parameter=value
 		toreturn = ""
 		curparam=[]
-		if os.path.exists(self.configfile):
-			try:
-				configfileobj = open(self.configfile,"rb")
-				content = configfileobj.readlines()
-				configfileobj.close()
-				for thisLine in content:
-					if not thisLine[0] == "#":
-						currparam = thisLine.split('=')
-						if currparam[0].strip().lower() == parameter.strip().lower() and len(currparam) > 1:
-							#get value
-							currvalue = ""
-							i=1
-							while i < len(currparam):
-								currvalue = currvalue + currparam[i] + "="
-								i += 1
-							toreturn = currvalue.rstrip("=").replace('\n','').replace('\r','')
-			except:
-				toreturn=""
+		global configFileCache
+		#first check if parameter already exists in global cache
+		if parameter.strip().lower() in configFileCache:
+			toreturn = configFileCache[parameter.strip().lower()]
+			#dbg.log("Found parameter %s in cache: %s" % (parameter, toreturn))
+		else:
+			if os.path.exists(self.configfile):
+				try:
+					configfileobj = open(self.configfile,"rb")
+					content = configfileobj.readlines()
+					configfileobj.close()
+					for thisLine in content:
+						if not thisLine[0] == "#":
+							currparam = thisLine.split('=')
+							if currparam[0].strip().lower() == parameter.strip().lower() and len(currparam) > 1:
+								#get value
+								currvalue = ""
+								i=1
+								while i < len(currparam):
+									currvalue = currvalue + currparam[i] + "="
+									i += 1
+								toreturn = currvalue.rstrip("=").replace('\n','').replace('\r','')
+								# drop into global cache for next time
+								configFileCache[parameter.strip().lower()] = toreturn
+								#dbg.log("Read parameter %s from file: %s" % (parameter, toreturn))
+				except:
+					toreturn=""
 		
 		return toreturn
 	
@@ -2267,7 +2279,8 @@ class MnConfig:
 
 		Return:
 		nothing
-		"""		
+		"""
+		configFileCache[parameter.strip().lower()] = paramvalue
 		if os.path.exists(self.configfile):
 			#modify file
 			try:
