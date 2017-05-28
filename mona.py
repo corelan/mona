@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 575 $
-$Id: mona.py 575 2017-05-28 19:50:00Z corelanc0d3r $ 
+$Revision: 576 $
+$Id: mona.py 576 2017-05-28 20:29:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 575 $')
+__REV__ = filter(str.isdigit, '$Revision: 576 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
