@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 573 $
-$Id: mona.py 573 2017-05-28 19:36:00Z corelanc0d3r $ 
+$Revision: 574 $
+$Id: mona.py 574 2017-05-28 19:36:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 573 $')
+__REV__ = filter(str.isdigit, '$Revision: 574 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -8991,7 +8991,7 @@ def getRopFuncPtr(apiname,modulecriteria,criteria,mode = "iat"):
 		#first look for good one
 		#dbg.log("Found %d pointers" % len(ropfuncs))
 		for ropfunctypes in ropfuncs:
-			dbg.log("%s %s" % (ropfunctypes, rfuncsearch))
+			#dbg.log("%s %s" % (ropfunctypes, rfuncsearch))
 			if ropfunctypes.lower().find(rfuncsearch) > -1 and ropfunctypes.lower().find("rebased") == -1:
 				ropfuncptr = ropfuncs[ropfunctypes][0]
 				break
