@@ -157,6 +157,40 @@ osver = dbg.getOsVersion()
 if osver in ["6", "7", "8", "vista", "win7", "2008server", "win8", "win8.1", "win10"]:
 	win7mode = True
 
+heapgranularity = 8
+if arch == 64:
+	heapgranularity = 16
+
+offset_categories = ["xp", "vista", "win7", "win8", "win10"]
+
+# offset = [x86,x64]
+offsets = {
+	"FrontEndHeap" : {
+		"xp" : [0x580,0xad8],
+		"vista" : [0x0d4,0x178],
+		"win8" : [0x0d0,0x170],
+		"win10" : {
+			14393 : [0x0d4,0x178]
+		}
+	},
+	"FrontEndHeapType" : {
+		"xp" : [0x586,0xae2],
+		"vista" : [0x0da,0x182],
+		"win8" : [0x0d6,0x17a],
+		"win10" : {
+			14393 : [0x0da,0x182]
+		}
+	},
+	"VirtualAllocdBlocks" : {
+		"xp" : [0x050,0x090],
+		"vista" : [0x0a0,0x118],
+		"win8" : [0x09c,0x110]
+	},
+	"SegmentList" : {
+		"vista" : [0x0a8,0x128],
+		"win8" : [0x0a4,0x120]
+	}
+}
 
 #---------------------------------------#
 #  Populate constants                   #
@@ -1753,6 +1787,57 @@ def getSkeletonHeader(exploittype,portnr,extension,url,badchars='\x00\x0a\x0d'):
 	
 	return skeletonheader,skeletoninit,skeletoninit2
 
+def archValue(x86, x64):
+	if arch == 32:
+		return x86
+	elif arch == 64:
+		return x64
+
+def readPtrSizeBytes(ptr):
+	if arch == 32:
+		return struct.unpack('<L',dbg.readMemory(ptr,4))[0]
+	elif arch == 64:
+		return struct.unpack('<Q',dbg.readMemory(ptr,8))[0]
+
+def getOffset(name):
+	osrelease = dbg.getOsRelease()
+	osreleaseparts = osrelease.split(".")
+	major = int(osreleaseparts[0])
+	minor = int(osreleaseparts[1])
+	build = int(osreleaseparts[2])
+
+	offset_category = "xp"
+	if major == 6 and minor == 0:
+		offset_category = "vista"
+	elif major == 6 and minor == 1:
+		offset_category = "win7"
+	elif major == 6 and minor in [2, 3]:
+		offset_category = "win8"
+	elif major == 10 and minor == 0:
+		offset_category = "win10"
+
+	offset_category_index = offset_categories.index(offset_category)
+
+	offset = 0
+	curr_category = "xp"
+	for c in offset_categories:
+		if not c in offsets[name]:
+			continue
+		if offset_categories.index(c) > offset_category_index:
+			break
+		curr_category = c
+		if curr_category != "win10":
+			offset = offsets[name][c]
+		else:
+			win10offsets = offsets[name][c]
+			for o in sorted(win10offsets):
+				if o > build:
+					break
+				curr_build = o
+				offset = win10offsets[o]
+
+	return archValue(offset[0], offset[1])
+
 #---------------------------------------#
 #   Class to call commands & parse args #
 #---------------------------------------#
@@ -3142,9 +3227,13 @@ class MnHeap:
 		"""
 		self.Encoding = 0
 		if win7mode:
-			self.EncodeFlagMask = struct.unpack('<L',dbg.readMemory(self.heapbase+0x4c,4))[0]
+			offset = archValue(0x4c,0x7c)
+			self.EncodeFlagMask = struct.unpack('<L',dbg.readMemory(self.heapbase+offset,4))[0]
 			if self.EncodeFlagMask == 0x100000:
-				self.Encoding = struct.unpack('<L',dbg.readMemory(self.heapbase+0x50,4))[0]
+				if arch == 32:
+					self.Encoding = struct.unpack('<L',dbg.readMemory(self.heapbase+0x50,4))[0]
+				elif arch == 64:
+					self.Encoding = struct.unpack('<L',dbg.readMemory(self.heapbase+0x80+0x8,4))[0]
 		return self.Encoding
 
 
@@ -3202,20 +3291,14 @@ class MnHeap:
 		"""
 		Returns the value of the FrontEndHeap field in the heapbase
 		"""
-		if not win7mode:
-			return struct.unpack('<L',dbg.readMemory(self.heapbase + 0x580,4))[0]
-		if win7mode:
-			return struct.unpack('<L',dbg.readMemory(self.heapbase + 0x0d4,4))[0]
+		return readPtrSizeBytes(self.heapbase+getOffset("FrontEndHeap"))
 
 
 	def getFrontEndHeapType(self):
 		"""
 		Returns the value of the FrontEndHeapType field in the heapbase
 		"""
-		if win7mode:
-			return struct.unpack('<H',dbg.readMemory(self.heapbase+0xda,2))[0]
-		if not win7mode:
-			return struct.unpack('B',dbg.readMemory(self.heapbase+0x586,1))[0]
+		return struct.unpack('B',dbg.readMemory(self.heapbase+getOffset("FrontEndHeapType"),1))[0]
 
 	def getLookAsideHead(self):
 		"""
@@ -3371,10 +3454,9 @@ class MnHeap:
 		Each entry in the dictionary contains a MnChunk object, with chunktype set to "virtualalloc"
 		"""
 		global VACache
-		offset = 0x50
+		offset = getOffset("VirtualAllocdBlocks")
 		encodingkey = 0
 		if win7mode:
-			offset = 0xa0
 			encodingkey = self.getEncodingKey()
 		if not self.heapbase in VACache:
 			try:
@@ -3384,39 +3466,56 @@ class MnHeap:
 				while valistentry != vaptr:
 					# get VA Header info
 					# header:
-					# FLINK (4)
-					# BLINK (4)
-					# Normal header (8), encoded on Win7
-					# CommitSize (8)
-					# ReserveSize (8)  ( = requested size)
+					#            	size    size
+					#               (x86)   (x64)
+					#               =====   =====
+					# FLINK         4       8
+					# BLINK      	4       8
+					# Normal header 8       16    encoded on Win7+
+					# CommitSize    4       8
+					# ReserveSize   4       8     = requested size
+					# BusyBlock     8       16
 
-					headersize = 0x20
-					vaheader = dbg.readMemory(valistentry,32)
-					flink = struct.unpack('<L',vaheader[0:4])[0]
-					blink = struct.unpack('<L',vaheader[4:8])[0]			
-								
-					commitsize = struct.unpack('<H',vaheader[16:18])[0] * 0x10
-					reservesize = struct.unpack('<H',vaheader[20:22])[0] * 0x10
+					headersize = 0
+					heoffset = 0 # HEAP_ENTRY offset (@ BusyBlock)
+					vaheader = None
+					flink = 0
+					blink = 0
+					commitsize = 0
+					reservesize = 0
+					size = 0
 
-					# TO DO : fix VirtualAllocdBlock header parsing. Broken stuff.
-					if commitsize == 0:
-						commitsize = struct.unpack('<L',vaheader[0x10:0x14])[0] / 8
-						reservesize = struct.unpack('<L',vaheader[0x14:0x18])[0] / 8
+					if arch == 32:
+						headersize = 32
+						heoffset = 24
+						vaheader = dbg.readMemory(valistentry,headersize)
+						flink = struct.unpack('<L',vaheader[0:4])[0]
+						blink = struct.unpack('<L',vaheader[4:8])[0]
+						commitsize = struct.unpack('<L',vaheader[16:20])[0]
+						reservesize = struct.unpack('<L',vaheader[20:24])[0]
+					elif arch == 64:
+						headersize = 64
+						heoffset = 48
+						vaheader = dbg.readMemory(valistentry,headersize)
+						flink = struct.unpack('<Q',vaheader[0:8])[0]
+						blink = struct.unpack('<Q',vaheader[8:16])[0]
+						commitsize = struct.unpack('<Q',vaheader[32:40])[0]
+						reservesize = struct.unpack('<Q',vaheader[40:48])[0]
 
-					size_e = struct.unpack('<H',vaheader[24:26])[0]
+					size_e = struct.unpack('<H',vaheader[heoffset:heoffset+2])[0]
 					if win7mode:
-						size = (size_e ^ (encodingkey & 0xFFFF)) * 0x10
+						size = (size_e ^ (encodingkey & 0xFFFF))
 					else:
-						size = size_e * 0x10
-					
+						size = size_e
+
 					#prevsize = struct.unpack('<H',vaheader[26:28])[0]
 					prevsize = 0
-					segmentid = struct.unpack('<B',vaheader[28:29])[0]
-					flag = struct.unpack('<B',vaheader[29:30])[0]
+					segmentid = struct.unpack('<B',vaheader[heoffset+4:heoffset+5])[0]
+					flag = struct.unpack('<B',vaheader[heoffset+5:heoffset+6])[0]
 					if win7mode:
-						flag = struct.unpack('<B',vaheader[22:23])[0]
-					unused = struct.unpack('<B',vaheader[30:31])[0]
-					tag = struct.unpack('<B',vaheader[31:])[0]
+						flag = struct.unpack('<B',vaheader[heoffset+2:heoffset+3])[0]
+					unused = struct.unpack('<B',vaheader[heoffset+6:heoffset+7])[0]
+					tag = struct.unpack('<B',vaheader[heoffset+7:])[0]
 
 					chunkobj = MnChunk(valistentry,"virtualalloc",headersize,self.heapbase,0,size,prevsize,segmentid,flag,unused,tag,flink,blink,commitsize,reservesize)
 					self.VirtualAllocdBlocks[valistentry] = chunkobj
@@ -3461,8 +3560,7 @@ class MnHeap:
 
 		Return: Int
 		"""
-		return struct.unpack('<L',dbg.readMemory(self.heapbase+0xd4,4))[0]
-
+		return readPtrSizeBytes(self.heapbase+getOffset("FrontEndHeap"))
 
 	def getState(self):
 		"""
@@ -3722,21 +3820,36 @@ class MnChunk:
 		# if ust/hpa is enabled, the chunk header is followed by 32bytes of DPH_BLOCK_INFORMATION header info
 		currentflagnames = getNtGlobalFlagNames(getNtGlobalFlag())
 		if "ust" in currentflagnames:
-			self.hasust = True				
+			self.hasust = True
 		if "hpa" in currentflagnames:
-			self.extraheadersize = 0x20
 			# reader header info
-			try:
-				raw_dph_header = dbg.readMemory(chunkptr + headersize,0x20)
-				self.dph_block_information_startstamp = struct.unpack('<L',raw_dph_header[0:4])[0]
-				self.dph_block_information_heap = struct.unpack('<L',raw_dph_header[4:8])[0]
-				self.dph_block_information_requestedsize = struct.unpack('<L',raw_dph_header[8:12])[0]
-				self.dph_block_information_actualsize = struct.unpack('<L',raw_dph_header[12:16])[0]
-				self.dph_block_information_traceindex = struct.unpack('<L',raw_dph_header[16:20])[0]
-				self.dph_block_information_stacktrace = struct.unpack('<L',raw_dph_header[24:28])[0]
-				self.dph_block_information_endstamp = struct.unpack('<L',raw_dph_header[28:32])[0]
-			except:
-				pass
+			if arch == 32:
+				self.extraheadersize = 0x20
+				try:
+					raw_dph_header = dbg.readMemory(chunkptr + headersize,0x20)
+					self.dph_block_information_startstamp = struct.unpack('<L',raw_dph_header[0:4])[0]
+					self.dph_block_information_heap = struct.unpack('<L',raw_dph_header[4:8])[0]
+					self.dph_block_information_requestedsize = struct.unpack('<L',raw_dph_header[8:12])[0]
+					self.dph_block_information_actualsize = struct.unpack('<L',raw_dph_header[12:16])[0]
+					self.dph_block_information_traceindex = struct.unpack('<H',raw_dph_header[16:18])[0]
+					self.dph_block_information_stacktrace = struct.unpack('<L',raw_dph_header[24:28])[0]
+					self.dph_block_information_endstamp = struct.unpack('<L',raw_dph_header[28:32])[0]
+				except:
+					pass
+			elif arch == 64:
+				self.extraheadersize = 0x40
+				# reader header info
+				try:
+					raw_dph_header = dbg.readMemory(chunkptr + headersize,0x40)
+					self.dph_block_information_startstamp = struct.unpack('<L',raw_dph_header[0:4])[0]
+					self.dph_block_information_heap = struct.unpack('<Q',raw_dph_header[8:16])[0]
+					self.dph_block_information_requestedsize = struct.unpack('<Q',raw_dph_header[16:24])[0]
+					self.dph_block_information_actualsize = struct.unpack('<Q',raw_dph_header[24:32])[0]
+					self.dph_block_information_traceindex = struct.unpack('<H',raw_dph_header[32:34])[0]
+					self.dph_block_information_stacktrace = struct.unpack('<Q',raw_dph_header[48:56])[0]
+					self.dph_block_information_endstamp = struct.unpack('<L',raw_dph_header[60:64])[0]
+				except:
+					pass
 		self.headersize = headersize
 		self.heapbase = heapbase
 		self.segmentbase = segmentbase
@@ -3752,7 +3865,7 @@ class MnChunk:
 		self.commitsize = commitsize
 		self.reservesize = reservesize
 		self.userptr = self.chunkptr + self.headersize + self.extraheadersize
-		self.usersize = (self.size * 8) - self.unused - self.extraheadersize
+		self.usersize = (self.size * heapgranularity) - self.unused - self.extraheadersize
 		self.remaining = self.unused - self.headersize - self.extraheadersize
 		self.flagtxt = getHeapFlag(self.flag)
 
@@ -3770,19 +3883,19 @@ class MnChunk:
 						self.flagtxt = self.flagtxt.replace("Virtallocd","Internal")
 			dbg.log("                      (         bytes        )                   (bytes)")						
 			dbg.log("      HEAP_ENTRY      Size  PrevSize    Unused Flags    UserPtr  UserSize Remaining - state")
-			dbg.log("        %08x  %08x  %08x  %08x  [%02x]   %08x  %08x  %08x   %s  (hex)" % (self.chunkptr,self.size*8,self.prevsize*8,self.unused,self.flag,self.userptr,self.usersize,self.unused-self.headersize,self.flagtxt))
-			dbg.log("                  %08d  %08d  %08d                   %08d  %08d   %s  (dec)" % (self.size*8,self.prevsize*8,self.unused,self.usersize,self.unused-self.headersize,self.flagtxt))
+			dbg.log("        %08x  %08x  %08x  %08x  [%02x]   %08x  %08x  %08x   %s  (hex)" % (self.chunkptr,self.size*heapgranularity,self.prevsize*heapgranularity,self.unused,self.flag,self.userptr,self.usersize,self.unused-self.headersize,self.flagtxt))
+			dbg.log("                  %08d  %08d  %08d                   %08d  %08d   %s  (dec)" % (self.size*heapgranularity,self.prevsize*heapgranularity,self.unused,self.usersize,self.unused-self.headersize,self.flagtxt))
 			dbg.log("")
 			chunkshown = True
 
 		if self.chunktype == "virtualalloc":
 			dbg.log("    _HEAP @ %08x, VirtualAllocdBlocks" % (self.heapbase))
 			dbg.log("      FLINK : 0x%08x, BLINK : 0x%08x" % (self.flink,self.blink))
-			dbg.log("      CommitSize : 0x%08x bytes, ReserveSize : 0x%08x bytes" % (self.commitsize*8, self.reservesize*8))
+			dbg.log("      CommitSize : 0x%08x bytes, ReserveSize : 0x%08x bytes" % (self.commitsize*heapgranularity, self.reservesize*heapgranularity))
 			dbg.log("                      (         bytes        )                   (bytes)")						
 			dbg.log("      HEAP_ENTRY      Size  PrevSize    Unused Flags    UserPtr  UserSize - state")
-			dbg.log("        %08x  %08x  %08x  %08x  [%02x]   %08x  %08x   %s  (hex)" % (self.chunkptr,self.size*8,self.prevsize*8,self.unused,self.flag,self.userptr,self.usersize,self.flagtxt))
-			dbg.log("                  %08d  %08d  %08d                   %08d   %s  (dec)" % (self.size*8,self.prevsize*8,self.unused,self.usersize,self.flagtxt))
+			dbg.log("        %08x  %08x  %08x  %08x  [%02x]   %08x  %08x   %s  (hex)" % (self.chunkptr,self.size*heapgranularity,self.prevsize*heapgranularity,self.unused,self.flag,self.userptr,self.usersize,self.flagtxt))
+			dbg.log("                  %08d  %08d  %08d                   %08d   %s  (dec)" % (self.size*heapgranularity,self.prevsize*heapgranularity,self.unused,self.usersize,self.flagtxt))
 			dbg.log("")
 			chunkshown = True
 
@@ -3833,8 +3946,6 @@ class MnPointer:
 	
 		self.address = address
 		
-		# define the characteristics of the pointer
-		byte1,byte2,byte3,byte4 = splitAddress(address)
 		NullRange 			= [0]
 		AsciiRange			= range(1,128)
 		AsciiPrintRange		= range(20,127)
@@ -3845,6 +3956,14 @@ class MnPointer:
 		AsciiSpaceRange     = [32]
 		
 		self.HexAddress = toHex(address)
+
+		# define the characteristics of the pointer
+		byte1,byte2,byte3,byte4,byte5,byte6,byte7,byte8 = (0,)*8
+
+		if arch == 32:
+			byte1,byte2,byte3,byte4 = splitAddress(address)
+		elif arch == 64:
+			byte1,byte2,byte3,byte4,byte5,byte6,byte7,byte8 = splitAddress(address)
 		
 		# Nulls
 		self.hasNulls = (byte1 == 0) or (byte2 == 0) or (byte3 == 0) or (byte4 == 0)
@@ -3856,11 +3975,16 @@ class MnPointer:
 		self.isUnicode = ((byte1 == 0) and (byte3 == 0))
 		
 		# Unicode reversed
-		self.isUnicodeRev = ((byte2 == 0) and (byte4 == 0))		
+		self.isUnicodeRev = ((byte2 == 0) and (byte4 == 0))
+
+		if arch == 64:
+			self.hasNulls = self.hasNulls or (byte5 == 0) or (byte6 == 0) or (byte7 == 0) or (byte8 == 0)
+			self.isUnicode = self.isUnicode and ((byte5 == 0) and (byte7 == 0))
+			self.isUnicodeRev = self.isUnicodeRev and ((byte6 == 0) and (byte8 == 0))
 		
 		# Unicode transform
 		self.unicodeTransform = UnicodeTransformInfo(self.HexAddress) 
-		
+
 		# Ascii
 		if not self.isUnicode and not self.isUnicodeRev:			
 			self.isAscii = bytesInRange(address, AsciiRange)
@@ -4049,6 +4173,7 @@ class MnPointer:
 		Boolean - True if pointer is in heap
 		"""	
 		segmentcnt = 0
+
 		for heap in dbg.getHeapsAddress():
 				# part of a segment ?
 				segments = getSegmentsForHeap(heap)
@@ -4070,7 +4195,7 @@ class MnPointer:
 				for vachunk in valist:
 					thischunk = valist[vachunk]
 					#dbg.log("self: 0x%08x, vachunk: 0x%08x, commitsize: 0x%08x, vachunk+(thischunk.commitsize)*8: 0x%08x" % (self.address,vachunk,thischunk.commitsize,vachunk+(thischunk.commitsize*8)))
-					if self.address >= vachunk and self.address <= (vachunk+(thischunk.commitsize*8)):
+					if self.address >= vachunk and self.address <= (vachunk+(thischunk.commitsize*heapgranularity)):
 						return True
 		return False
 		
@@ -4545,7 +4670,7 @@ class MnPointer:
 			while levelcnt <= levels:
 				thisleveladdys = []
 				for addy in addys:
-					cmdtorun = "dds 0x%08x L 0x%02x/4" % (addy,size)
+					cmdtorun = "dps 0x%08x L 0x%02x/%x" % (addy,size,archValue(4,8))
 					startaddy = addy
 					endaddy = addy + size
 					output = dbg.nativeCommand(cmdtorun)
@@ -4553,9 +4678,9 @@ class MnPointer:
 					offset = 0
 					for outputline in outputlines:
 						if not outputline.replace(" ","") == "":
-							loc = outputline[0:8]
-							content = outputline[10:18]
-							symbol = outputline[19:]
+							loc = outputline[0:archValue(8,17)].replace("`","")
+							content = outputline[archValue(10,19):archValue(18,36)].replace("`","")
+							symbol = outputline[archValue(19,37):]
 							if not "??" in content and symbol.replace(" ","") == "":
 								contentaddy = hexStrToInt(content)
 								info = self.getLocInfo(hexStrToInt(loc),contentaddy,startaddy,endaddy)
@@ -4619,10 +4744,14 @@ class MnPointer:
 				logfile.write(line,thislog)
 
 			line = "Offset  Address      Contents    Info"
+			if arch == 64:
+				line = "Offset  Address          Contents            Info"
 			logfile.write(line,thislog)
 			if not silent:
 				dbg.log(line)
 			line = "------  -------      --------    -----"
+			if arch == 64:
+				line = "------  -------          --------            -----"
 			logfile.write(line,thislog)
 			if not silent:
 				dbg.log(line)
@@ -4641,7 +4770,7 @@ class MnPointer:
 					if not silent:
 						dbg.log(line)
 					logfile.write(line,thislog)
-					offset += 4
+					offset += archValue(4,8)
 			if len(sortedkeys) > 0:
 				dbg.log("")
 		return
@@ -4668,14 +4797,14 @@ class MnPointer:
 				extra = " (%s.%s)" % (memloc,detailmemloc)
 
 		# maybe it's a pointer to an object ?
-		cmd2run = "dds 0x%08x L 1" % addy
+		cmd2run = "dps 0x%08x L 1" % addy
 		output = dbg.nativeCommand(cmd2run)
 		outputlines = output.split("\n")
 		if len(outputlines) > 0:
 			if not "??" in outputlines[0]:
 				ismapped = True
-				ptraddy = outputlines[0][10:18]
-				ptrinfo = outputlines[0][19:]
+				ptraddy = outputlines[0][archValue(10,19):archValue(18,36)].replace("`","")
+				ptrinfo = outputlines[0][archValue(19,37):]
 				if ptrinfo.replace(" ","") != "":
 					if "vftable" in ptrinfo or "Heap" in memloc:
 						locinfo = ["ptr_obj","%sptr to 0x%08x : %s" % (extra,hexStrToInt(ptraddy),ptrinfo),str(addy)]
@@ -4747,25 +4876,38 @@ class MnPointer:
 		# pointer itself is a string ?
 		
 		if ptrx.isUnicode:
-			b1,b2,b3,b4 = splitAddress(addy)
+			b1,b2,b3,b4,b5,b6,b7,b8 = (0,)*8
+			if arch == 32:
+				b1,b2,b3,b4 = splitAddress(addy)
+			if arch == 64:
+				b1,b2,b3,b4,b5,b6,b7,b8 = splitAddress(addy)
 			ptrstr = toAscii(toHexByte(b2)) + toAscii(toHexByte(b4))
+			if arch == 64:
+				ptrstr += toAscii(toHexByte(b6)) + toAscii(toHexByte(b8))
 			if ptrstr.replace(" ","") != "" and not toHexByte(b2) == "00":
 				locinfo = ["str","= UNICODE '%s' %s" % (ptrstr,extra),"unicode"]
 				return locinfo
 
 		
 		if ptrx.isAsciiPrintable:
-			b1,b2,b3,b4 = splitAddress(addy)
+			b1,b2,b3,b4,b5,b6,b7,b8 = (0,)*8
+			if arch == 32:
+				b1,b2,b3,b4 = splitAddress(addy)
+			if arch == 64:
+				b1,b2,b3,b4,b5,b6,b7,b8 = splitAddress(addy)
 			ptrstr = toAscii(toHexByte(b1)) + toAscii(toHexByte(b2)) + toAscii(toHexByte(b3)) + toAscii(toHexByte(b4))
+			if arch == 64:
+				ptrstr += toAscii(toHexByte(b5)) + toAscii(toHexByte(b6)) + toAscii(toHexByte(b7)) + toAscii(toHexByte(b8))
 			if ptrstr.replace(" ","") != "" and not toHexByte(b1) == "00" and not toHexByte(b2) == "00" and not toHexByte(b3) == "00" and not toHexByte(b4) == "00":
-				locinfo = ["str","= ASCII '%s' %s" % (ptrstr,extra),"ascii"]
-				return locinfo
+				if arch != 64 or (not toHexByte(b5) == "00" and not toHexByte(b6) == "00" and not toHexByte(b7) == "00" and not toHexByte(b8) == "00"):
+					locinfo = ["str","= ASCII '%s' %s" % (ptrstr,extra),"ascii"]
+					return locinfo
 
 		# pointer to heap ?
 		if "Heap" in memloc:
 			if not "??" in outputlines[0]:
 				ismapped = True
-				ptraddy = outputlines[0][10:18]
+				ptraddy = outputlines[0][archValue(10,19):archValue(18,36)]
 				locinfo = ["ptr_obj","%sptr to 0x%08x" % (extra,hexStrToInt(ptraddy)),str(addy)]
 				return locinfo
 
@@ -4802,19 +4944,15 @@ def getSegmentsForHeap(heapbase):
 	if heapbase in segmentlistCache:
 		return segmentlistCache[heapbase]
 	else:
-		i = 0
-		offset = 0x58
-		subtract = 0
-		os = dbg.getOsVersion()
-		segmentcnt = 0
 		try:
 			if win7mode:
 				# first one  = heap itself
-				offset = 0xa8
-				subtract = 0x10
+				offset = getOffset("SegmentList")
+				segmentcnt = 0
+				subtract = archValue(0x10,0x18)
 				firstoffset = 0
-				firstsegbase = struct.unpack('<L',dbg.readMemory(heapbase + 0x24,4))[0]
-				firstsegend = struct.unpack('<L',dbg.readMemory(heapbase + 0x28,4))[0]
+				firstsegbase = readPtrSizeBytes(heapbase + archValue(0x24,0x40))
+				firstsegend = readPtrSizeBytes(heapbase + archValue(0x28,0x48))
 				if not firstsegbase in segmentinfo:
 					segmentinfo[heapbase] = [firstsegbase,firstsegend,firstsegbase,firstsegend]
 				# optional list with additional segments
@@ -4822,31 +4960,33 @@ def getSegmentsForHeap(heapbase):
 				segbase = heapbase
 				lastindex = heapbase + offset
 				allsegmentsfound = False
-				lastsegment = struct.unpack('<L',dbg.readMemory(heapbase+offset+4,4))[0] - subtract
+				lastsegment = readPtrSizeBytes(heapbase+offset+archValue(4,8)) - subtract
 				if heapbase == lastsegment:
 					allsegmentsfound = True
 				segmentcnt = 1
 				while not allsegmentsfound and segmentcnt < 100:
-					nextbase = struct.unpack('<L',dbg.readMemory(segbase + 0x10,4))[0] - subtract
+					nextbase = readPtrSizeBytes(segbase + archValue(0x10,0x18)) - subtract
 					segbase = nextbase
 					if nextbase > 0 and (nextbase+subtract != lastindex):
-						segstart = struct.unpack('<L',dbg.readMemory(segbase + 0x24,4))[0]
-						segend = struct.unpack('<L',dbg.readMemory(segbase + 0x28,4))[0]
+						segstart = readPtrSizeBytes(segbase + archValue(0x24,0x40))
+						segend = readPtrSizeBytes(segbase + archValue(0x28,0x48))
 						if not segbase in segmentinfo:
 							segmentinfo[segbase] = [segbase,segend,segstart,segend]
 					else:
 						allsegmentsfound = True
 					segmentcnt += 1
 			else:
+				offset = archValue(0x058,0x0a0)
+				i = 0
 				while not allsegmentsfound:
-					thisbase = struct.unpack('<L',dbg.readMemory(heapbase + offset + (i*4),4))[0]
+					thisbase = readPtrSizeBytes(heapbase + offset + i*archValue(4,8))
 					if thisbase > 0 and not thisbase in segmentinfo:
 						# get start and end of segment
 						segstart = thisbase
 						segend = getSegmentEnd(segstart)
 						# get first and last valid entry
-						firstentry = struct.unpack('<L',dbg.readMemory(segstart + 0x20,4))[0]
-						lastentry = struct.unpack('<L',dbg.readMemory(segstart + 0x24,4))[0]
+						firstentry = readPtrSizeBytes(segstart + archValue(0x20,0x38))
+						lastentry = readPtrSizeBytes(segstart + archValue(0x24,0x40))
 						segmentinfo[thisbase] = [segstart,segend,firstentry,lastentry]
 					else:
 						allsegmentsfound = True
@@ -5647,11 +5787,14 @@ def showModuleTable(logfile="", modules=[]):
 	thistable = ""
 	if len(g_modules) == 0:
 		populateModuleInfo()
-	thistable += "----------------------------------------------------------------------------------------------------------------------------------\n"
+	thistable += "-----------------------------------------------------------------------------------------------------------------------------------------\n"
 	thistable += " Module info :\n"
-	thistable += "----------------------------------------------------------------------------------------------------------------------------------\n"
-	thistable += " Base       | Top        | Size       | Rebase | SafeSEH | ASLR  | NXCompat | OS Dll | Version, Modulename & Path\n"
-	thistable += "----------------------------------------------------------------------------------------------------------------------------------\n"
+	thistable += "-----------------------------------------------------------------------------------------------------------------------------------------\n"
+	if arch == 32:
+		thistable += " Base       | Top        | Size       | Rebase | SafeSEH | ASLR  | NXCompat | OS Dll | Version, Modulename & Path\n"
+	elif arch == 64:
+		thistable += " Base               | Top                | Size               | Rebase | SafeSEH | ASLR  | NXCompat | OS Dll | Version, Modulename & Path\n"
+	thistable += "-----------------------------------------------------------------------------------------------------------------------------------------\n"
 
 	for thismodule,modproperties in g_modules.iteritems():
 		if (len(modules) > 0 and modproperties["name"] in modules or len(logfile)>0):
@@ -5667,7 +5810,7 @@ def showModuleTable(logfile="", modules=[]):
 			path 	= str(modproperties["path"])
 			name	= str(modproperties["name"])
 			thistable += " " + base + " | " + top + " | " + size + " | " + rebase +"| " +safeseh + " | " + aslr + " |  " + nx + " | " + isos + "| " + version + " [" + name + "] (" + path + ")\n"
-	thistable += "----------------------------------------------------------------------------------------------------------------------------------\n"
+	thistable += "-----------------------------------------------------------------------------------------------------------------------------------------\n"
 	tableinfo = thistable.split('\n')
 	if logfile == "":
 		for tline in tableinfo:
