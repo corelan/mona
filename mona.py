@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 574 $
-$Id: mona.py 574 2017-05-28 19:36:00Z corelanc0d3r $ 
+$Revision: 575 $
+$Id: mona.py 575 2017-05-28 19:50:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 574 $')
+__REV__ = filter(str.isdigit, '$Revision: 575 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -8964,7 +8964,7 @@ def getRopFuncPtr(apiname,modulecriteria,criteria,mode = "iat"):
 	Will get a pointer to pointer to the given API name in the IAT of the selected modules
 	
 	Arguments :
-	apiname : the name of the functino
+	apiname : the name of the function
 	modulecriteria & criteria : module/pointer criteria
 	
 	Returns :
@@ -8978,6 +8978,10 @@ def getRopFuncPtr(apiname,modulecriteria,criteria,mode = "iat"):
 	ptr_to_get = -1	
 	rfuncsearch = apiname.lower()
 
+	arrfuncsearch = [rfuncsearch]
+	if rfuncsearch == "virtualloc":
+		arrfuncsearch.append("virtuallocstub")
+	
 	ropfuncptr = 0
 	ropfuncoffsets = {}
 	ropfunctext = "ptr to &" + apiname + "()"
