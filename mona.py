@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 572 $
-$Id: mona.py 572 2017-05-27 22:32:00Z corelanc0d3r $ 
+$Revision: 573 $
+$Id: mona.py 573 2017-05-28 19:36:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 572 $')
+__REV__ = filter(str.isdigit, '$Revision: 573 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -5898,24 +5898,25 @@ def findROPFUNC(modulecriteria={},criteria={},searchfuncs=[]):
 	funccallresults = []
 	ropfuncoffsets = {}
 	functionnames = []
+	offsets = {}
 	
 	modulestosearch = getModulesToQuery(modulecriteria)
 	if searchfuncs == []:
 		functionnames = ["virtualprotect","virtualalloc","heapalloc","winexec","setprocessdeppolicy","heapcreate","setinformationprocess","writeprocessmemory","memcpy","memmove","strncpy","createmutex","getlasterror","strcpy","loadlibrary","freelibrary","getmodulehandle","getprocaddress","openfile","createfile","createfilemapping","mapviewoffile","openfilemapping"]
+		offsets["kernel32.dll"] = ["virtualprotect","virtualalloc","writeprocessmemory"]
+		# on newer OSes, functions are stored in kernelbase.dll
+		offsets["kernelbase.dll"] = ["virtualprotect","virtualalloc","writeprocessmemory"]
 	else:
 		functionnames = searchfuncs
+		offsets["kernel32.dll"] = searchfuncs
+		# on newer OSes, functions are stored in kernelbase.dll
+		offsets["kernelbase.dll"] = searchfuncs
 	if not silent:
 		dbg.log("[+] Looking for pointers to interesting functions...")
 	curmod = ""
 	#ropfuncfilename="ropfunc.txt"
 	#objropfuncfile = MnLog(ropfuncfilename)
 	#ropfuncfile = objropfuncfile.reset()
-	
-	offsets = {}
-	
-	offsets["kernel32.dll"] = ["virtualprotect","virtualalloc","writeprocessmemory"]
-	# on newer OSes, functions are stored in kernelbase.dll
-	offsets["kernelbase.dll"] = ["virtualprotect","virtualalloc","writeprocessmemory"]
 	
 	offsetpointers = {}
 	
@@ -5929,6 +5930,7 @@ def findROPFUNC(modulecriteria={},criteria={},searchfuncs=[]):
 				for fn in allfuncs:
 					for fname in fnames:
 						if allfuncs[fn].lower().find(fname.lower()) > -1:
+							#dbg.log("Found match: %s %s -> %s ?" % (themod, allfuncs[fn].lower(), fname.lower()))
 							fname = allfuncs[fn].lower()
 							if not fname in offsetpointers:
 								offsetpointers[fname] = fn
@@ -5936,9 +5938,13 @@ def findROPFUNC(modulecriteria={},criteria={},searchfuncs=[]):
 		except:
 			continue
 
+	# found pointers to functions
+	# now query IATs
+	#dbg.log("%s" % modulecriteria)		
 	isrebased = False
 	for key in modulestosearch:
 		curmod = dbg.getModule(key)
+		#dbg.log("Searching in IAT of %s" % key)
 		#is this module going to get rebase ?
 		themodule = MnModule(key)
 		isrebased = themodule.isRebase
@@ -8169,7 +8175,8 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 			if thisreg in replacelist:
 				thistarget = replacelist[thisreg]
 			
-			dbg.log("    Step %d/%d: %s" % (stepcnt,len(routinedefs[routine]),thisreg))
+			thistimestamp=datetime.datetime.now().strftime("%a %Y/%m/%d %I:%M:%S %p")
+			dbg.log("    %s: Step %d/%d: %s" % (thistimestamp,stepcnt,len(routinedefs[routine]),thisreg))
 			stepcnt += 1
 
 			if not thisreg in skiplist:
@@ -8193,6 +8200,8 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 						else:
 							thischain[thisreg] = putValueInReg(thisreg,funcptr,routine + "() [" + MnPointer(funcptr).belongsTo() + "]",suggestions,interestinggadgets,criteria)
 					else:
+						objprogressfile.write("    Function pointer : 0x%0x",funcptr)
+						objprogressfile.write("  * Getting pickup gadget",progressfile)
 						thischain[thisreg],skiplist = getPickupGadget(thisreg,funcptr,functext,suggestions,interestinggadgets,criteria,modulecriteria,routine)
 						# if skiplist is not empty, then we are using the alternative pickup (via jmp [eax])
 						# this means we have to make some changes to the routine
@@ -8968,16 +8977,21 @@ def getRopFuncPtr(apiname,modulecriteria,criteria,mode = "iat"):
 	global ptr_to_get
 	ptr_to_get = -1	
 	rfuncsearch = apiname.lower()
-	
-	
+
 	ropfuncptr = 0
+	ropfuncoffsets = {}
 	ropfunctext = "ptr to &" + apiname + "()"
 	
-	if mode == "iat":	
-		ropfuncs,ropfuncoffsets = findROPFUNC(modulecriteria,criteria)
+	if mode == "iat":
+		if rfuncsearch != "":
+			ropfuncs,ropfuncoffsets = findROPFUNC(modulecriteria,criteria, [rfuncsearch])
+		else:
+			ropfuncs,ropfuncoffsets = findROPFUNC(modulecriteria)
 		silent = oldsilent
 		#first look for good one
+		#dbg.log("Found %d pointers" % len(ropfuncs))
 		for ropfunctypes in ropfuncs:
+			dbg.log("%s %s" % (ropfunctypes, rfuncsearch))
 			if ropfunctypes.lower().find(rfuncsearch) > -1 and ropfunctypes.lower().find("rebased") == -1:
 				ropfuncptr = ropfuncs[ropfunctypes][0]
 				break
@@ -8986,12 +9000,14 @@ def getRopFuncPtr(apiname,modulecriteria,criteria,mode = "iat"):
 				if ropfunctypes.lower().find(rfuncsearch) > -1:
 					ropfuncptr = ropfuncs[ropfunctypes][0]
 					break
-		#still haven't found ? clear out modulecriteria		
+		#dbg.log("Selected pointer: 0x%08x" % ropfuncptr)
+		#still haven't found ? clear out modulecriteria, include ASLR/rebase modules (but not OS modules)
 		if ropfuncptr == 0:
 			oldsilent = silent
 			silent = True
 			limitedmodulecriteria = {}
-			limitedmodulecriteria["os"] = True
+			# search in anything except known OS modules - bad idea anyway
+			limitedmodulecriteria["os"] = False
 			ropfuncs2,ropfuncoffsets2 = findROPFUNC(limitedmodulecriteria,criteria)
 			silent = oldsilent
 			for ropfunctypes in ropfuncs2:
