@@ -12246,7 +12246,7 @@ def main(args):
 				toignore.append("ReleaseDC")
 				toignore.append("GetDeviceCaps")
 				toignore.append("GetClientRect")
-				toignore.append("etLastError")
+				toignore.append("GetLastError")
 			else:
 				limit_scope = False
 			if len( modulestosearch) > 0:
