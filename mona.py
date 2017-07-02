@@ -1799,7 +1799,7 @@ def readPtrSizeBytes(ptr):
 	elif arch == 64:
 		return struct.unpack('<Q',dbg.readMemory(ptr,8))[0]
 
-def getOffset(name):
+def getOsOffset(name):
 	osrelease = dbg.getOsRelease()
 	osreleaseparts = osrelease.split(".")
 	major = int(osreleaseparts[0])
@@ -3291,14 +3291,14 @@ class MnHeap:
 		"""
 		Returns the value of the FrontEndHeap field in the heapbase
 		"""
-		return readPtrSizeBytes(self.heapbase+getOffset("FrontEndHeap"))
+		return readPtrSizeBytes(self.heapbase+getOsOffset("FrontEndHeap"))
 
 
 	def getFrontEndHeapType(self):
 		"""
 		Returns the value of the FrontEndHeapType field in the heapbase
 		"""
-		return struct.unpack('B',dbg.readMemory(self.heapbase+getOffset("FrontEndHeapType"),1))[0]
+		return struct.unpack('B',dbg.readMemory(self.heapbase+getOsOffset("FrontEndHeapType"),1))[0]
 
 	def getLookAsideHead(self):
 		"""
@@ -3454,7 +3454,7 @@ class MnHeap:
 		Each entry in the dictionary contains a MnChunk object, with chunktype set to "virtualalloc"
 		"""
 		global VACache
-		offset = getOffset("VirtualAllocdBlocks")
+		offset = getOsOffset("VirtualAllocdBlocks")
 		encodingkey = 0
 		if win7mode:
 			encodingkey = self.getEncodingKey()
@@ -3560,7 +3560,7 @@ class MnHeap:
 
 		Return: Int
 		"""
-		return readPtrSizeBytes(self.heapbase+getOffset("FrontEndHeap"))
+		return readPtrSizeBytes(self.heapbase+getOsOffset("FrontEndHeap"))
 
 	def getState(self):
 		"""
@@ -4947,7 +4947,7 @@ def getSegmentsForHeap(heapbase):
 		try:
 			if win7mode:
 				# first one  = heap itself
-				offset = getOffset("SegmentList")
+				offset = getOsOffset("SegmentList")
 				segmentcnt = 0
 				subtract = archValue(0x10,0x18)
 				firstoffset = 0
