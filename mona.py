@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 580 $
-$Id: mona.py 580 2018-04-22 15:01:00Z corelanc0d3r $ 
+$Revision: 581 $
+$Id: mona.py 581 2018-04-22 19:30:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 580 $')
+__REV__ = filter(str.isdigit, '$Revision: 581 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -12883,18 +12883,13 @@ def main(args):
 			"""
 
 			updateproto = "https"
-			#if "http" in args:
-			#	updateproto  = "http"
-			
+
 			#debugger version	
 			imversion = __IMM__
 			#url
 			dbg.setStatusBar("Running update process...")
 			dbg.updateLog()
 			updateurl = "https://github.com/corelan/mona/raw/master/mona.py"
-			
-			#if updateproto == "http":
-			#	updateurl = "http://redmine.corelan.be/projects/mona/repository/git/revisions/master/raw/mona.py"
 			
 			currentversion,currentrevision = getVersionInfo(inspect.stack()[0][1])
 			u = ""
@@ -12909,7 +12904,8 @@ def main(args):
 					dbg.log("[-] Unable to check latest version (corrupted file ?), try again later",highlight=1)
 					return
 			except:
-				dbg.log("[-] Unable to check latest version (download error), run !mona update -http or try again later",highlight=1)
+				dbg.log("[-] Unable to check latest version (download error). Try again later",highlight=1)
+				dbg.log("    Meanwhile, please check/confirm that you're running a recent version of python 2.7 (2.7.14 or higher)", highlight=1)
 				return
 			#check versions
 			doupdate = False
@@ -12949,8 +12945,7 @@ def main(args):
 				else:
 					dbg.log("[+] Checking if %s needs an update..." % libfile)
 					updateurl = "https://github.com/corelan/windbglib/raw/master/windbglib.py"
-					#if updateproto == "http":
-					#	updateurl = updateproto + "://redmine.corelan.be/projects/windbglib/repository/raw/windbglib.py"
+
 					currentversion,currentrevision = getVersionInfo(libfile)
 					u = ""
 					try:
@@ -12964,7 +12959,8 @@ def main(args):
 							dbg.log("[-] Unable to check latest version (corrupted file ?), try again later",highlight=1)
 							return
 					except:
-						dbg.log("[-] Unable to check latest version (download error), run !mona update -http or try again later",highlight=1)
+						dbg.log("[-] Unable to check latest version (download error). Try again later",highlight=1)
+						dbg.log("    Meanwhile, please check/confirm that you're running a recent version of python 2.7 (2.7.14 or higher)", highlight=1)
 						return
 
 					#check versions
@@ -18091,9 +18087,7 @@ Mandatory argument :
 Optional argument:
     -t <type>     : specify type of output. Valid choices are 'ruby' (default) or 'python' """
 	
-		updateUsage = """Update mona to the latest version
-Optional argument : 
-    -http : Use http instead of https"""
+		updateUsage = """Update mona to the latest version"""
 		getpcUsage = """Find getpc routine for specific register
 Mandatory argument :
     -r : register (ex: eax)"""
