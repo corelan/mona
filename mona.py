@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 579 $
-$Id: mona.py 579 2018-04-22 09:44:00Z corelanc0d3r $ 
+$Revision: 580 $
+$Id: mona.py 580 2018-04-22 15:01:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 579 $')
+__REV__ = filter(str.isdigit, '$Revision: 580 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -5490,118 +5490,129 @@ def getSearchSequences(searchtype,searchcriteria="",type="",criteria={}):
 			minval += 1
 
 	if searchtype.lower() == "seh":
+		if type == "rop":
+			dbg.log("    - Looking for addresses that will help with SEH overwrite & ROP" )
 		for roffset in offsets:
 			for r1 in regs:
-				search.append( ["add esp,4\npop " + r1+"\nret "+roffset,dbg.assemble("add esp,4\npop " + r1+"\nret "+roffset)] )
-				search.append( ["pop " + r1+"\nadd esp,4\nret "+roffset,dbg.assemble("pop " + r1+"\nadd esp,4\nret "+roffset)] )				
+				if type == "rop":
+					search.append( ["add esp,4\npop " + r1+"\npop esp\nret "+roffset,dbg.assemble("add esp,4\npop " + r1+"\npop esp\nret "+roffset)] )
+					search.append( ["pop " + r1+"\nadd esp,4\npop esp\nret "+roffset,dbg.assemble("pop " + r1+"\nadd esp,4\npop esp\nret "+roffset)] )				
+				else:
+					search.append( ["add esp,4\npop " + r1+"\nret "+roffset,dbg.assemble("add esp,4\npop " + r1+"\nret "+roffset)] )
+					search.append( ["pop " + r1+"\nadd esp,4\nret "+roffset,dbg.assemble("pop " + r1+"\nadd esp,4\nret "+roffset)] )
 				for r2 in regs:
-					thissearch = ["pop "+r1+"\npop "+r2+"\nret "+roffset,dbg.assemble("pop "+r1+"\npop "+r2+"\nret "+roffset)]
-					search.append( thissearch )
 					if type == "rop":
 						search.append( ["pop "+r1+"\npop "+r2+"\npop esp\nret "+roffset,dbg.assemble("pop "+r1+"\npop "+r2+"\npop esp\nret "+roffset)] )
 						for r3 in regs:
 							search.append( ["pop "+r1+"\npop "+r2+"\npop "+r3+"\ncall ["+r3+"]",dbg.assemble("pop "+r1+"\npop "+r2+"\npop "+r3+"\ncall ["+r3+"]")] )
-			search.append( ["add esp,8\nret "+roffset,dbg.assemble("add esp,8\nret "+roffset)])
-			search.append( ["popad\npush ebp\nret "+roffset,dbg.assemble("popad\npush ebp\nret "+roffset)])					
-		#popad + jmp/call
-		search.append(["popad\njmp ebp",dbg.assemble("popad\njmp ebp")])
-		search.append(["popad\ncall ebp",dbg.assemble("popad\ncall ebp")])		
-		#call / jmp dword
-		search.append(["call dword ptr ss:[esp+08]","\xff\x54\x24\x08"])
-		search.append(["call dword ptr ss:[esp+08]","\xff\x94\x24\x08\x00\x00\x00"])
-		search.append(["call dword ptr ds:[esp+08]","\x3e\xff\x54\x24\x08"])
+					else:
+						thissearch = ["pop "+r1+"\npop "+r2+"\nret "+roffset,dbg.assemble("pop "+r1+"\npop "+r2+"\nret "+roffset)]
+						search.append( thissearch )
+			if type != "rop":		
+				search.append( ["add esp,8\nret "+roffset,dbg.assemble("add esp,8\nret "+roffset)])
+				search.append( ["popad\npush ebp\nret "+roffset,dbg.assemble("popad\npush ebp\nret "+roffset)])
+			else:
+				search.append( ["add esp,8\npop esp\nret "+roffset,dbg.assemble("add esp,8\npop esp\nret "+roffset)])
+		if type != "rop":
+			#popad + jmp/call
+			search.append(["popad\njmp ebp",dbg.assemble("popad\njmp ebp")])
+			search.append(["popad\ncall ebp",dbg.assemble("popad\ncall ebp")])		
+			#call / jmp dword
+			search.append(["call dword ptr ss:[esp+08]","\xff\x54\x24\x08"])
+			search.append(["call dword ptr ss:[esp+08]","\xff\x94\x24\x08\x00\x00\x00"])
+			search.append(["call dword ptr ds:[esp+08]","\x3e\xff\x54\x24\x08"])
 
-		search.append(["jmp dword ptr ss:[esp+08]","\xff\x64\x24\x08"])
-		search.append(["jmp dword ptr ss:[esp+08]","\xff\xa4\x24\x08\x00\x00\x00"])
-		search.append(["jmp dword ptr ds:[esp+08]","\x3e\xff\x64\x24\x08"])
-		
-		search.append(["call dword ptr ss:[esp+14]","\xff\x54\x24\x14"])
-		search.append(["call dword ptr ss:[esp+14]","\xff\x94\x24\x14\x00\x00\x00"])	
-		search.append(["call dword ptr ds:[esp+14]","\x3e\xff\x54\x24\x14"])
-		
-		search.append(["jmp dword ptr ss:[esp+14]","\xff\x64\x24\x14"])
-		search.append(["jmp dword ptr ss:[esp+14]","\xff\xa4\x24\x14\x00\x00\x00"])		
-		search.append(["jmp dword ptr ds:[esp+14]","\x3e\xff\x64\x24\x14"])
-		
-		search.append(["call dword ptr ss:[esp+1c]","\xff\x54\x24\x1c"])
-		search.append(["call dword ptr ss:[esp+1c]","\xff\x94\x24\x1c\x00\x00\x00"])		
-		search.append(["call dword ptr ds:[esp+1c]","\x3e\xff\x54\x24\x1c"])
-		
-		search.append(["jmp dword ptr ss:[esp+1c]","\xff\x64\x24\x1c"])
-		search.append(["jmp dword ptr ss:[esp+1c]","\xff\xa4\x24\x1c\x00\x00\x00"])		
-		search.append(["jmp dword ptr ds:[esp+1c]","\x3e\xff\x64\x24\x1c"])
-		
-		search.append(["call dword ptr ss:[esp+2c]","\xff\x54\x24\x2c"])
-		search.append(["call dword ptr ss:[esp+2c]","\xff\x94\x24\x2c\x00\x00\x00"])
-		search.append(["call dword ptr ds:[esp+2c]","\x3e\xff\x54\x24\x2c"])
+			search.append(["jmp dword ptr ss:[esp+08]","\xff\x64\x24\x08"])
+			search.append(["jmp dword ptr ss:[esp+08]","\xff\xa4\x24\x08\x00\x00\x00"])
+			search.append(["jmp dword ptr ds:[esp+08]","\x3e\xff\x64\x24\x08"])
+			
+			search.append(["call dword ptr ss:[esp+14]","\xff\x54\x24\x14"])
+			search.append(["call dword ptr ss:[esp+14]","\xff\x94\x24\x14\x00\x00\x00"])	
+			search.append(["call dword ptr ds:[esp+14]","\x3e\xff\x54\x24\x14"])
+			
+			search.append(["jmp dword ptr ss:[esp+14]","\xff\x64\x24\x14"])
+			search.append(["jmp dword ptr ss:[esp+14]","\xff\xa4\x24\x14\x00\x00\x00"])		
+			search.append(["jmp dword ptr ds:[esp+14]","\x3e\xff\x64\x24\x14"])
+			
+			search.append(["call dword ptr ss:[esp+1c]","\xff\x54\x24\x1c"])
+			search.append(["call dword ptr ss:[esp+1c]","\xff\x94\x24\x1c\x00\x00\x00"])		
+			search.append(["call dword ptr ds:[esp+1c]","\x3e\xff\x54\x24\x1c"])
+			
+			search.append(["jmp dword ptr ss:[esp+1c]","\xff\x64\x24\x1c"])
+			search.append(["jmp dword ptr ss:[esp+1c]","\xff\xa4\x24\x1c\x00\x00\x00"])		
+			search.append(["jmp dword ptr ds:[esp+1c]","\x3e\xff\x64\x24\x1c"])
+			
+			search.append(["call dword ptr ss:[esp+2c]","\xff\x54\x24\x2c"])
+			search.append(["call dword ptr ss:[esp+2c]","\xff\x94\x24\x2c\x00\x00\x00"])
+			search.append(["call dword ptr ds:[esp+2c]","\x3e\xff\x54\x24\x2c"])
 
-		search.append(["jmp dword ptr ss:[esp+2c]","\xff\x64\x24\x2c"])
-		search.append(["jmp dword ptr ss:[esp+2c]","\xff\xa4\x24\x2c\x00\x00\x00"])		
-		search.append(["jmp dword ptr ds:[esp+2c]","\x3e\xff\x64\x24\x2c"])
-		
-		search.append(["call dword ptr ss:[esp+44]","\xff\x54\x24\x44"])
-		search.append(["call dword ptr ss:[esp+44]","\xff\x94\x24\x44\x00\x00\x00"])		
-		search.append(["call dword ptr ds:[esp+44]","\x3e\xff\x54\x24\x44"])		
-		
-		search.append(["jmp dword ptr ss:[esp+44]","\xff\x64\x24\x44"])
-		search.append(["jmp dword ptr ss:[esp+44]","\xff\xa4\x24\x44\x00\x00\x00"])
-		search.append(["jmp dword ptr ds:[esp+44]","\x3e\xff\x64\x24\x44"])
-		
-		search.append(["call dword ptr ss:[esp+50]","\xff\x54\x24\x50"])
-		search.append(["call dword ptr ss:[esp+50]","\xff\x94\x24\x50\x00\x00\x00"])		
-		search.append(["call dword ptr ds:[esp+50]","\x3e\xff\x54\x24\x50"])		
-		
-		search.append(["jmp dword ptr ss:[esp+50]","\xff\x64\x24\x50"])
-		search.append(["jmp dword ptr ss:[esp+50]","\xff\xa4\x24\x50\x00\x00\x00"])
-		search.append(["jmp dword ptr ds:[esp+50]","\x3e\xff\x64\x24\x50"])
-		
-		search.append(["call dword ptr ss:[ebp+0c]","\xff\x55\x0c"])
-		search.append(["call dword ptr ss:[ebp+0c]","\xff\x95\x0c\x00\x00\x00"])		
-		search.append(["call dword ptr ds:[ebp+0c]","\x3e\xff\x55\x0c"])		
-		
-		search.append(["jmp dword ptr ss:[ebp+0c]","\xff\x65\x0c"])
-		search.append(["jmp dword ptr ss:[ebp+0c]","\xff\xa5\x0c\x00\x00\x00"])		
-		search.append(["jmp dword ptr ds:[ebp+0c]","\x3e\xff\x65\x0c"])		
-		
-		search.append(["call dword ptr ss:[ebp+24]","\xff\x55\x24"])
-		search.append(["call dword ptr ss:[ebp+24]","\xff\x95\x24\x00\x00\x00"])		
-		search.append(["call dword ptr ds:[ebp+24]","\x3e\xff\x55\x24"])
-		
-		search.append(["jmp dword ptr ss:[ebp+24]","\xff\x65\x24"])
-		search.append(["jmp dword ptr ss:[ebp+24]","\xff\xa5\x24\x00\x00\x00"])		
-		search.append(["jmp dword ptr ds:[ebp+24]","\x3e\xff\x65\x24"])	
-		
-		search.append(["call dword ptr ss:[ebp+30]","\xff\x55\x30"])
-		search.append(["call dword ptr ss:[ebp+30]","\xff\x95\x30\x00\x00\x00"])		
-		search.append(["call dword ptr ds:[ebp+30]","\x3e\xff\x55\x30"])
-		
-		search.append(["jmp dword ptr ss:[ebp+30]","\xff\x65\x30"])
-		search.append(["jmp dword ptr ss:[ebp+30]","\xff\xa5\x30\x00\x00\x00"])		
-		search.append(["jmp dword ptr ds:[ebp+30]","\x3e\xff\x65\x30"])	
-		
-		search.append(["call dword ptr ss:[ebp-04]","\xff\x55\xfc"])
-		search.append(["call dword ptr ss:[ebp-04]","\xff\x95\xfc\xff\xff\xff"])		
-		search.append(["call dword ptr ds:[ebp-04]","\x3e\xff\x55\xfc"])
-		
-		search.append(["jmp dword ptr ss:[ebp-04]","\xff\x65\xfc",])
-		search.append(["jmp dword ptr ss:[ebp-04]","\xff\xa5\xfc\xff\xff\xff",])		
-		search.append(["jmp dword ptr ds:[ebp-04]","\x3e\xff\x65\xfc",])		
-		
-		search.append(["call dword ptr ss:[ebp-0c]","\xff\x55\xf4"])
-		search.append(["call dword ptr ss:[ebp-0c]","\xff\x95\xf4\xff\xff\xff"])		
-		search.append(["call dword ptr ds:[ebp-0c]","\x3e\xff\x55\xf4"])
-		
-		search.append(["jmp dword ptr ss:[ebp-0c]","\xff\x65\xf4",])
-		search.append(["jmp dword ptr ss:[ebp-0c]","\xff\xa5\xf4\xff\xff\xff",])		
-		search.append(["jmp dword ptr ds:[ebp-0c]","\x3e\xff\x65\xf4",])
-		
-		search.append(["call dword ptr ss:[ebp-18]","\xff\x55\xe8"])
-		search.append(["call dword ptr ss:[ebp-18]","\xff\x95\xe8\xff\xff\xff"])		
-		search.append(["call dword ptr ds:[ebp-18]","\x3e\xff\x55\xe8"])
-		
-		search.append(["jmp dword ptr ss:[ebp-18]","\xff\x65\xe8",])
-		search.append(["jmp dword ptr ss:[ebp-18]","\xff\xa5\xe8\xff\xff\xff",])		
-		search.append(["jmp dword ptr ds:[ebp-18]","\x3e\xff\x65\xe8",])
+			search.append(["jmp dword ptr ss:[esp+2c]","\xff\x64\x24\x2c"])
+			search.append(["jmp dword ptr ss:[esp+2c]","\xff\xa4\x24\x2c\x00\x00\x00"])		
+			search.append(["jmp dword ptr ds:[esp+2c]","\x3e\xff\x64\x24\x2c"])
+			
+			search.append(["call dword ptr ss:[esp+44]","\xff\x54\x24\x44"])
+			search.append(["call dword ptr ss:[esp+44]","\xff\x94\x24\x44\x00\x00\x00"])		
+			search.append(["call dword ptr ds:[esp+44]","\x3e\xff\x54\x24\x44"])		
+			
+			search.append(["jmp dword ptr ss:[esp+44]","\xff\x64\x24\x44"])
+			search.append(["jmp dword ptr ss:[esp+44]","\xff\xa4\x24\x44\x00\x00\x00"])
+			search.append(["jmp dword ptr ds:[esp+44]","\x3e\xff\x64\x24\x44"])
+			
+			search.append(["call dword ptr ss:[esp+50]","\xff\x54\x24\x50"])
+			search.append(["call dword ptr ss:[esp+50]","\xff\x94\x24\x50\x00\x00\x00"])		
+			search.append(["call dword ptr ds:[esp+50]","\x3e\xff\x54\x24\x50"])		
+			
+			search.append(["jmp dword ptr ss:[esp+50]","\xff\x64\x24\x50"])
+			search.append(["jmp dword ptr ss:[esp+50]","\xff\xa4\x24\x50\x00\x00\x00"])
+			search.append(["jmp dword ptr ds:[esp+50]","\x3e\xff\x64\x24\x50"])
+			
+			search.append(["call dword ptr ss:[ebp+0c]","\xff\x55\x0c"])
+			search.append(["call dword ptr ss:[ebp+0c]","\xff\x95\x0c\x00\x00\x00"])		
+			search.append(["call dword ptr ds:[ebp+0c]","\x3e\xff\x55\x0c"])		
+			
+			search.append(["jmp dword ptr ss:[ebp+0c]","\xff\x65\x0c"])
+			search.append(["jmp dword ptr ss:[ebp+0c]","\xff\xa5\x0c\x00\x00\x00"])		
+			search.append(["jmp dword ptr ds:[ebp+0c]","\x3e\xff\x65\x0c"])		
+			
+			search.append(["call dword ptr ss:[ebp+24]","\xff\x55\x24"])
+			search.append(["call dword ptr ss:[ebp+24]","\xff\x95\x24\x00\x00\x00"])		
+			search.append(["call dword ptr ds:[ebp+24]","\x3e\xff\x55\x24"])
+			
+			search.append(["jmp dword ptr ss:[ebp+24]","\xff\x65\x24"])
+			search.append(["jmp dword ptr ss:[ebp+24]","\xff\xa5\x24\x00\x00\x00"])		
+			search.append(["jmp dword ptr ds:[ebp+24]","\x3e\xff\x65\x24"])	
+			
+			search.append(["call dword ptr ss:[ebp+30]","\xff\x55\x30"])
+			search.append(["call dword ptr ss:[ebp+30]","\xff\x95\x30\x00\x00\x00"])		
+			search.append(["call dword ptr ds:[ebp+30]","\x3e\xff\x55\x30"])
+			
+			search.append(["jmp dword ptr ss:[ebp+30]","\xff\x65\x30"])
+			search.append(["jmp dword ptr ss:[ebp+30]","\xff\xa5\x30\x00\x00\x00"])		
+			search.append(["jmp dword ptr ds:[ebp+30]","\x3e\xff\x65\x30"])	
+			
+			search.append(["call dword ptr ss:[ebp-04]","\xff\x55\xfc"])
+			search.append(["call dword ptr ss:[ebp-04]","\xff\x95\xfc\xff\xff\xff"])		
+			search.append(["call dword ptr ds:[ebp-04]","\x3e\xff\x55\xfc"])
+			
+			search.append(["jmp dword ptr ss:[ebp-04]","\xff\x65\xfc",])
+			search.append(["jmp dword ptr ss:[ebp-04]","\xff\xa5\xfc\xff\xff\xff",])		
+			search.append(["jmp dword ptr ds:[ebp-04]","\x3e\xff\x65\xfc",])		
+			
+			search.append(["call dword ptr ss:[ebp-0c]","\xff\x55\xf4"])
+			search.append(["call dword ptr ss:[ebp-0c]","\xff\x95\xf4\xff\xff\xff"])		
+			search.append(["call dword ptr ds:[ebp-0c]","\x3e\xff\x55\xf4"])
+			
+			search.append(["jmp dword ptr ss:[ebp-0c]","\xff\x65\xf4",])
+			search.append(["jmp dword ptr ss:[ebp-0c]","\xff\xa5\xf4\xff\xff\xff",])		
+			search.append(["jmp dword ptr ds:[ebp-0c]","\x3e\xff\x65\xf4",])
+			
+			search.append(["call dword ptr ss:[ebp-18]","\xff\x55\xe8"])
+			search.append(["call dword ptr ss:[ebp-18]","\xff\x95\xe8\xff\xff\xff"])		
+			search.append(["call dword ptr ds:[ebp-18]","\x3e\xff\x55\xe8"])
+			
+			search.append(["jmp dword ptr ss:[ebp-18]","\xff\x65\xe8",])
+			search.append(["jmp dword ptr ss:[ebp-18]","\xff\xa5\xe8\xff\xff\xff",])		
+			search.append(["jmp dword ptr ds:[ebp-18]","\x3e\xff\x65\xe8",])
 	return search
 
 	
