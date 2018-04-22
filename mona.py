@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 578 $
-$Id: mona.py 578 2018-04-22 09:18:00Z corelanc0d3r $ 
+$Revision: 579 $
+$Id: mona.py 579 2018-04-22 09:44:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 578 $')
+__REV__ = filter(str.isdigit, '$Revision: 579 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -10911,6 +10911,12 @@ def args2criteria(args,modulecriteria,criteria):
 			ptrcrit=ptrcrit.strip('"').lower().strip()
 			criteria[ptrcrit] = True
 		dbg.log("    - Pointer criteria : %s" % ptrcriteria)
+	
+	if "cbp" in args:
+		dbg.log("    * Trying to use '-cbp' instead of '-cpb'?", highlight=True)
+		if not "cpb" in args:
+			dbg.log("    * I'll try to fix your typo myself, but please pay attention to the syntax next time", highlight=True)
+			args["cpb"] = args["cbp"]
 	
 	if "cpb" in args:
 		badchars = args["cpb"]
