@@ -11541,7 +11541,78 @@ def main(args):
 			
 			findROPGADGETS(modulecriteria,criteria,endings,maxoffset,depth,split,thedistance,fast,mode)
 			
-			
+		def procJseh(args):
+			results = []
+			showred=0
+			showall=0
+			nrfound = 0
+			if len(args) > 1:
+				if args[1].lower()== "all":
+					showall=1
+			dbg.log("-----------------------------------------------------------------------")
+			dbg.log("Search for jmp/call dword[ebp/esp+nn] (and other) combinations started ")
+			dbg.log("-----------------------------------------------------------------------")
+			opcodej=["\xff\x54\x24\x08", #call dword ptr [esp+08]
+					"\xff\x64\x24\x08", #jmp dword ptr [esp+08]
+					"\xff\x54\x24\x14", #call dword ptr [esp+14]
+					"\xff\x54\x24\x14", #jmp dword ptr [esp+14]
+					"\xff\x54\x24\x1c", #call dword ptr [esp+1c]
+					"\xff\x54\x24\x1c", #jmp dword ptr [esp+1c]
+					"\xff\x54\x24\x2c", #call dword ptr [esp+2c]
+					"\xff\x54\x24\x2c", #jmp dword ptr [esp+2c]
+					"\xff\x54\x24\x44", #call dword ptr [esp+44]
+					"\xff\x54\x24\x44", #jmp dword ptr [esp+44]
+					"\xff\x54\x24\x50", #call dword ptr [esp+50]
+					"\xff\x54\x24\x50", #jmp dword ptr [esp+50]
+					"\xff\x55\x0c",     #call dword ptr [ebp+0c]
+					"\xff\x65\x0c",     #jmp dword ptr [ebp+0c]
+					"\xff\x55\x24",     #call dword ptr [ebp+24]
+					"\xff\x65\x24",     #jmp dword ptr [ebp+24]
+					"\xff\x55\x30",     #call dword ptr [ebp+30]
+					"\xff\x65\x30",     #jmp dword ptr [ebp+30]
+					"\xff\x55\xfc",     #call dword ptr [ebp-04]
+					"\xff\x65\xfc",     #jmp dword ptr [ebp-04]
+					"\xff\x55\xf4",     #call dword ptr [ebp-0c]
+					"\xff\x65\xf4",     #jmp dword ptr [ebp-0c]
+					"\xff\x55\xe8",     #call dword ptr [ebp-18]
+					"\xff\x65\xe8",     #jmp dword ptr [ebp-18]
+					"\x83\xc4\x08\xc3", #add esp,8 + ret
+					"\x83\xc4\x08\xc2"] #add esp,8 + ret X
+			for opjc in opcodej:
+				addys=dbg.search( opjc )
+				results += addys
+				for ad1 in addys:
+					module = dbg.findModule(ad1)
+					if not module:
+						module=""
+						page   = dbg.getMemoryPageByAddress( ad1 )
+						access = page.getAccess( human = True )
+						op = dbg.disasm( ad1 )
+						opstring=op.getDisasm()
+						dbg.log("Found %s at 0x%08x - Access: (%s)" % (opstring, ad1, access), address = ad1,highlight=1)
+						nrfound+=1
+					else:
+						if showall==1:
+							page   = dbg.getMemoryPageByAddress( ad1 )
+							access = page.getAccess( human = True )
+							op = dbg.disasm( ad1 )
+							opstring=op.getDisasm()
+							if ismodulenosafeseh(module[0])==1:
+								extratext="=== Safeseh : NO ==="
+								showred=1
+							else:
+								extratext="Safeseh protected"
+								showred=0
+							dbg.log("Found %s at 0x%08x (%s) - Access: (%s) - %s" % (opstring, ad1, module,access,extratext), address = ad1,highlight=showred)
+							nrfound+=1
+			dbg.log("Search complete")
+			if results:
+				dbg.log("Found %d address(es)" % nrfound)
+				return "Found %d address(es) (Check the log Windows for details)" % nrfound
+			else:
+				dbg.log("No addresses found")
+				return "Sorry, no addresses found"
+
 			
 		def procJOP(args,mode="all"):
 			#default criteria
@@ -18166,6 +18237,11 @@ Output will be written to infodump.xml"""
 
 		tebUsage = """Show the address of the Thread Environment Block (TEB) for the current thread"""
 
+		jsehUsage = """(look for jmp/call dword ptr[ebp/esp+nn and ebp-nn] + add esp,8+ret) 
+Only addresses outside address range of modules will be listed unless parameter 'all' is given. 
+In that case, all addresses will be listed. TRY THIS ONE !"""
+		
+		
 		encUsage = """Encode a series of bytes
 Arguments:
     -t <type>         : Type of encoder to use.  Allowed value(s) are alphanum 
@@ -18260,6 +18336,7 @@ Arguments:
 		commands["ropfunc"] 		= MnCommand("ropfunc","Find pointers to pointers (IAT) to interesting functions that can be used in your ROP chain",ropfuncUsage,procFindROPFUNC)
 		commands["rop"] 			= MnCommand("rop","Finds gadgets that can be used in a ROP exploit and do ROP magic with them",ropUsage,procROP)
 		commands["jop"] 			= MnCommand("jop","Finds gadgets that can be used in a JOP exploit",jopUsage,procJOP)		
+		commands["jseh"]			= MnCommand("jseh", "Finds gadgets that can be used to bypass SafeSEH", jsehUsage, procJseh)
 		commands["stackpivot"]		= MnCommand("stackpivot","Finds stackpivots (move stackpointer to controlled area)",stackpivotUsage,procStackPivots)
 		commands["modules"] 		= MnCommand("modules","Show all loaded modules and their properties",modulesUsage,procShowMODULES,"mod")
 		commands["filecompare"]		= MnCommand("filecompare","Compares 2 or more files created by mona using the same output commands",filecompareUsage,procFileCOMPARE,"fc")
