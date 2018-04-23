@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 581 $
-$Id: mona.py 581 2018-04-22 19:30:00Z corelanc0d3r $ 
+$Revision: 582 $
+$Id: mona.py 582 2018-04-23 22:22:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 581 $')
+__REV__ = filter(str.isdigit, '$Revision: 582 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -6204,7 +6204,7 @@ def assemble(instructions,encoder=""):
 
 
 	
-def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5,split=False,pivotdistance=0,fast=False,mode="all"):
+def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5,split=False,pivotdistance=0,fast=False,mode="all", sortedprint=False):
 	"""
 	Searches for rop gadgets
 
@@ -6219,6 +6219,7 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 	pivotdistance - minimum distance a stackpivot needs to be
 	fast - Boolean indicating if you want to process less obvious gadgets as well
 	mode - internal use only
+	sortedprint - sort pointers before printing output to rop.txt
 	
 	Return:
 	Output is written to files, containing rop gadgets, suggestions, stack pivots and virtualprotect/virtualalloc routine (if possible)
@@ -6246,7 +6247,8 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 	filestouse = []
 	vplogtxt = ""
 	suggestions = {}
-	
+
+
 	if "f" in criteria:
 		if criteria["f"] <> "":
 			if type(criteria["f"]).__name__.lower() != "bool":		
@@ -6492,7 +6494,7 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 	dbg.log("[+] Writing stackpivots to file " + thislog)
 	logfile.write("Stack pivots, minimum distance " + str(pivotdistance),thislog)
 	logfile.write("-------------------------------------",thislog)
-	logfile.write("Non-safeSEH protected pivots :",thislog)
+	logfile.write("Non-SafeSEH protected pivots :",thislog)
 	logfile.write("------------------------------",thislog)
 	arrtowrite = ""	
 	pivotcount = 0
@@ -6511,6 +6513,8 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 			fh.writelines(arrtowrite)
 	except:
 		pass
+	logfile.write("", thislog)
+	logfile.write("", thislog)
 	logfile.write("SafeSEH protected pivots :",thislog)
 	logfile.write("--------------------------",thislog)	
 	arrtowrite = ""	
@@ -6524,7 +6528,7 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 					modname = ptrx.belongsTo()
 					#modinfo = MnModule(modname)
 					sdisthex = "%02x" % sdist
-					ptrinfo = "0x" + toHex(spivot) + " : {pivot " + str(sdist) + " / 0x" + sdisthex + "} : " + schain + "    ** [" + modname + "] **   |  " + ptrx.__str__()+"\n"
+					ptrinfo = "0x" + toHex(spivot) + " : {pivot " + str(sdist) + " / 0x" + sdisthex + "} : " + schain + "    ** [" + modname + "] SafeSEH **   |  " + ptrx.__str__()+"\n"
 					pivotcount += 1
 					arrtowrite += ptrinfo
 			fh.writelines(arrtowrite)
@@ -6557,7 +6561,22 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 			try:
 				with open(thislog, "a") as fh:
 					arrtowrite = ""
-					for gadget in interestinggadgets:
+					if sortedprint:
+						arrptrs = []
+						dbg.log("    Sorting interesting gadgets first")
+						for gadget in interestinggadgets:
+							arrptrs.append(gadget)
+						arrptrs.sort()
+						dbg.log("    Done sorting, let's go")
+						for gadget in arrptrs:
+							ptrx = MnPointer(gadget)
+							modname = ptrx.belongsTo()
+							#modinfo = MnModule(modname)
+							ptrinfo = "0x" + toHex(gadget) + " : " + interestinggadgets[gadget] + "    ** [" + modname + "] **   |  " + ptrx.__str__()+"\n"
+							arrtowrite += ptrinfo
+
+					else:
+						for gadget in interestinggadgets:
 							ptrx = MnPointer(gadget)
 							modname = ptrx.belongsTo()
 							#modinfo = MnModule(modname)
@@ -6578,12 +6597,27 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 					logfile.write("-------------",thislog)
 					with open(thislog, "a") as fh:
 						arrtowrite=""
-						for gadget in ropgadgets:
+						if sortedprint:
+							arrptrs = []
+							dbg.log("    Sorting other gadgets too")
+							for gadget in ropgadgets:
+								arrptrs.append(gadget)
+							arrptrs.sort()
+							dbg.log("    Done sorting, let's go")
+							for gadget in arrptrs:
 								ptrx = MnPointer(gadget)
 								modname = ptrx.belongsTo()
 								#modinfo = MnModule(modname)
 								ptrinfo = "0x" + toHex(gadget) + " : " + ropgadgets[gadget] + "    ** [" + modname + "] **   |  " + ptrx.__str__()+"\n"
 								arrtowrite += ptrinfo
+						else:	
+							for gadget in ropgadgets:
+								ptrx = MnPointer(gadget)
+								modname = ptrx.belongsTo()
+								#modinfo = MnModule(modname)
+								ptrinfo = "0x" + toHex(gadget) + " : " + ropgadgets[gadget] + "    ** [" + modname + "] **   |  " + ptrx.__str__()+"\n"
+								arrtowrite += ptrinfo
+
 						dbg.log("    Wrote %d other gadgets to file" % len(ropgadgets))
 						objprogressfile.write("Writing results to file " + thislog + " (" + str(len(ropgadgets))+" other gadgets)",progressfile)
 						fh.writelines(arrtowrite)
@@ -6633,9 +6667,10 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 	objprogressfile.write("Done (" + thistimestamp+")",progressfile)
 	dbg.log("Done")
 	return interestinggadgets,ropgadgets,suggestions,vplogtxt
+
 	
-	#----- JOP gadget finder ----- #
-			
+
+#----- JOP gadget finder ----- #			
 def findJOPGADGETS(modulecriteria={},criteria={},depth=6):
 	"""
 	Searches for jop gadgets
@@ -11504,6 +11539,7 @@ def main(args):
 			thedistance = 8
 			split = False
 			fast = False
+			sortedprint = False
 			endingstr = ""
 			endings = []
 			
@@ -11545,6 +11581,8 @@ def main(args):
 				if args["f"] <> "":
 					criteria["f"] = args["f"]
 			
+			if "sort" in args:
+				sortedprint = True
 			
 			if "rva" in args:
 				criteria["rva"] = True
@@ -11556,8 +11594,9 @@ def main(args):
 			else:
 				mode = "all"
 			
-			findROPGADGETS(modulecriteria,criteria,endings,maxoffset,depth,split,thedistance,fast,mode)
+			findROPGADGETS(modulecriteria,criteria,endings,maxoffset,depth,split,thedistance,fast,mode,sortedprint)
 			
+
 		def procJseh(args):
 			results = []
 			showred=0
@@ -17926,7 +17965,8 @@ Optional parameters :
     -end <instruction(s)> : specify one or more instructions that will be used as chain end. 
                                (Separate instructions with #). Default ending is RETN
     -f \"file1,file2,..filen\" : use mona generated rop files as input instead of searching in memory
-    -rva : use RVA's in rop chain"""
+    -rva : use RVA's in rop chain
+    -sort : sort the output in rop.txt (sort on pointer value)"""
 	
 		jopUsage="""Default module criteria : non aslr,non rebase,non os
 Optional parameters : 
