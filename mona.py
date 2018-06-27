@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 582 $
-$Id: mona.py 582 2018-04-23 22:22:00Z corelanc0d3r $ 
+$Revision: 583 $
+$Id: mona.py 583 2018-06-27 15:35:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 582 $')
+__REV__ = filter(str.isdigit, '$Revision: 583 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -12786,15 +12786,15 @@ def main(args):
 			if thistype == "python":
 				addchar = "+="
 			
+			# keep it easy, initialize header as an empty string
+			output = "header = \"\"\n"
+
 			while cnt < max:
 
 				# first check for unicode
 				if cnt < max-1:
-					if linecnt == 0:	
-						thisline = "header = \""
-					else:
-						thisline = "header %s \"" % addchar
-						
+					
+					thisline = "header %s \"" % addchar	
 					thiscnt = cnt
 					while cnt < max-1 and isAscii2(ord(content[cnt])) and ord(content[cnt+1]) == 0:
 						if content[cnt] == "\\":
@@ -12807,11 +12807,7 @@ def main(args):
 						output += thisline + "\"" + "\n"
 						linecnt += 1
 						
-						
-				if linecnt == 0:
-					thisline = "header = \""
-				else:
-					thisline = "header %s \"" % addchar
+				thisline = "header %s \"" % addchar
 				thiscnt = cnt
 				
 				# ascii repetitions
@@ -12834,10 +12830,8 @@ def main(args):
 						linecnt += 1
 						continue
 						
-				if linecnt == 0:
-					thisline = "header = \""
-				else:
-					thisline = "header %s \"" % addchar
+
+				thisline = "header %s \"" % addchar
 				thiscnt = cnt
 				
 				# check for just ascii
@@ -12858,10 +12852,7 @@ def main(args):
 				
 				#check others : repetitions
 				if cnt < max:
-					if linecnt == 0:
-						thisline = "header = \""
-					else:
-						thisline = "header %s \"" % addchar
+					thisline = "header %s \"" % addchar
 					thiscnt = cnt
 					while cnt < max:
 						if isAscii2(ord(content[cnt])):
@@ -12880,11 +12871,8 @@ def main(args):
 						if reps > 1:
 							if len(thisline) > 12:
 								output += thisline + "\"" + "\n"
-							if linecnt == 0:
-								thisline = "header = \"\\x" + "%02x\" * %d" % (startval,reps)
-							else:
-								thisline = "header %s \"\\x" % addchar 
-								thisline += "%02x\" * %d" % (startval,reps)
+							thisline = "header %s \"\\x" % addchar 
+							thisline += "%02x\" * %d" % (startval,reps)
 							output += thisline + "\n"
 							thisline = "header %s \"" % addchar
 							linecnt += 1
