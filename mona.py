@@ -122,6 +122,7 @@ global currentArgs
 global disasmUpperChecked
 global disasmIsUpper
 global configFileCache
+global configwarningshown
 
 NtGlobalFlag = -1
 FreeListBitmap = {}
@@ -140,6 +141,7 @@ noheader = False
 dbg = dbglib.Debugger()
 disasmUpperChecked = False
 disasmIsUpper = False
+configwarningshown = False
 
 if __DEBUGGERAPP__ == "WinDBG":
 	if pykd.getSymbolPath().replace(" ","") == "":
@@ -2302,12 +2304,15 @@ class MnConfig:
 	"""
 	def __init__(self):
 	
+		global configwarningshown
 		self.configfile = "mona.ini"
 		self.currpath = os.path.dirname(os.path.realpath(self.configfile))
 		# first check if we will be saving the file into Immunity folder
 		if __DEBUGGERAPP__ == "Immunity Debugger":
 			if not os.path.exists(os.path.join(self.currpath,"immunitydebugger.exe")):
-				dbg.log(" ** Warning: using mona.ini file from %s" % self.currpath)
+				if not configwarningshown:
+					dbg.log(" ** Warning: using mona.ini file from %s" % self.currpath, highlight=True)
+					configwarningshown = True
 	
 	def get(self,parameter):
 		"""
