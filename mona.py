@@ -11046,7 +11046,7 @@ def doManageBpOnFunc(modulecriteria,criteria,funcfilter,mode="add",type="export"
 	
 	type = type.lower()
 	
-	namecrit = funcfilter.split(",")
+	namecrit = funcfilter.strip('"').strip("'").split(",")
 	
 	if mode == "add" or mode == "del" or mode == "list":
 		if not silent:
