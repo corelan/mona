@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 586 $
-$Id: mona.py 586 2019-05-12 09:00:00Z corelanc0d3r $ 
+$Revision: 587 $
+$Id: mona.py 587 2019-05-12 09:00:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 586 $')
+__REV__ = filter(str.isdigit, '$Revision: 587 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -6349,8 +6349,14 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 					tc += 1				
 				if not usefiles:
 					#first get max backward instruction
-					thisopcode = dbg.disasmBackward(endingtypeptr,depth+1)
-					thisptr = thisopcode.getAddress()
+					#immlib libanalyze might blow up at (self.ip=opcode[0]  # Instruction pointer), so we have to catch exceptions here
+					try:
+						thisopcode = dbg.disasmBackward(endingtypeptr,depth+1)
+						thisptr = thisopcode.getAddress()
+					except:
+						dbg.log("        ** Unable to backward disassemble at 0x%0x, depth %d, skipping location" % (endingtypeptr, depth+1))
+						thisopcode = ""
+						thisptr = 0
 
 					# we now have a range to mine
 					startptr = thisptr
@@ -8465,7 +8471,9 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 						jmpinfo = "Unable to find ptr to 'JMP ESP'"
 					else:
 						jmpinfo = MnPointer(jmpptr).belongsTo() 
-					thischain[thisreg] = putValueInReg(thisreg,jmpptr,"& " + jmptype + " [" + jmpinfo + "]",suggestions,interestinggadgets,criteria)
+						tmod = MnModule(jmpinfo)
+						jmpmodinfo = getGadgetAddressInfo(jmpptr)
+					thischain[thisreg] = putValueInReg(thisreg,jmpptr,"& " + jmptype + " [" + jmpinfo + "]" + jmpmodinfo,suggestions,interestinggadgets,criteria)
 				
 				
 				if str(thistarget) == "ropnop":
@@ -8501,7 +8509,11 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 											ropptr = retptr+2
 										break
 					if ropptr > 0:
-						thischain[thisreg] = putValueInReg(thisreg,ropptr,"RETN (ROP NOP) [" + MnPointer(ropptr).belongsTo() + "]",suggestions,interestinggadgets,criteria)
+						thismodname = MnPointer(ropptr).belongsTo()
+						tmod = MnModule(thismodname)
+						ropnopinfo = getGadgetAddressInfo(ropptr)
+
+						thischain[thisreg] = putValueInReg(thisreg,ropptr,"RETN (ROP NOP) [" + thismodname + "]" + ropnopinfo,suggestions,interestinggadgets,criteria)
 					else:
 						thischain[thisreg] = putValueInReg(thisreg,ropptr,"[-] Unable to find ptr to RETN (ROP NOP)",suggestions,interestinggadgets,criteria)					
 				
@@ -8520,7 +8532,11 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 					if rwptr == 0:
 						rwptr = getAPointer(modulestosearch,criteria,"W")
 					if rwptr != 0:
-						thischain[thisreg] = putValueInReg(thisreg,rwptr,"&Writable location [" + MnPointer(rwptr).belongsTo()+"]",suggestions,interestinggadgets,criteria)
+
+						rwmodname = MnPointer(rwptr).belongsTo()
+						
+						rwmodinfo = getGadgetAddressInfo(rwptr)
+						thischain[thisreg] = putValueInReg(thisreg,rwptr,"&Writable location [" + rwmodname+"]" + rwmodinfo,suggestions,interestinggadgets,criteria)
 					else:
 						thischain[thisreg] = putValueInReg(thisreg,rwptr,"[-] Unable to find writable location",suggestions,interestinggadgets,criteria)
 				
@@ -8531,7 +8547,8 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 						popptr = getShortestGadget(suggestions["pop "+thisreg])
 						junksize = getJunk(interestinggadgets[popptr])-4
 						thismodname = MnPointer(popptr).belongsTo()
-						thischain[thisreg] = [[popptr,"",junksize],[popptr,"skip 4 bytes [" + thismodname + "]"]]
+						tmodinfo = getGadgetAddressInfo(popptr)
+						thischain[thisreg] = [[popptr,"",junksize],[popptr,"skip 4 bytes [" + thismodname + "]" + tmodinfo]]
 					else:
 						thischain[thisreg] = [[0,"[-] Couldn't find a gadget to put a pointer to a stackpivot (4 bytes) into "+ thisreg,0]]
 	
@@ -8607,6 +8624,7 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 						thismodname = MnPointer(gadgetstep).belongsTo()
 						thisinstr += " [" + thismodname + "]"
 						tmod = MnModule(thismodname)
+						thisinstr += getGadgetAddressInfo(gadgetstep)
 						if not thismodname in modused:
 							modused[thismodname] = [tmod.moduleBase,tmod.__str__()]	
 						modprefix = "base_" + sanitize_module_name(thismodname)
@@ -8685,6 +8703,7 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 			thismodname = MnPointer(shortest_pushad).belongsTo()
 			thisinstr += " [" + thismodname + "]"
 			tmod = MnModule(thismodname)
+			thisinstr += getGadgetAddressInfo(shortest_pushad)
 			if not thismodname in modused:
 				modused[thismodname] = [tmod.moduleBase,tmod.__str__()]				
 			modprefix = "base_" + sanitize_module_name(thismodname)
@@ -8723,6 +8742,7 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 					thismodname = MnPointer(theptr).belongsTo()
 					freetext += " [" + thismodname + "]"
 					tmod = MnModule(thismodname)
+					freetext += getGadgetAddressInfo(theptr)
 					if not thismodname in modused:
 						modused[thismodname] = [tmod.moduleBase,tmod.__str__()]				
 					modprefix = "base_" + sanitize_module_name(thismodname)
@@ -8888,6 +8908,17 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 	dbg.log("[+] ROP chains written to file %s" % thisvplog)
 	objprogressfile.write("Done creating rop chains",progressfile)
 	return vplogtxt
+
+
+def getGadgetAddressInfo(gadgetptr):
+	gadgetmodname = MnPointer(gadgetptr).belongsTo()
+	infotxt = ""
+	tmod = MnModule(gadgetmodname)
+	if (tmod.isRebase):
+		infotxt += " ** REBASED"
+	if (tmod.isAslr):
+		infotxt += " ** ASLR"	
+	return infotxt
 
 
 def getRegImpact(instructionstr):
@@ -9217,7 +9248,10 @@ def getRopFuncPtr(apiname,modulecriteria,criteria,mode = "iat"):
 		if ropfuncptr == 0:
 			ropfunctext = "[-] Unable to find ptr to &" + apiname+"()"
 		else:
-			ropfunctext += " [IAT " + MnPointer(ropfuncptr).belongsTo() + "]"
+			ropfptrmodname = MnPointer(ropfuncptr).belongsTo()
+			tmod = MnModule(ropfptrmodname)					
+			ropfptrmodinfo = getGadgetAddressInfo(ropfuncptr)
+			ropfunctext += " [IAT " + ropfptrmodname  + "]" + ropfptrmodinfo
 	else:
 		# read EAT
 		modulestosearch = getModulesToQuery(modulecriteria)
