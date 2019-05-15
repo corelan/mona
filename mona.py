@@ -13328,7 +13328,7 @@ def main(args):
 				egg_size = ""
 				if len(data) < 256:
 					cmp_reg = "\x80\xf9"	#cmp cl,value
-					egg_size = hex2bin("%x" % len(data))
+					egg_size = hex2bin("%02x" % len(data))
 					offset1 = "\xf7"
 					offset2 = "\xd3"
 				elif len(data) < 65536:
