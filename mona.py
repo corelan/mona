@@ -13334,7 +13334,7 @@ def main(args):
 						offset2 = "\xd3"
 					elif win_ver == "7":
 						offset2 = "\xcd"
-					eilf win_ver == "10":
+					elif win_ver == "10":
 						offset2 = "\xc9"
 				elif len(data) < 65536:
 					cmp_reg = "\x66\x81\xf9"	#cmp cx,value
@@ -13349,7 +13349,7 @@ def main(args):
 						offset2 = "\xd1"
 					elif win_ver == "7":
 						offset2 = "\xcb"
-					eilf win_ver == "10":
+					elif win_ver == "10":
 						offset2 = "\xc7"
 				else:
 					dbg.log("Cannot use checksum code with this payload size (way too big)",highlight=1)
