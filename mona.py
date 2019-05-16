@@ -13330,7 +13330,12 @@ def main(args):
 					cmp_reg = "\x80\xf9"	#cmp cl,value
 					egg_size = hex2bin("%02x" % len(data))
 					offset1 = "\xf7"
-					offset2 = "\xd3"
+					if not usewow64:
+						offset2 = "\xd3"
+					elif win_ver == "7":
+						offset2 = "\xcd"
+					eilf win_ver == "10":
+						offset2 = "\xc9"
 				elif len(data) < 65536:
 					cmp_reg = "\x66\x81\xf9"	#cmp cx,value
 					#avoid nulls
@@ -13340,7 +13345,12 @@ def main(args):
 						egg_size_normal = "%04X" % len(data)
 					egg_size = hex2bin(egg_size_normal[2:4]) + hex2bin(egg_size_normal[0:2])
 					offset1 = "\xf5"
-					offset2 = "\xd1"
+					if not usewow64:
+						offset2 = "\xd1"
+					elif win_ver == "7":
+						offset2 = "\xcb"
+					eilf win_ver == "10":
+						offset2 = "\xc7"
 				else:
 					dbg.log("Cannot use checksum code with this payload size (way too big)",highlight=1)
 					return
