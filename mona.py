@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 588 $
-$Id: mona.py 588 2019-05-15 09:00:00Z corelanc0d3r $ 
+$Revision: 589 $
+$Id: mona.py 589 2019-05-16 11:50:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 588 $')
+__REV__ = filter(str.isdigit, '$Revision: 589 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -13330,6 +13330,7 @@ def main(args):
 					cmp_reg = "\x80\xf9"	#cmp cl,value
 					egg_size = hex2bin("%02x" % len(data))
 					offset1 = "\xf7"
+					offset2 = "\xd3"
 					if not usewow64:
 						offset2 = "\xd3"
 					elif win_ver == "7":
@@ -13345,6 +13346,7 @@ def main(args):
 						egg_size_normal = "%04X" % len(data)
 					egg_size = hex2bin(egg_size_normal[2:4]) + hex2bin(egg_size_normal[0:2])
 					offset1 = "\xf5"
+					offset2 = "\xd1"
 					if not usewow64:
 						offset2 = "\xd1"
 					elif win_ver == "7":
