@@ -1789,6 +1789,19 @@ def getSkeletonHeader(exploittype,portnr,extension,url,badchars='\x00\x0a\x0d'):
 	
 	return skeletonheader,skeletoninit,skeletoninit2
 
+def shortJump(sizeofinst, offset):
+	"""
+	Calculate the parameter for a short relative jump from the size of instruction (which can be JMP, JNZ etc...) and the desired offset
+	Arguments:
+	sizeofinst - the size of the instruction used to achieve the jump
+	offset - the desired offset from the address of the instruction
+	Return:
+	A binary value which can be used along with the jump instruction
+	"""
+	if (offset - sizeofinst) < -128 or (offset - sizeofinst) > 127:
+		dbg.log(" ** short jump too long",highlight=1)
+	return struct.pack("b", offset - sizeofinst)
+
 def archValue(x86, x64):
 	if arch == 32:
 		return x86
@@ -13260,7 +13273,7 @@ def main(args):
 					"\xaf"					#scasd
 					"\x75\xe7"				#jne "inc edx"
 				)
-
+				incedxoffset = 5 # The offset in the egghunter to reach the #INC EDX
 			if usewow64:
 				dbg.log("[+] Generating egghunter for wow64, Windows %s" % win_ver)
 				egghunter = ""
@@ -13294,6 +13307,7 @@ def main(args):
 						"\xAF"                                          #SCAS DWORD PTR ES:[EDI]
 						"\x75\xe1"                                      #JNZ "inc edx"
 						"")
+					incedxoffset = 13 # The offset in the egghunter to reach the #INC EDX
 				elif win_ver == "10":
 					egghunter += (
 						"\x33\xD2"             #XOR EDX,EDX
@@ -13321,7 +13335,7 @@ def main(args):
 						"\xAF"              	#SCAS DWORD PTR ES:[EDI]
 						"\x75\xDB"    			#JNZ SHORT
 						)
-			
+					incedxoffset = 9 # The offset in the egghunter to reach the #INC EDX
 			if usechecksum:
 				dbg.log("[+] Generating checksum routine")
 				extratext = "+ checksum routine"
@@ -13330,13 +13344,6 @@ def main(args):
 					cmp_reg = "\x80\xf9"	#cmp cl,value
 					egg_size = hex2bin("%02x" % len(data))
 					offset1 = "\xf7"
-					offset2 = "\xd3"
-					if not usewow64:
-						offset2 = "\xd3"
-					elif win_ver == "7":
-						offset2 = "\xcd"
-					elif win_ver == "10":
-						offset2 = "\xc9"
 				elif len(data) < 65536:
 					cmp_reg = "\x66\x81\xf9"	#cmp cx,value
 					#avoid nulls
@@ -13346,13 +13353,6 @@ def main(args):
 						egg_size_normal = "%04X" % len(data)
 					egg_size = hex2bin(egg_size_normal[2:4]) + hex2bin(egg_size_normal[0:2])
 					offset1 = "\xf5"
-					offset2 = "\xd1"
-					if not usewow64:
-						offset2 = "\xd1"
-					elif win_ver == "7":
-						offset2 = "\xcb"
-					elif win_ver == "10":
-						offset2 = "\xc7"
 				else:
 					dbg.log("Cannot use checksum code with this payload size (way too big)",highlight=1)
 					return
@@ -13363,6 +13363,9 @@ def main(args):
 				sumstr= toHex(sum)
 				checksumbyte = sumstr[len(sumstr)-2:len(sumstr)]
 
+				sizeOfjnzincedx = 2 # The number of bytes needed for the the jnz "inc edx" instruction below
+				sizeOfChecksumRoutine = 15 # The number of static bytes in the checksum routine below
+				offset2 = shortJump(sizeOfjnzincedx, - (len(egghunter) - incedxoffset + sizeOfChecksumRoutine + len(cmp_reg) + len(egg_size)))
 				egghunter += (
 					"\x51"						#push ecx
 					"\x31\xc9"					#xor ecx,ecx
