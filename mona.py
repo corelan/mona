@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 590 $
-$Id: mona.py 590 2019-05-17 08:24:00Z corelanc0d3r $ 
+$Revision: 591 $
+$Id: mona.py 591 2019-05-27 12:17:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 590 $')
+__REV__ = filter(str.isdigit, '$Revision: 591 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -16430,7 +16430,7 @@ def main(args):
 							addy = addy.lower()
 							if not addy in logdata:
 								logdata[addy] = size
-							allocs += 1
+								allocs += 1
 
 					if line.startswith("free("):
 						addy = ""
@@ -16442,13 +16442,16 @@ def main(args):
 							addy = addy.lower()
 							if addy in logdata:
 								del logdata[addy]
-							frees += 1			
+								frees += 1			
 
 				dbg.log("[+] Logfile parsed, %d objects found" % len(logdata))
 				dbg.log("    Total allocs: %d, total free: %d" % (allocs,frees))
 				dbg.log("[+] Dumping objects")
 				logfile = MnLog("dump_alloc_free.txt")
 				thislog = logfile.reset()
+				logfile.write("Addresses to dump:", thislog)
+				for addy in logdata:
+					logfile.write("%s" % addy, thislog)
 				for addy in logdata:
 					asize = logdata[addy]
 					ptrx = MnPointer(int(addy,16))
