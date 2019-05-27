@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 591 $
-$Id: mona.py 591 2019-05-27 12:17:00Z corelanc0d3r $ 
+$Revision: 592 $
+$Id: mona.py 592 2019-05-27 16:42:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 591 $')
+__REV__ = filter(str.isdigit, '$Revision: 592 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -16363,6 +16363,8 @@ def main(args):
 			logfile = ""
 			levels = 0
 			nestedsize = 0x28
+			
+			filtersize = 0
 
 			if "f" in args:
 				if type(args["f"]).__name__.lower() != "bool":
@@ -16392,7 +16394,20 @@ def main(args):
 						try:
 							nestedsize = int(args["m"])
 						except:
-							nestedsize = 0x28					
+							nestedsize = 0x28
+
+			if "s" in args:
+				if type(args["s"]).__name__.lower() != "bool":
+					if str(args["s"]).lower().startswith("0x"):
+						try:
+							filtersize = int(args["s"],16)
+						except:
+							filtersize = 0
+					else:
+						try:
+							filtersize = int(args["s"])
+						except:
+							filtersize = 0
 
 			if logfile == "":
 				dbg.log(" *** Error: please specify a valid logfile with argument -f ***",highlight=1)
@@ -16429,8 +16444,17 @@ def main(args):
 							size = size.lower()
 							addy = addy.lower()
 							if not addy in logdata:
-								logdata[addy] = size
-								allocs += 1
+								if filtersize == 0:
+									logdata[addy] = size
+									allocs += 1
+								else:
+									try:
+										isize = int(size,16)
+										if isize == filtersize:
+											logdata[addy] = size
+											allocs += 1
+									except:
+										continue
 
 					if line.startswith("free("):
 						addy = ""
@@ -16445,6 +16469,8 @@ def main(args):
 								frees += 1			
 
 				dbg.log("[+] Logfile parsed, %d objects found" % len(logdata))
+				if filtersize > 0:
+					dbg.log("    Only showing alloc chunks of size 0x%08x" % filtersize)
 				dbg.log("    Total allocs: %d, total free: %d" % (allocs,frees))
 				dbg.log("[+] Dumping objects")
 				logfile = MnLog("dump_alloc_free.txt")
@@ -18431,7 +18457,8 @@ Arguments:
     -f <path/to/logfile> : Full path to the logfile
 Optional arguments:
     -l <number>       : Recursively dump objects
-    -m <number>       : Size for recursive objects (default value: 0x28)""" 
+    -m <number>       : Size for recursive objects (default value: 0x28)
+    -s <number>       : Only take allocated chunks of this exact size into consideration""" 
 
 		tobpUsage = """Generate WinDBG syntax to set a logging breakpoint at a given location
 Arguments:
