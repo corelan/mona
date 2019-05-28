@@ -27,12 +27,12 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 592 $
-$Id: mona.py 592 2019-05-27 16:42:00Z corelanc0d3r $ 
+$Revision: 593 $
+$Id: mona.py 593 2019-05-28 09:11:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 592 $')
+__REV__ = filter(str.isdigit, '$Revision: 593 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -4712,7 +4712,12 @@ class MnPointer:
 						parent = "Referenced at 0x%08x (object 0x%08x, offset +0x%02x)" % (pdata[0],pdata[1],pdata[0]-pdata[1])
 					else:
 						parent = ""
-					self.printObjDump(dumpdata,logfile,thislog,size,parent)
+					
+					cmd2torun = "!heap -p -a 0x%08x" % (addy)
+					output2 = dbg.nativeCommand(cmd2torun)
+					heapdata = output2.split("\n")
+					
+					self.printObjDump(dumpdata,logfile,thislog,size,parent,heapdata)
 
 					for loc in dumpdata:
 						thisdata = dumpdata[loc]
@@ -4730,7 +4735,7 @@ class MnPointer:
 		return dumpdata
 
 
-	def printObjDump(self,dumpdata,logfile,thislog,size=0,parent=""):
+	def printObjDump(self,dumpdata,logfile,thislog,size=0,parent="",heapdata=[]):
 		# dictionary, key = address
 		# 0 = type
 		# 1 = content info
@@ -4791,6 +4796,10 @@ class MnPointer:
 					offset += archValue(4,8)
 			if len(sortedkeys) > 0:
 				dbg.log("")
+			
+			for heapdataline in heapdata:
+				logfile.write(heapdataline, thislog)
+				dbg.log(heapdataline)
 		return
 
 	def getLocInfo(self,loc,addy,startaddy,endaddy):
@@ -16363,9 +16372,8 @@ def main(args):
 			logfile = ""
 			levels = 0
 			nestedsize = 0x28
-			
 			filtersize = 0
-
+			
 			if "f" in args:
 				if type(args["f"]).__name__.lower() != "bool":
 					logfile = args["f"]
@@ -16483,7 +16491,7 @@ def main(args):
 					ptrx = MnPointer(int(addy,16))
 					size = int(asize,16)
 					dumpdata = ptrx.dumpObjectAtLocation(size,levels,nestedsize,thislog,logfile)
-
+					
 			except:
 				dbg.log(" *** Unable to open logfile %s ***" % logfile,highlight=1)
 				dbg.log(traceback.format_exc())
