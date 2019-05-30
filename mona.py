@@ -2,7 +2,7 @@
  
 U{Corelan<https://www.corelan.be>}
 
-Copyright (c) 2011-2019, Peter Van Eeckhoutte - Corelan GCV
+Copyright (c) 2011-2019, Peter Van Eeckhoutte - Corelan Consulting BVBA
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -19,20 +19,20 @@ modification, are permitted provided that the following conditions are met:
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL PETER VAN EECKHOUTTE OR CORELAN GCV BE LIABLE FOR ANY
-DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+DISCLAIMED. IN NO EVENT SHALL PETER VAN EECKHOUTTE OR CORELAN CONSULTING BVBA 
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, 
+OR CONSEQUENTIAL DAMAGES(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE 
+GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
+WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 593 $
-$Id: mona.py 593 2019-05-28 09:11:00Z corelanc0d3r $ 
+$Revision: 594 $
+$Id: mona.py 594 2019-05-30 18:58:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 593 $')
+__REV__ = filter(str.isdigit, '$Revision: 594 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -4669,7 +4669,11 @@ class MnPointer:
 			if not silent:
 				dbg.log("")
 				dbg.log("----------------------------------------------------")
-				dbg.log("[+] Dumping object at 0x%08x, 0x%02x bytes" % (addy,size))
+				if (size < 0x500):
+					dbg.log("[+] Dumping object at 0x%08x, 0x%02x bytes" % (addy,size))
+				else:
+					dbg.log("[+] Dumping object at 0x%08x, 0x%02x bytes (output below will be limited to the first 0x500 bytes !)" % (addy,size))
+					size = 0x500
 				if levels > 0:
 					dbg.log("[+] Also dumping up to %d levels deep, max size of nested objects: 0x%02x bytes" % (levels, nestedsize))
 				dbg.log("")
@@ -16485,7 +16489,7 @@ def main(args):
 				thislog = logfile.reset()
 				logfile.write("Addresses to dump:", thislog)
 				for addy in logdata:
-					logfile.write("%s" % addy, thislog)
+					logfile.write("%s (%s)" % (addy, logdata[addy]), thislog)
 				for addy in logdata:
 					asize = logdata[addy]
 					ptrx = MnPointer(int(addy,16))
