@@ -27,12 +27,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 595 $
-$Id: mona.py 595 2019-06-03 10:02:00Z corelanc0d3r $ 
+$Revision: 596 $
+$Id: mona.py 596 2019-06-03 12:02:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 595 $')
+__REV__ = filter(str.isdigit, '$Revision: 596 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -16394,10 +16394,15 @@ def main(args):
 			levels = 0
 			nestedsize = 0x28
 			filtersize = 0
+			ignorefree = False
 			
 			if "f" in args:
 				if type(args["f"]).__name__.lower() != "bool":
 					logfile = args["f"]
+			
+			if "nofree" in args:
+				ignorefree = True			
+					
 
 			if "l" in args:
 				if type(args["l"]).__name__.lower() != "bool":
@@ -16485,7 +16490,7 @@ def main(args):
 									except:
 										continue
 
-					if line.startswith("free("):
+					if line.startswith("free(") and not ignorefree:
 						addy = ""
 						lineparts = line.split("(")
 						if len(lineparts) > 1:
@@ -16497,6 +16502,8 @@ def main(args):
 								del logdata[addy]
 								frees += 1			
 
+				if ignorefree:
+					dbg.log("[+] Ignoring all free() events, showing all allocations")
 				dbg.log("[+] Logfile parsed, %d objects found" % len(logdata))
 				if filtersize > 0:
 					dbg.log("    Only showing alloc chunks of size 0x%08x" % filtersize)
@@ -18505,7 +18512,8 @@ Arguments:
 Optional arguments:
     -l <number>       : Recursively dump objects
     -m <number>       : Size for recursive objects (default value: 0x28)
-    -s <number>       : Only take allocated chunks of this exact size into consideration""" 
+    -s <number>       : Only take allocated chunks of this exact size into consideration
+    -nofree           : Ignore all free() events, show all allocations (including those that were freed)""" 
 
 		tobpUsage = """Generate WinDBG syntax to set a logging breakpoint at a given location
 Arguments:
