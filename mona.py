@@ -27,12 +27,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 594 $
-$Id: mona.py 594 2019-05-30 18:58:00Z corelanc0d3r $ 
+$Revision: 595 $
+$Id: mona.py 595 2019-06-03 10:02:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 594 $')
+__REV__ = filter(str.isdigit, '$Revision: 595 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -424,6 +424,23 @@ def getIntForPart(part):
 				partval = m
 				addyok = True
 	return partval,addyok
+
+
+def getHeapAllocSize(requested_size, granularity = 8):
+	"""
+	Returns the expected allocated size for a request of X bytes of heap memory
+	taking a certain granularity into account
+	"""
+	
+	requested_size_int = to_int(requested_size)
+	interimval = (requested_size_int / granularity) * granularity
+	interimtimes = (requested_size_int / granularity)
+	if (interimval < requested_size_int):
+		interimtimes += 1
+	allocated_size = granularity * interimtimes
+	
+	return allocated_size
+	
 
 
 def getFunctionAddress(modname,funcname):
@@ -16488,8 +16505,26 @@ def main(args):
 				logfile = MnLog("dump_alloc_free.txt")
 				thislog = logfile.reset()
 				logfile.write("Addresses to dump:", thislog)
+				allocsizegroups = {}
+				allocsizes = []
+				heapgranularity = 8
 				for addy in logdata:
 					logfile.write("%s (%s)" % (addy, logdata[addy]), thislog)
+					allocsize = getHeapAllocSize(logdata[addy], heapgranularity)
+					if not allocsize in allocsizegroups:
+						allocsizegroups[allocsize] = [addy]
+					else:
+						allocsizegroups[allocsize].append(addy)
+					if not allocsize in allocsizes:
+						allocsizes.append(allocsize)
+				logfile.write("", thislog);
+				logfile.write("(Allocated) Size groups, heap granularity %d bytes" % heapgranularity, thislog)
+				allocsizes.sort()
+				for allocsize in allocsizes:
+					logfile.write("Size 0x%02x" % allocsize, thislog)
+					for allocsizeaddy in allocsizegroups[allocsize]:
+						logfile.write("  %s (%s)" % (allocsizeaddy, logdata[allocsizeaddy]), thislog)
+					
 				for addy in logdata:
 					asize = logdata[addy]
 					ptrx = MnPointer(int(addy,16))
