@@ -8586,6 +8586,8 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 		tohex_array = []
 		for step in regsequences:
 			thisreg = step
+			vplogtxt += 	"      #[%s]\n" % (thisreg) 
+			thischaintxt += "      #[%s]\n" % (thisreg)
 			if thisreg in thischain:
 				for gadget in thischain[thisreg]:
 					gadgetstep = gadget[0]
