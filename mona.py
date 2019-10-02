@@ -7932,6 +7932,339 @@ def compareFileWithMemory(filename,startpos,skipmodules=False,findunicode=False)
 		silent = False
 	return
 
+# TODO
+def compareFormattedFileWithMemory(filename,format,startpos,skipmodules=False,findunicode=False):
+
+	isDebug=False
+
+	def out(x): 
+		dbg.log(x)
+			
+	def ok(x): dbg.log("[+] " + x) 
+	def verbose(x):
+		if isDebug:
+			dbg.log("[dbg] " + x)
+
+	def warn(x): dbg.log("[?] " + x, highlight=1)
+	def err(x): dbg.log(x, highlight=1)
+
+	class BytesParser():
+		formats_rex = {
+			'xxd': r'^[^0-9a-f]*[0-9a-f]{2,}\:\s((?:[0-9a-f]{4}\s)+)\s+.+$',
+			'hexdump': r'^[^0-9a-f]*[0-9a-f]{2,}\s+([0-9a-f\s]+[0-9a-f])$',
+			'classic-hexdump':r'^[0-9a-f]*[0-9a-f]{2,}(?:\:|\s)+\s([0-9a-f\s]+)\s{2,}.+$',
+			'hexdump-C': r'^[0-9a-f]*[0-9a-f]{2,}\s+\s([0-9a-f\s]+)\s*\|', 
+			'escaped-hexes': r'^[^\'"]*((?:\'[\\\\x0-9a-f]{8,}\')|(?:"[\\\\x0-9a-f]{8,}"))',
+			'hexstring': r'^([0-9a-f]+)$',
+			'msfvenom-powershell': r'^[^0x]+((?:0x[0-9a-f]{1,2},?)+)$',
+			'byte-array': r'^[^0x]*((?:0x[0-9a-f]{2}(?:,\s?))+)',
+			'js-unicode': r'^[^%u0-9a-f]*((?:%u[0-9a-f]{4})+)$',
+			'dword': r'^(?:((?:0x[0-9a-f]{1,8}\s[<>\w\+]+)|(?:0x[0-9a-f]{1,8})):\s*)?((?:0x[0-9a-f]{8},?\s*)+)$',
+		}
+		formats_aliases = {
+			'classic-hexdump': ['ollydbg'],
+			'escaped-hexes': ['msfvenom-ruby','msfvenom-c', 'msfvenom-carray', 'msfvenom-python'],
+			'dword': ['gdb']
+		}
+		formats_compiled = {}
+
+		def __init__(self, input, name = None, format = None):
+			#convert list to string
+			self.input = ''.join(input)
+			self.name = name
+			self.bytes = []
+			self.parsed = False
+			self.format = None
+
+			BytesParser.compile_regexps()
+
+			#do not normalize input on raw format to prevent input tempering
+			if str(format).lower() != "raw":
+				self.normalize_input()
+
+			if format:
+				verbose("Using user-specified format: %s" % format)
+
+				if str(format).lower() == "raw":
+					self.format = "raw"
+
+				else:		
+					try:
+						self.format = BytesParser.interpret_format_name(format)
+					except Exception, e:
+						verbose(str(e))
+
+					#exit when user-specified format not in both formats_rex and formats_aliases 
+					assert (format in BytesParser.formats_rex.keys() or self.format is not None), \
+							"Format '%s' is not implemented." % format
+						
+				if self.format is None:
+					self.format = format
+
+			else:
+				self.recognize_format()
+
+			if not self.format:
+				self.parsed = False
+			else:
+				if self.fetch_bytes():
+					ok("Fetched %d bytes successfully from %s" % (len(self.bytes), self.name))
+					self.parsed = True
+				else:
+					if format and len(format):
+						err("Could not parse %s with user-specified format: %s" % (self.name, format))
+					else:
+						err("Recognized input %s as formatted with %s but failed fetching bytes." %
+							(self.name, self.format))
+
+		def normalize_input(self):
+			input = []
+			for line in self.input.split('\n'):
+				line = line.strip()
+				line2 = line.encode('string-escape')
+				input.append(line2)
+			self.input = '\n'.join(input)
+
+		@staticmethod
+		def interpret_format_name(name):
+			for k, v in BytesParser.formats_aliases.items():
+				if name.lower() in v:
+					return k
+			raise Exception("Format name: %s not recognized as alias." % name)
+
+		@staticmethod
+		def compile_regexps():
+			if len(BytesParser.formats_compiled) == 0:
+				for name, rex in BytesParser.formats_rex.items():
+					BytesParser.formats_compiled[name] = re.compile(rex, re.I)
+
+		@staticmethod
+		def make_line_printable(line):
+			return ''.join([c if c in string.printable else '.' for c in line])
+
+		def recognize_format(self):
+			for line in self.input.split('\n'):
+				if self.format: break
+				for format, rex in BytesParser.formats_compiled.items():
+					line = BytesParser.make_line_printable(line)
+
+					verbose("Trying format %s on ('%s')" % (format, line))
+					
+					if rex.match(line):
+						ok("%s has been recognized as %s formatted." % (self.name, format))
+						self.format = format
+						break
+
+			if not self.format:
+				if not all(c in string.printable for c in self.input):
+					ok("%s has been recognized as RAW bytes." % (self.name))
+					self.format = 'raw'
+					return True
+				else:
+					err("Could not recognize input bytes format of the %s!" % self.name)
+					return False
+
+			return (len(self.format) > 0)
+
+		@staticmethod
+		def post_process_bytes_line(line):
+			outb = []
+			l = line.strip()[:]
+			strip = ['0x', ',', ' ', '\\', 'x', '%u', '+', '.', "'", '"']
+			for s in strip:
+				l = l.replace(s, '')
+
+			for i in xrange(0, len(l), 2):
+				outb.append(int(l[i:i+2], 16))
+			return outb
+
+		@staticmethod
+		def preprocess_bytes_line(line):
+			l = line.strip()[:]
+			strip = ['(byte)', '+', '.']
+			for s in strip:
+				l = l.replace(s, '')
+			return l
+
+		@staticmethod
+		def unpack_dword(line):
+			outs = ''
+			i = 0
+
+			for m in re.finditer(r'((?:0x[0-9a-f]{8}(?!:),?\s*))', line):
+				l = m.group(0)
+				l = l.replace(',', '')
+				l = l.replace(' ', '')
+				dword = int(l, 16)
+				unpack = reversed([
+					(dword & 0xff000000) >> 24,
+					(dword & 0x00ff0000) >> 16,
+					(dword & 0x0000ff00) >>  8,
+					(dword & 0x000000ff)
+				])
+				i += 4
+				for b in unpack:
+					outs += '%02x' % b
+
+			verbose("After callback ('%s')" % outs)
+			return BytesParser.formats_compiled['hexstring'].match(outs)
+
+		def fetch_bytes(self):
+			if not self.format:
+				err("fetch_bytes(): Format has not been specified!")
+				return False
+
+			if self.format == 'raw':
+				verbose("Parsing %s as raw bytes." % self.name)
+				self.bytes = [ord(c) for c in list(self.input)]
+				return len(self.bytes) > 0
+			
+			for line in self.input.split('\n'):
+				callback_called = False
+				if self.format in BytesParser.formats_callbacks.keys() and \
+						BytesParser.formats_callbacks[self.format]:
+					verbose("Before callback ('%s')" % line)
+					m = BytesParser.formats_callbacks[self.format].__func__(line)
+					callback_called = True
+				else:
+					line = BytesParser.preprocess_bytes_line(line[:])
+					m = BytesParser.formats_compiled[self.format].match(line)
+
+				if m:
+					extract = ''
+					for mg in m.groups()[0:]:
+						if len(mg) > 0:
+							extract = mg
+					bytes = BytesParser.post_process_bytes_line(extract)
+					if not bytes:
+						err("Could not process %s bytes line ('%s') as %s formatted! Quitting." \
+								% (self.name, line, self.format))
+					else:
+						verbose("Line ('%s'), bytes ('%s'), extracted ('%s'), len: %d" % (line, extract, bytes, len(bytes)))
+						self.bytes.extend(bytes)
+				else:
+					if callback_called:
+						verbose("Callback failure: transformed string ('%s') did not catched on returned match" % (line))
+					else:
+						verbose("Parsing line ('%s') failed with format '%s'." % (line, self.format))
+
+			return len(self.bytes) > 0
+
+		def get_bytes(self):
+			return self.bytes
+
+		formats_callbacks = {
+			'dword': unpack_dword
+		}
+
+	########## END Class : BytesParser
+
+	dbg.log("[+] Reading file %s..." % filename)
+	srcdata_normal=[]
+	srcdata_unicode=[]
+	tagresults=[]
+	criteria = {}
+	criteria["accesslevel"] = "*"
+	try:
+		srcfile = open(filename,"rb")
+		content = srcfile.readlines()
+		srcfile.close()
+		for eachLine in content:
+			srcdata_normal += eachLine
+		for eachByte in srcdata_normal:
+			eachByte+=struct.pack('B', 0)
+			srcdata_unicode += eachByte
+		dbg.log("    Read %d bytes from file" % len(srcdata_normal))
+	except:
+		dbg.log("Error while reading file %s" % filename, highlight=1)
+		return
+	# loop normal and unicode
+	comparetable=dbg.createTable('mona Memory comparison results',['Address','Status','BadChars','Type','Location'])	
+	modes = ["normal", "unicode"]
+	if not findunicode:
+		modes.remove("unicode")
+	objlogfile = MnLog("compare.txt")
+	logfile = objlogfile.reset()
+	for mode in modes:
+		if mode == "normal":
+			srcdata = srcdata_normal
+		if mode == "unicode":
+			srcdata = srcdata_unicode
+
+		#for eachByte in srcdata:
+		#	dbg.log(type(eachByte).__name__)
+
+		#check is input format valid?
+		avail_formats = ['raw',]
+		avail_formats.extend(BytesParser.formats_rex.keys())
+		for k, v in BytesParser.formats_aliases.items():
+			avail_formats.extend(v)
+
+		formats = ', '.join(["'"+x+"'" for x in avail_formats]) #list all available formats
+
+		if format and format not in avail_formats:
+			err("Format that was specified is not recognized.")
+			err("Valid formats: %s" % formats)
+			return False			
+
+		#parse input file
+		b = BytesParser(srcdata, filename, format)
+		if not b.parsed:
+			return False
+		else:
+			srcdata = b.get_bytes()
+
+		bytetostr = []
+		for eachByte in srcdata:
+			bytetostr += chr(eachByte)
+		#dbg.log(''.join('{:02x}'.format(x) for x in srcdata))
+		srcdata = bytetostr
+		
+		maxcnt = len(srcdata)
+		if maxcnt < 8:
+			dbg.log("Error - file does not contain enough bytes (min 8 bytes needed)",highlight=1)
+			return
+		locations = []
+		if startpos == 0:
+			dbg.log("[+] Locating all copies in memory (%s)" % mode)
+			btcnt = 0
+			cnt = 0
+			linecount = 0
+			hexstr = ""
+			hexbytes = ""
+			for eachByte in srcdata:
+				if cnt < 8:
+					hexbytes += eachByte
+					if len((hex(ord(srcdata[cnt]))).replace('0x',''))==1:
+						hexchar=hex(ord(srcdata[cnt])).replace('0x', '\\x0')
+					else:
+						hexchar = hex(ord(srcdata[cnt])).replace('0x', '\\x')
+					hexstr += hexchar					
+				cnt += 1
+			dbg.log("    - searching for "+hexstr)
+			global silent
+			silent = True
+			results = findPattern({},criteria,hexstr,"bin",0,TOP_USERLAND,False)
+
+			for _type in results:
+				for ptr in results[_type]:
+					ptrinfo = MnPointer(ptr).memLocation()
+					if not skipmodules or (skipmodules and (ptrinfo in ["Heap","Stack","??"])):
+						locations.append(ptr)
+			if len(locations) == 0:
+				dbg.log("      Oops, no copies found")
+		else:
+			startpos_fixed = startpos
+			locations.append(startpos_fixed)
+		if len(locations) > 0:
+			dbg.log("    - Comparing %d location(s)" % (len(locations)))
+			dbg.log("Comparing bytes from file with memory :")
+			for location in locations:
+				memcompare(location,srcdata,comparetable,mode, smart=(mode == 'normal'))
+		silent = False
+	return
+
+
 def memoized(func):
 	''' A function decorator to make a function cache it's return values.
 	If a function returns a generator, it's transformed into a list and
@@ -12275,7 +12608,37 @@ def main(args):
 			if "unicode" in args:
 				findunicode = True
 			compareFileWithMemory(filename,startpos,skipmodules,findunicode)
-			
+
+		# ----- advcompare : Compare a file created by msfvenom/gdb/hex/xxd/hexdump/ollydbg with a copy in memory, indicate bad chars / corruption ----- #
+		def procAdvcompare(args):
+			startpos = 0
+			filename = ""
+			skipmodules = False
+			findunicode = False
+			allregs = dbg.getRegs()
+			if "f" in args:
+				filename = args["f"].replace('"',"").replace("'","")
+				#see if we can read the file
+				if not os.path.isfile(filename):
+					dbg.log("Unable to find/read file %s" % filename,highlight=1)
+					return
+			else:
+				dbg.log("You must specify a valid filename using parameter -f", highlight=1)
+				return
+			if "a" in args:
+				startpos,addyok = getAddyArg(args["a"])
+				if not addyok:
+					dbg.log("%s is an invalid address" % args["a"], highlight=1)
+					return
+			if "s" in args:
+				skipmodules = True
+			if "unicode" in args:
+				findunicode = True
+			if "t" in args:
+				format = args["t"]
+			else:
+				format = None
+			compareFormattedFileWithMemory(filename,format,startpos,skipmodules,findunicode)				
 			
 		# ----- offset: Calculate the offset between two addresses ----- #
 		def procOffset(args):
@@ -18235,7 +18598,23 @@ Optional argument :
                    by looking at the first 8 bytes.
     -s : skip locations that belong to a module
     -unicode : perform unicode search. Note: input should *not* be unicode, it will be expanded automatically"""
-				   
+
+
+		advcompareUsage = """Compare a file created by msfvenom/gdb/hex/xxd/hexdump/ollydbg with a copy in memory.
+Mandatory argument :
+    -f <filename> : full path to input file
+Optional argument :
+    -a <address> : the exact address of the bytes in memory (address or register). 
+                   If you don't specify an address, I will try to locate the bytes in memory 
+                   by looking at the first 8 bytes.
+    -s : skip locations that belong to a module
+    -unicode : perform unicode search. Note: input should *not* be unicode, it will be expanded automatically
+	-t : input file format. If no format specified, I will try to guess the input file format.
+		 
+		 Available formats:
+		'raw', 'hexdump', 'js-unicode', 'dword', 'xxd', 'byte-array', 'hexstring', 'hexdump-C', 'classic-hexdump', 'escaped-hexes', 'msfvenom-powershell', 'gdb', 'ollydbg', 'msfvenom-ruby', 'msfvenom-c', 'msfvenom-carray', 'msfvenom-python'
+	"""
+
 		offsetUsage = """Calculate the number of bytes between two addresses. You can use 
 registers instead of addresses. 
 Mandatory arguments :
@@ -18565,6 +18944,8 @@ Arguments:
 		commands["dump"] 			= MnCommand("dump", "Dump the specified range of memory to a file", dumpUsage,procDump)
 		commands["offset"]          = MnCommand("offset", "Calculate the number of bytes between two addresses", offsetUsage, procOffset)		
 		commands["compare"]			= MnCommand("compare","Compare contents of a binary file with a copy in memory", compareUsage, procCompare,"cmp")
+		#advanced File to Memory Compare
+		commands["advcompare"]		= MnCommand("advcompare","Compare a file created by msfvenom/gdb/hex/xxd/hexdump/ollydbg with a copy in memory", advcompareUsage, procAdvcompare,"advcmp")
 		commands["breakpoint"]		= MnCommand("bp","Set a memory breakpoint on read/write or execute of a given address", bpUsage, procBp,"bp")
 		commands["nosafeseh"]		= MnCommand("nosafeseh", "Show modules that are not safeseh protected", nosafesehUsage, procModInfoS)
 		commands["nosafesehaslr"]	= MnCommand("nosafesehaslr", "Show modules that are not safeseh protected, not aslr and not rebased", nosafesehaslrUsage, procModInfoSA)		
