@@ -7856,83 +7856,82 @@ def findPattern(modulecriteria,criteria,pattern,ptype,base,top,consecutive=False
 	return allpointers
 		
 
-def compareFileWithMemory(filename,startpos,skipmodules=False,findunicode=False):
-	dbg.log("[+] Reading file %s..." % filename)
-	srcdata_normal=[]
-	srcdata_unicode=[]
-	tagresults=[]
-	criteria = {}
-	criteria["accesslevel"] = "*"
-	try:
-		srcfile = open(filename,"rb")
-		content = srcfile.readlines()
-		srcfile.close()
-		for eachLine in content:
-			srcdata_normal += eachLine
-		for eachByte in srcdata_normal:
-			eachByte+=struct.pack('B', 0)
-			srcdata_unicode += eachByte
-		dbg.log("    Read %d bytes from file" % len(srcdata_normal))
-	except:
-		dbg.log("Error while reading file %s" % filename, highlight=1)
-		return
-	# loop normal and unicode
-	comparetable=dbg.createTable('mona Memory comparison results',['Address','Status','BadChars','Type','Location'])	
-	modes = ["normal", "unicode"]
-	if not findunicode:
-		modes.remove("unicode")
-	objlogfile = MnLog("compare.txt")
-	logfile = objlogfile.reset()
-	for mode in modes:
-		if mode == "normal":
-			srcdata = srcdata_normal
-		if mode == "unicode":
-			srcdata = srcdata_unicode
-		maxcnt = len(srcdata)
-		if maxcnt < 8:
-			dbg.log("Error - file does not contain enough bytes (min 8 bytes needed)",highlight=1)
-			return
-		locations = []
-		if startpos == 0:
-			dbg.log("[+] Locating all copies in memory (%s)" % mode)
-			btcnt = 0
-			cnt = 0
-			linecount = 0
-			hexstr = ""
-			hexbytes = ""
-			for eachByte in srcdata:
-				if cnt < 8:
-					hexbytes += eachByte
-					if len((hex(ord(srcdata[cnt]))).replace('0x',''))==1:
-						hexchar=hex(ord(srcdata[cnt])).replace('0x', '\\x0')
-					else:
-						hexchar = hex(ord(srcdata[cnt])).replace('0x', '\\x')
-					hexstr += hexchar					
-				cnt += 1
-			dbg.log("    - searching for "+hexstr)
-			global silent
-			silent = True
-			results = findPattern({},criteria,hexstr,"bin",0,TOP_USERLAND,False)
+# def compareFileWithMemory(filename,startpos,skipmodules=False,findunicode=False):
+# 	dbg.log("[+] Reading file %s..." % filename)
+# 	srcdata_normal=[]
+# 	srcdata_unicode=[]
+# 	tagresults=[]
+# 	criteria = {}
+# 	criteria["accesslevel"] = "*"
+# 	try:
+# 		srcfile = open(filename,"rb")
+# 		content = srcfile.readlines()
+# 		srcfile.close()
+# 		for eachLine in content:
+# 			srcdata_normal += eachLine
+# 		for eachByte in srcdata_normal:
+# 			eachByte+=struct.pack('B', 0)
+# 			srcdata_unicode += eachByte
+# 		dbg.log("    Read %d bytes from file" % len(srcdata_normal))
+# 	except:
+# 		dbg.log("Error while reading file %s" % filename, highlight=1)
+# 		return
+# 	# loop normal and unicode
+# 	comparetable=dbg.createTable('mona Memory comparison results',['Address','Status','BadChars','Type','Location'])	
+# 	modes = ["normal", "unicode"]
+# 	if not findunicode:
+# 		modes.remove("unicode")
+# 	objlogfile = MnLog("compare.txt")
+# 	logfile = objlogfile.reset()
+# 	for mode in modes:
+# 		if mode == "normal":
+# 			srcdata = srcdata_normal
+# 		if mode == "unicode":
+# 			srcdata = srcdata_unicode
+# 		maxcnt = len(srcdata)
+# 		if maxcnt < 8:
+# 			dbg.log("Error - file does not contain enough bytes (min 8 bytes needed)",highlight=1)
+# 			return
+# 		locations = []
+# 		if startpos == 0:
+# 			dbg.log("[+] Locating all copies in memory (%s)" % mode)
+# 			btcnt = 0
+# 			cnt = 0
+# 			linecount = 0
+# 			hexstr = ""
+# 			hexbytes = ""
+# 			for eachByte in srcdata:
+# 				if cnt < 8:
+# 					hexbytes += eachByte
+# 					if len((hex(ord(srcdata[cnt]))).replace('0x',''))==1:
+# 						hexchar=hex(ord(srcdata[cnt])).replace('0x', '\\x0')
+# 					else:
+# 						hexchar = hex(ord(srcdata[cnt])).replace('0x', '\\x')
+# 					hexstr += hexchar					
+# 				cnt += 1
+# 			dbg.log("    - searching for "+hexstr)
+# 			global silent
+# 			silent = True
+# 			results = findPattern({},criteria,hexstr,"bin",0,TOP_USERLAND,False)
 
-			for type in results:
-				for ptr in results[type]:
-					ptrinfo = MnPointer(ptr).memLocation()
-					if not skipmodules or (skipmodules and (ptrinfo in ["Heap","Stack","??"])):
-						locations.append(ptr)
-			if len(locations) == 0:
-				dbg.log("      Oops, no copies found")
-		else:
-			startpos_fixed = startpos
-			locations.append(startpos_fixed)
-		if len(locations) > 0:
-			dbg.log("    - Comparing %d location(s)" % (len(locations)))
-			dbg.log("Comparing bytes from file with memory :")
-			for location in locations:
-				memcompare(location,srcdata,comparetable,mode, smart=(mode == 'normal'))
-		silent = False
-	return
+# 			for type in results:
+# 				for ptr in results[type]:
+# 					ptrinfo = MnPointer(ptr).memLocation()
+# 					if not skipmodules or (skipmodules and (ptrinfo in ["Heap","Stack","??"])):
+# 						locations.append(ptr)
+# 			if len(locations) == 0:
+# 				dbg.log("      Oops, no copies found")
+# 		else:
+# 			startpos_fixed = startpos
+# 			locations.append(startpos_fixed)
+# 		if len(locations) > 0:
+# 			dbg.log("    - Comparing %d location(s)" % (len(locations)))
+# 			dbg.log("Comparing bytes from file with memory :")
+# 			for location in locations:
+# 				memcompare(location,srcdata,comparetable,mode, smart=(mode == 'normal'))
+# 		silent = False
+# 	return
 
-# TODO
 def compareFormattedFileWithMemory(filename,format,startpos,skipmodules=False,findunicode=False):
 
 	isDebug=False
@@ -7948,6 +7947,8 @@ def compareFormattedFileWithMemory(filename,format,startpos,skipmodules=False,fi
 	def warn(x): dbg.log("[?] " + x, highlight=1)
 	def err(x): dbg.log(x, highlight=1)
 
+	#Class ported from https://github.com/mgeeky/expdevBadChars, author: mgeeky, Mariusz B.
+	#Ported by: onlylonly, Z.Y Liew
 	class BytesParser():
 		formats_rex = {
 			'xxd': r'^[^0-9a-f]*[0-9a-f]{2,}\:\s((?:[0-9a-f]{4}\s)+)\s+.+$',
@@ -7978,31 +7979,28 @@ def compareFormattedFileWithMemory(filename,format,startpos,skipmodules=False,fi
 
 			BytesParser.compile_regexps()
 
-			#do not normalize input on raw format to prevent input tempering
-			if str(format).lower() != "raw":
-				self.normalize_input()
 
 			if format:
 				verbose("Using user-specified format: %s" % format)
+	
+				try:
+					self.format = BytesParser.interpret_format_name(format)
+				except Exception, e:
+					verbose(str(e))
 
-				if str(format).lower() == "raw":
-					self.format = "raw"
-
-				else:		
-					try:
-						self.format = BytesParser.interpret_format_name(format)
-					except Exception, e:
-						verbose(str(e))
-
-					#exit when user-specified format not in both formats_rex and formats_aliases 
-					assert (format in BytesParser.formats_rex.keys() or self.format is not None), \
-							"Format '%s' is not implemented." % format
+				#exit when user-specified format not in both formats_rex and formats_aliases 
+				assert (format in BytesParser.formats_rex.keys() or self.format is not None), \
+						"Format '%s' is not implemented." % format
 						
 				if self.format is None:
 					self.format = format
 
 			else:
 				self.recognize_format()
+
+			#do not normalize input on raw format to prevent input tempering
+			if str(self.format).lower() != "raw":
+				self.normalize_input()
 
 			if not self.format:
 				self.parsed = False
@@ -8027,6 +8025,9 @@ def compareFormattedFileWithMemory(filename,format,startpos,skipmodules=False,fi
 
 		@staticmethod
 		def interpret_format_name(name):
+			if str(format).lower() == "raw":
+				return "raw"
+
 			for k, v in BytesParser.formats_aliases.items():
 				if name.lower() in v:
 					return k
@@ -8063,6 +8064,7 @@ def compareFormattedFileWithMemory(filename,format,startpos,skipmodules=False,fi
 				else:
 					err("Could not recognize input bytes format of the %s!" % self.name)
 					return False
+
 
 			return (len(self.format) > 0)
 
@@ -8150,6 +8152,22 @@ def compareFormattedFileWithMemory(filename,format,startpos,skipmodules=False,fi
 
 			return len(self.bytes) > 0
 
+		@staticmethod
+		def get_available_format():
+			#check is input format valid?
+			avail_formats = ['raw',]
+			avail_formats.extend(BytesParser.formats_rex.keys())
+			for k, v in BytesParser.formats_aliases.items():
+				avail_formats.extend(v)
+
+			formats = ', '.join(["'"+x+"'" for x in avail_formats]) #list all available formats
+			return formats
+
+		@staticmethod
+		def is_valid_format(format):
+			avail_formats = BytesParser.get_available_format()
+			return format in avail_formats		
+
 		def get_bytes(self):
 			return self.bytes
 
@@ -8191,21 +8209,10 @@ def compareFormattedFileWithMemory(filename,format,startpos,skipmodules=False,fi
 		if mode == "unicode":
 			srcdata = srcdata_unicode
 
-		#for eachByte in srcdata:
-		#	dbg.log(type(eachByte).__name__)
-
-		#check is input format valid?
-		avail_formats = ['raw',]
-		avail_formats.extend(BytesParser.formats_rex.keys())
-		for k, v in BytesParser.formats_aliases.items():
-			avail_formats.extend(v)
-
-		formats = ', '.join(["'"+x+"'" for x in avail_formats]) #list all available formats
-
-		if format and format not in avail_formats:
+		#check is user supplied input is valid input
+		if format and not BytesParser.is_valid_format(format):
 			err("Format that was specified is not recognized.")
-			err("Valid formats: %s" % formats)
-			return False			
+			err("Valid formats: %s" % BytesParser.get_available_format())		
 
 		#parse input file
 		b = BytesParser(srcdata, filename, format)
@@ -8214,10 +8221,11 @@ def compareFormattedFileWithMemory(filename,format,startpos,skipmodules=False,fi
 		else:
 			srcdata = b.get_bytes()
 
+		#convert bytes array(from BytesParser) to string array
+		#mona expect input as string array 
 		bytetostr = []
 		for eachByte in srcdata:
 			bytetostr += chr(eachByte)
-		#dbg.log(''.join('{:02x}'.format(x) for x in srcdata))
 		srcdata = bytetostr
 		
 		maxcnt = len(srcdata)
@@ -12582,35 +12590,35 @@ def main(args):
 			
 			dumpMemoryToFile(address,size,filename)
 			
-		# ----- compare : Compare contents of a file with copy in memory, indicate bad chars / corruption ----- #
-		def procCompare(args):
-			startpos = 0
-			filename = ""
-			skipmodules = False
-			findunicode = False
-			allregs = dbg.getRegs()
-			if "f" in args:
-				filename = args["f"].replace('"',"").replace("'","")
-				#see if we can read the file
-				if not os.path.isfile(filename):
-					dbg.log("Unable to find/read file %s" % filename,highlight=1)
-					return
-			else:
-				dbg.log("You must specify a valid filename using parameter -f", highlight=1)
-				return
-			if "a" in args:
-				startpos,addyok = getAddyArg(args["a"])
-				if not addyok:
-					dbg.log("%s is an invalid address" % args["a"], highlight=1)
-					return
-			if "s" in args:
-				skipmodules = True
-			if "unicode" in args:
-				findunicode = True
-			compareFileWithMemory(filename,startpos,skipmodules,findunicode)
+		# # ----- compare : Compare contents of a file with copy in memory, indicate bad chars / corruption ----- #
+		# def procCompare(args):
+		# 	startpos = 0
+		# 	filename = ""
+		# 	skipmodules = False
+		# 	findunicode = False
+		# 	allregs = dbg.getRegs()
+		# 	if "f" in args:
+		# 		filename = args["f"].replace('"',"").replace("'","")
+		# 		#see if we can read the file
+		# 		if not os.path.isfile(filename):
+		# 			dbg.log("Unable to find/read file %s" % filename,highlight=1)
+		# 			return
+		# 	else:
+		# 		dbg.log("You must specify a valid filename using parameter -f", highlight=1)
+		# 		return
+		# 	if "a" in args:
+		# 		startpos,addyok = getAddyArg(args["a"])
+		# 		if not addyok:
+		# 			dbg.log("%s is an invalid address" % args["a"], highlight=1)
+		# 			return
+		# 	if "s" in args:
+		# 		skipmodules = True
+		# 	if "unicode" in args:
+		# 		findunicode = True
+		# 	compareFileWithMemory(filename,startpos,skipmodules,findunicode)
 
-		# ----- advcompare : Compare a file created by msfvenom/gdb/hex/xxd/hexdump/ollydbg with a copy in memory, indicate bad chars / corruption ----- #
-		def procAdvcompare(args):
+		# ----- compare : Compare a file created by msfvenom/gdb/hex/xxd/hexdump/ollydbg with a copy in memory, indicate bad chars / corruption ----- #
+		def procCompare(args):
 			startpos = 0
 			filename = ""
 			skipmodules = False
@@ -18589,18 +18597,18 @@ Optional arguments:
     -n <size> : the number of bytes to copy (size of the buffer)
     -e <address> : the end address of the copy"""
 	
-		compareUsage = """Compares contents of a binary file with locations in memory.
-Mandatory argument :
-    -f <filename> : full path to binary file
-Optional argument :
-    -a <address> : the exact address of the bytes in memory (address or register). 
-                   If you don't specify an address, I will try to locate the bytes in memory 
-                   by looking at the first 8 bytes.
-    -s : skip locations that belong to a module
-    -unicode : perform unicode search. Note: input should *not* be unicode, it will be expanded automatically"""
+# 		compareUsage = """Compares contents of a binary file with locations in memory.
+# Mandatory argument :
+#     -f <filename> : full path to binary file
+# Optional argument :
+#     -a <address> : the exact address of the bytes in memory (address or register). 
+#                    If you don't specify an address, I will try to locate the bytes in memory 
+#                    by looking at the first 8 bytes.
+#     -s : skip locations that belong to a module
+#     -unicode : perform unicode search. Note: input should *not* be unicode, it will be expanded automatically"""
 
 
-		advcompareUsage = """Compare a file created by msfvenom/gdb/hex/xxd/hexdump/ollydbg with a copy in memory.
+		compareUsage = """Compare a file created by mona's bytearray/msfvenom/gdb/hex/xxd/hexdump/ollydbg with a copy in memory.
 Mandatory argument :
     -f <filename> : full path to input file
 Optional argument :
@@ -18609,7 +18617,7 @@ Optional argument :
                    by looking at the first 8 bytes.
     -s : skip locations that belong to a module
     -unicode : perform unicode search. Note: input should *not* be unicode, it will be expanded automatically
-	-t : input file format. If no format specified, I will try to guess the input file format.
+	-t : input file type format. If no file type format is specified, I will try to guess the input file type format.
 		 
 		 Available formats:
 		'raw', 'hexdump', 'js-unicode', 'dword', 'xxd', 'byte-array', 'hexstring', 'hexdump-C', 'classic-hexdump', 'escaped-hexes', 'msfvenom-powershell', 'gdb', 'ollydbg', 'msfvenom-ruby', 'msfvenom-c', 'msfvenom-carray', 'msfvenom-python'
@@ -18943,9 +18951,8 @@ Arguments:
 		commands["info"] 			= MnCommand("info", "Show information about a given address in the context of the loaded application",infoUsage,procInfo)
 		commands["dump"] 			= MnCommand("dump", "Dump the specified range of memory to a file", dumpUsage,procDump)
 		commands["offset"]          = MnCommand("offset", "Calculate the number of bytes between two addresses", offsetUsage, procOffset)		
-		commands["compare"]			= MnCommand("compare","Compare contents of a binary file with a copy in memory", compareUsage, procCompare,"cmp")
-		#advanced File to Memory Compare
-		commands["advcompare"]		= MnCommand("advcompare","Compare a file created by msfvenom/gdb/hex/xxd/hexdump/ollydbg with a copy in memory", advcompareUsage, procAdvcompare,"advcmp")
+		#commands["compare"]			= MnCommand("compare","Compare contents of a binary file with a copy in memory", compareUsage, procCompare,"cmp")
+		commands["compare"]			= MnCommand("compare","Compare a file created by msfvenom/gdb/hex/xxd/hexdump/ollydbg with a copy in memory", compareUsage, procCompare,"cmp")
 		commands["breakpoint"]		= MnCommand("bp","Set a memory breakpoint on read/write or execute of a given address", bpUsage, procBp,"bp")
 		commands["nosafeseh"]		= MnCommand("nosafeseh", "Show modules that are not safeseh protected", nosafesehUsage, procModInfoS)
 		commands["nosafesehaslr"]	= MnCommand("nosafesehaslr", "Show modules that are not safeseh protected, not aslr and not rebased", nosafesehaslrUsage, procModInfoSA)		
