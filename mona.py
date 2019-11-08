@@ -27,12 +27,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 596 $
-$Id: mona.py 596 2019-06-03 12:02:00Z corelanc0d3r $ 
+$Revision: 597 $
+$Id: mona.py 597 2019-11-08 13:20:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 596 $')
+__REV__ = filter(str.isdigit, '$Revision: 597 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -12589,35 +12589,8 @@ def main(args):
 				return
 			
 			dumpMemoryToFile(address,size,filename)
-			
-		# # ----- compare : Compare contents of a file with copy in memory, indicate bad chars / corruption ----- #
-		# def procCompare(args):
-		# 	startpos = 0
-		# 	filename = ""
-		# 	skipmodules = False
-		# 	findunicode = False
-		# 	allregs = dbg.getRegs()
-		# 	if "f" in args:
-		# 		filename = args["f"].replace('"',"").replace("'","")
-		# 		#see if we can read the file
-		# 		if not os.path.isfile(filename):
-		# 			dbg.log("Unable to find/read file %s" % filename,highlight=1)
-		# 			return
-		# 	else:
-		# 		dbg.log("You must specify a valid filename using parameter -f", highlight=1)
-		# 		return
-		# 	if "a" in args:
-		# 		startpos,addyok = getAddyArg(args["a"])
-		# 		if not addyok:
-		# 			dbg.log("%s is an invalid address" % args["a"], highlight=1)
-		# 			return
-		# 	if "s" in args:
-		# 		skipmodules = True
-		# 	if "unicode" in args:
-		# 		findunicode = True
-		# 	compareFileWithMemory(filename,startpos,skipmodules,findunicode)
 
-		# ----- compare : Compare a file created by msfvenom/gdb/hex/xxd/hexdump/ollydbg with a copy in memory, indicate bad chars / corruption ----- #
+		# ----- compare : Compare a file created by msfvenom/gdb/hex/xxd/hexdump/ollydbg or just a file with raw bytes with a copy in memory, indicate bad chars / corruption ----- #
 		def procCompare(args):
 			startpos = 0
 			filename = ""
