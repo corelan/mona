@@ -27,12 +27,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 597 $
-$Id: mona.py 597 2019-11-08 13:20:00Z corelanc0d3r $ 
+$Revision: 599 $
+$Id: mona.py 599 2019-11-08 13:43:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 597 $')
+__REV__ = filter(str.isdigit, '$Revision: 599 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -8850,6 +8850,7 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 									break
 								indexcnt += 1
 					jmpinfo = ""
+					jmpmodinfo = ""
 					if jmpptr == 0:
 						jmptype = ""
 						jmpinfo = "Unable to find ptr to 'JMP ESP'"
@@ -8858,7 +8859,6 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 						tmod = MnModule(jmpinfo)
 						jmpmodinfo = getGadgetAddressInfo(jmpptr)
 					thischain[thisreg] = putValueInReg(thisreg,jmpptr,"& " + jmptype + " [" + jmpinfo + "]" + jmpmodinfo,suggestions,interestinggadgets,criteria)
-				
 				
 				if str(thistarget) == "ropnop":
 					ropptr = 0
@@ -8992,8 +8992,8 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 		tohex_array = []
 		for step in regsequences:
 			thisreg = step
-			vplogtxt += 	"      #[%s]\n" % (thisreg) 
-			thischaintxt += "      #[%s]\n" % (thisreg)
+			vplogtxt += 	"      #[---INFO:gadgets_to_set_%s:---]\n" % (thisreg) 
+			thischaintxt += "      #[---INFO:gadgets_to_set_%s:---]\n" % (thisreg)
 			if thisreg in thischain:
 				for gadget in thischain[thisreg]:
 					gadgetstep = gadget[0]
@@ -9079,6 +9079,8 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 							ropdbchain += '    <gadget value="junk">Filler</gadget>\n'						
 		# finish it off
 		steptxt = ""
+		vplogtxt += 	"      #[---INFO:pushad:---]\n"  
+		thischaintxt += "      #[---INFO:pushad:---]\n"
 		if "pushad" in suggestions:
 			shortest_pushad = getShortestGadget(suggestions["pushad"])
 			junksize = getJunk(interestinggadgets[shortest_pushad])
@@ -9121,6 +9123,8 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 		
 		# anything else to add ?
 		if len(toadd) > 0:
+			vplogtxt += 	"      #[---INFO:extras:---]\n"  
+			thischaintxt += "      #[---INFO:extras:---]\n"
 			for adds in toadd:
 				theptr = toadd[adds][0]
 				freetext = toadd[adds][1]
