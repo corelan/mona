@@ -2,7 +2,7 @@
  
 U{Corelan<https://www.corelan.be>}
 
-Copyright (c) 2011-2019, Peter Van Eeckhoutte - Corelan Consulting BVBA
+Copyright (c) 2011-2020, Peter Van Eeckhoutte - Corelan Consulting BVBA
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -27,12 +27,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 599 $
-$Id: mona.py 599 2019-11-08 13:43:00Z corelanc0d3r $ 
+$Revision: 600 $
+$Id: mona.py 600 2020-01-08 07:43:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 599 $')
+__REV__ = filter(str.isdigit, '$Revision: 600 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
