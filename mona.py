@@ -3,7 +3,7 @@
  
 U{Corelan<https://www.corelan.be>}
 
-Copyright (c) 2011-2020, Peter Van Eeckhoutte - Corelan Consulting BVBA
+Copyright (c) 2011-2020, Peter Van Eeckhoutte - Corelan Consulting bv
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
