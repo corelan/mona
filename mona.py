@@ -1,3 +1,4 @@
+#!/usr/bin/env python2.7
 """
  
 U{Corelan<https://www.corelan.be>}
@@ -27,12 +28,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 600 $
-$Id: mona.py 600 2020-01-08 07:43:00Z corelanc0d3r $ 
+$Revision: 601 $
+$Id: mona.py 601 2020-03-27 09:00:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 600 $')
+__REV__ = filter(str.isdigit, '$Revision: 601 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -633,7 +634,6 @@ def hex2int(hex):
 	return int(hex,16)
 
 def getVariantType(typenr):
-
 	varianttypes = {}
 	varianttypes[0x0] = "VT_EMPTY"
 	varianttypes[0x1] = "VT_NULL"
