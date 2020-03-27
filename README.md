@@ -3,6 +3,17 @@ mona
 
 Corelan Repository for mona.py
 
+### What is mona.py?
+
+Mona.py is a python script that can be used to automate and speed up specific searches while developing exploits (typically for the Windows platform).
+It runs on Immunity Debugger and WinDBG, and requires python 2.7.
+Although it runs in WinDBG x64, the majority of its features were written specifically for 32bit processes.
+
+For more info on mona.py and how to use it, please consider taking one of Corelan's exploit development classes:
+
+https://www.corelan-training.com
+
+
 
 Installation instructions
 -------------------------
