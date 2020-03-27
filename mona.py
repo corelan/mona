@@ -622,6 +622,16 @@ def hex2bin(pattern):
 	
 	return ''.join([binascii.a2b_hex(i+j) for i,j in zip(pattern[0::2],pattern[1::2])])
 
+def cleanHex(hex):
+	hex = hex.replace("'","")
+	hex = hex.replace('"',"")
+	hex = hex.replace("\\x","")
+	hex = hex.replace("0x","")
+	return hex
+
+def hex2int(hex):
+	return int(hex,16)
+
 def getVariantType(typenr):
 
 	varianttypes = {}
@@ -12994,7 +13004,7 @@ def main(args):
 			else:
 				dbg.log("No functions selected. (-s)",highlight=1)
 				return
-					
+
 			if "t" in args:
 				try:
 					mode = args["t"].lower()
@@ -13054,27 +13064,32 @@ def main(args):
 		
 		def procByteArray(args):
 			badchars = ""
-			forward = True
+			bytesperline = 32
 			startval = 0
 			endval = 255
-			sign = 1
-			bytesperline = 32
+
+			# kept for legacy
+			if "r" in args:
+				startval = 255
+				endval = 0
+
+			# handle start argument
+			if "s" in args:
+					startval = hex2int(cleanHex(args['s']))
+			# handle end argument
+			if "e" in args:
+					endval = hex2int(cleanHex(args['e']))
+
 			if "b" in args:
 				dbg.log(" *** Note: parameter -b has been deprecated and replaced with -cpb ***")
-				if type(args["b"]).__name__.lower() != "bool":	
+				if type(args["b"]).__name__.lower() != "bool":
 					if not "cpb" in args:
 						args["cpb"] = args["b"]
-			if "r" in args:
-				forward = False
-				startval = -255
-				endval = 0
-				sign = -1
-			badchars = ""
+
 			if "cpb" in args:	
 				badchars = args["cpb"]
-			badchars = badchars.replace("'","")
-			badchars = badchars.replace('"',"")
-			badchars = badchars.replace("\\x","")
+			badchars = cleanHex(badchars)
+
 			# see if we need to expand ..
 			bpos = 0
 			newbadchars = ""
@@ -13099,18 +13114,26 @@ def main(args):
 				bpos += 2
 			badchars = newbadchars
 
-
 			cnt = 0
 			strb = ""
 			while cnt < len(badchars):
 				strb=strb+binascii.a2b_hex(badchars[cnt]+badchars[cnt+1])
-				cnt=cnt+2			
-			
+				cnt=cnt+2
+
 			dbg.log("Generating table, excluding %d bad chars..." % len(strb))
 			arraytable = []
 			binarray = ""
-			while startval <= endval:
-				thisval = startval * sign
+
+			# handle range() last value
+			if endval > startval:
+				increment = 1
+				endval += 1
+			else:
+				endval += -1
+				increment = -1
+
+			# create bytearray
+			for thisval in range(startval,endval,increment):
 				hexbyte = hex(thisval)[2:]
 				binbyte = hex2bin(toHexByte(thisval))
 				if len(hexbyte) == 1:
@@ -13119,7 +13142,7 @@ def main(args):
 				if not hexbyte2 in strb:
 					arraytable.append(hexbyte)
 					binarray += binbyte
-				startval += 1
+
 			dbg.log("Dumping table to file")
 			output = ""
 			cnt = 0
@@ -18651,6 +18674,10 @@ Optional arguments :
     -cpb <bytes> : bytes to exclude from the array. Example : '\\x00\\x0a\\x0d'
                    Note: you can specify wildcards using .. 
                    Example: '\\x00\\x0a..\\x20\\x32\\x7f..\\xff'
+    -s : optional starting hex, example: '\\x7f'
+    -e : optional ending hex, example: '\\xff'
+         Example: -s \\x01 -e \\x7f to have all bytes from 0x01 to 0x7f
+                  -s \\xff -e \\x7f to have all bytes from 0xff to 0x7f in reverse
     -r : show array backwards (reversed), starting at \\xff
     Output will be written to bytearray.txt, and binary output will be written to bytearray.bin"""
 	
