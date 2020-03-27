@@ -28,12 +28,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 602 $
-$Id: mona.py 602 2020-03-27 13:00:00Z corelanc0d3r $ 
+$Revision: 603 $
+$Id: mona.py 603 2020-03-27 14:00:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 602 $')
+__REV__ = filter(str.isdigit, '$Revision: 603 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -238,6 +238,13 @@ def resetGlobals():
 	disasmUpperChecked = False
 
 	return
+
+
+def getPythonVersion():
+	versioninfo = sys.version
+	versioninfolines = versioninfo.split('\n')
+	return versioninfolines[0]
+
 
 def toHex(n):
 	"""
@@ -843,6 +850,13 @@ def toniceHex(data,size):
 	flip = 1
 	thisline = "\""
 	block = ""
+
+	try:
+   		 # Python 2
+		xrange
+	except NameError:
+		# Python 3, xrange is now named range
+		xrange = range
 	
 	for cnt in xrange(len(data)):
 		thisline += "\\x%s" % toHexByte(ord(data[cnt]))				
@@ -10076,7 +10090,7 @@ def getGadgetValueToReg(reg,value,suggestions,interestinggadgets):
 			blocktxt2 += negateline
 			junk2size = getJunk(interestinggadgets[pptr])-4
 		else:
-			blocktxt2 += "      0x????????,#  find a way to pop the next value into "+thisreg+"\n"					
+			blocktxt2 += "      0x????????,#  find a way to pop the next value into " + reg + "\n"					
 			blocktxt2 += negateline			
 		blocktxt2 += "      0x" + toHex(negptr)+",  "+interestinggadgets[negptr].strip()+" ("+MnPointer(negptr).belongsTo()+")\n"
 		junksize = getJunk(interestinggadgets[negptr])-4
@@ -11661,6 +11675,7 @@ def main(args):
 		def procHelp(args):
 			dbg.log("     'mona' - Exploit Development Swiss Army Knife - %s (%sbit)" % (__DEBUGGERAPP__,str(arch)))
 			dbg.log("     Plugin version : %s r%s" % (__VERSION__,__REV__))
+			dbg.log("     Python version : %s" % (getPythonVersion()))
 			if __DEBUGGERAPP__ == "WinDBG":
 				pykdversion = dbg.getPyKDVersionNr()
 				dbg.log("     PyKD version %s" % pykdversion)
@@ -12046,34 +12061,37 @@ def main(args):
 			dbg.log("-----------------------------------------------------------------------")
 			dbg.log("Search for jmp/call dword[ebp/esp+nn] (and other) combinations started ")
 			dbg.log("-----------------------------------------------------------------------")
-			opcodej=["\xff\x54\x24\x08", #call dword ptr [esp+08]
-					"\xff\x64\x24\x08", #jmp dword ptr [esp+08]
-					"\xff\x54\x24\x14", #call dword ptr [esp+14]
-					"\xff\x54\x24\x14", #jmp dword ptr [esp+14]
-					"\xff\x54\x24\x1c", #call dword ptr [esp+1c]
-					"\xff\x54\x24\x1c", #jmp dword ptr [esp+1c]
-					"\xff\x54\x24\x2c", #call dword ptr [esp+2c]
-					"\xff\x54\x24\x2c", #jmp dword ptr [esp+2c]
-					"\xff\x54\x24\x44", #call dword ptr [esp+44]
-					"\xff\x54\x24\x44", #jmp dword ptr [esp+44]
-					"\xff\x54\x24\x50", #call dword ptr [esp+50]
-					"\xff\x54\x24\x50", #jmp dword ptr [esp+50]
-					"\xff\x55\x0c",     #call dword ptr [ebp+0c]
-					"\xff\x65\x0c",     #jmp dword ptr [ebp+0c]
-					"\xff\x55\x24",     #call dword ptr [ebp+24]
-					"\xff\x65\x24",     #jmp dword ptr [ebp+24]
-					"\xff\x55\x30",     #call dword ptr [ebp+30]
-					"\xff\x65\x30",     #jmp dword ptr [ebp+30]
-					"\xff\x55\xfc",     #call dword ptr [ebp-04]
-					"\xff\x65\xfc",     #jmp dword ptr [ebp-04]
-					"\xff\x55\xf4",     #call dword ptr [ebp-0c]
-					"\xff\x65\xf4",     #jmp dword ptr [ebp-0c]
-					"\xff\x55\xe8",     #call dword ptr [ebp-18]
-					"\xff\x65\xe8",     #jmp dword ptr [ebp-18]
-					"\x83\xc4\x08\xc3", #add esp,8 + ret
-					"\x83\xc4\x08\xc2"] #add esp,8 + ret X
+			opcodej=["\\xff\\x54\\x24\\x08", #call dword ptr [esp+08]
+					"\\xff\\x64\\x24\\x08", #jmp dword ptr [esp+08]
+					"\\xff\\x54\\x24\\x14", #call dword ptr [esp+14]
+					"\\xff\\x54\\x24\\x14", #jmp dword ptr [esp+14]
+					"\\xff\\x54\\x24\\x1c", #call dword ptr [esp+1c]
+					"\\xff\\x54\\x24\\x1c", #jmp dword ptr [esp+1c]
+					"\\xff\\x54\\x24\\x2c", #call dword ptr [esp+2c]
+					"\\xff\\x54\\x24\\x2c", #jmp dword ptr [esp+2c]
+					"\\xff\\x54\\x24\\x44", #call dword ptr [esp+44]
+					"\\xff\\x54\\x24\\x44", #jmp dword ptr [esp+44]
+					"\\xff\\x54\\x24\\x50", #call dword ptr [esp+50]
+					"\\xff\\x54\\x24\\x50", #jmp dword ptr [esp+50]
+					"\\xff\\x55\\x0c",     #call dword ptr [ebp+0c]
+					"\\xff\\x65\\x0c",     #jmp dword ptr [ebp+0c]
+					"\\xff\\x55\\x24",     #call dword ptr [ebp+24]
+					"\\xff\\x65\\x24",     #jmp dword ptr [ebp+24]
+					"\\xff\\x55\\x30",     #call dword ptr [ebp+30]
+					"\\xff\\x65\\x30",     #jmp dword ptr [ebp+30]
+					"\\xff\\x55\\xfc",     #call dword ptr [ebp-04]
+					"\\xff\\x65\\xfc",     #jmp dword ptr [ebp-04]
+					"\\xff\\x55\\xf4",     #call dword ptr [ebp-0c]
+					"\\xff\\x65\\xf4",     #jmp dword ptr [ebp-0c]
+					"\\xff\\x55\\xe8",     #call dword ptr [ebp-18]
+					"\\xff\\x65\\xe8",     #jmp dword ptr [ebp-18]
+					"\\x83\\xc4\\x08\\xc3", #add esp,8 + ret
+					"\\x83\\xc4\\x08\\xc2"] #add esp,8 + ret X
+			fakeptrcriteria = {}
+			fakeptrcriteria["accesslevel"] = "*"
 			for opjc in opcodej:
-				addys=dbg.search( opjc )
+				#addys=dbg.search( opjc )
+				addys = searchInRange( hex2bin(opjc), 0, TOP_USERLAND, fakeptrcriteria)
 				results += addys
 				for ad1 in addys:
 					module = dbg.findModule(ad1)
@@ -12091,7 +12109,8 @@ def main(args):
 							access = page.getAccess( human = True )
 							op = dbg.disasm( ad1 )
 							opstring=op.getDisasm()
-							if ismodulenosafeseh(module[0])==1:
+							if not module.isSafeSEH:
+							#if ismodulenosafeseh(module[0])==1:
 								extratext="=== Safeseh : NO ==="
 								showred=1
 							else:
