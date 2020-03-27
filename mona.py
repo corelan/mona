@@ -28,12 +28,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 601 $
-$Id: mona.py 601 2020-03-27 09:00:00Z corelanc0d3r $ 
+$Revision: 602 $
+$Id: mona.py 602 2020-03-27 13:00:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 601 $')
+__REV__ = filter(str.isdigit, '$Revision: 602 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -55,16 +55,16 @@ except:
 		dbglib.checkVersion()
 		arch = dbglib.getArchitecture()
 		__DEBUGGERAPP__ = "WinDBG"
-	except SystemExit, e:
-		print "-Exit."
+	except SystemExit:
+		print("-Exit.")
 		import sys
-		sys.exit(e)
+		sys.exit(1)
 	except Exception:
 		#import traceback
-		print "Do not run this script outside of a debugger !"
+		print("Do not run this script outside of a debugger !")
 		#print traceback.format_exc()
 		import sys
-		exit(1)
+		sys.exit(1)
 
 import getopt
 
@@ -2765,7 +2765,7 @@ class MnModule:
 					if (flags&0x0100)==0:
 						modisnx=False
 					#rebase
-					if mzrebase <> mzbase:
+					if mzrebase != mzbase:
 						modrebased=True
 		else:
 			# should never be hit
@@ -5418,7 +5418,7 @@ def UnicodeTransformInfo(hexaddr):
 		ansistring=""
 		for ansirec in uniansiconv:
 			if ansirec[0][:3]==threestr:
-				if (transform==0) or (transform==1 and ansirec[1] <> transbyte):
+				if (transform==0) or (transform==1 and ansirec[1] != transbyte):
 					convbyte=ansirec[1]
 					ansibytes=ansirec[0]
 					ansistring=ansistring+"00"+twostr+"00"+convbyte+"->00"+twostr+ansibytes+" / "
@@ -5503,7 +5503,7 @@ def getSearchSequences(searchtype,searchcriteria="",type="",criteria={}):
 		
 			extraval = ""
 			
-			if minval <> 0:
+			if minval != 0:
 				operator = ""
 				negoperator = "-"
 				if minval < 0:
@@ -6308,7 +6308,7 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 
 
 	if "f" in criteria:
-		if criteria["f"] <> "":
+		if criteria["f"] != "":
 			if type(criteria["f"]).__name__.lower() != "bool":		
 				usefiles = True
 				rawfilenames = criteria["f"].replace('"',"")
@@ -7995,7 +7995,7 @@ def compareFormattedFileWithMemory(filename,format,startpos,skipmodules=False,fi
 	
 				try:
 					self.format = BytesParser.interpret_format_name(format)
-				except Exception, e:
+				except Exception as e:
 					verbose(str(e))
 
 				#exit when user-specified format not in both formats_rex and formats_aliases 
@@ -8438,8 +8438,7 @@ class MemoryComparator(object):
 							slices.add(slc)
 
 		for b, values in mappings_by_byte.iteritems():
-			mappings_by_byte[b] = sorted(values.items(),
-			                             key=lambda (value, count): (-count, -len(value)))
+			mappings_by_byte[b] = sorted(values.items(), key=lambda value, count : (-count, -len(value)))
 
 		for c in self.get_chunks():
 			dx, dy, xchunk, ychunk = c.dx, c.dy, c.xchunk, c.ychunk
@@ -11182,7 +11181,7 @@ def goFindMSP(distance = 0,args = {}):
 			
 			if len(cont) == 4:
 				contat = cont
-				if contat <> "":
+				if contat != "":
 		
 					for pattype in pattypes:
 						dbg.updateLog()
@@ -11289,7 +11288,7 @@ def goFindMSP(distance = 0,args = {}):
 				except:
 					contat = ""	
 					
-				if contat <> "":
+				if contat != "":
 					for pattype in pattypes:
 						dbg.updateLog()
 						regpattern = fullpattern
@@ -11377,7 +11376,7 @@ def args2criteria(args,modulecriteria,criteria):
 	
 	# override list of modules to query ?
 	if "m" in args:
-		if type(args["m"]).__name__.lower() <> "bool":
+		if type(args["m"]).__name__.lower() != "bool":
 			modulecriteria["modules"] = args["m"]
 			dbg.log("    - Only querying modules %s" % args["m"])
 				
@@ -11729,7 +11728,7 @@ def main(args):
 				items = commands.items()
 				items.sort(key = itemgetter(0))
 				for item in items:
-					if commands[item[0]].usage <> "":
+					if commands[item[0]].usage != "":
 						aliastxt = ""
 						if commands[item[0]].alias != "":
 							aliastxt = " / " + commands[item[0]].alias
@@ -12017,7 +12016,7 @@ def main(args):
 					endings = endingstr.split("#")
 					
 			if "f" in args:
-				if args["f"] <> "":
+				if args["f"] != "":
 					criteria["f"] = args["f"]
 			
 			if "sort" in args:
@@ -12206,7 +12205,7 @@ def main(args):
 			if "ptronly" in args or "ptrsonly" in args:
 				fast = True
 			if "f" in args:
-				if args["f"] <> "":
+				if args["f"] != "":
 					rawfilenames=args["f"].replace('"',"")
 					allfiles = rawfilenames.split(',')
 					dbg.log("[+] Number of files to be examined : %d " % len(allfiles))
