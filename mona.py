@@ -1771,7 +1771,7 @@ def getSkeletonHeader(exploittype,portnr,extension,url,badchars='\x00\x0a\x0d'):
 	skeletonheader += "##\n\n"
 	skeletonheader += "require 'msf/core'\n\n"
 	skeletonheader += "class MetasploitModule < Msf::Exploit::Remote\n"
-	skeletonheader += "  #Rank definition: http://dev.metasploit.com/redmine/projects/framework/wiki/Exploit_Ranking\n"
+	skeletonheader += "  #Rank definition: https://github.com/rapid7/metasploit-framework/wiki/Exploit-Ranking\n"
 	skeletonheader += "  #ManualRanking/LowRanking/AverageRanking/NormalRanking/GoodRanking/GreatRanking/ExcellentRanking\n"
 	skeletonheader += "  Rank = NormalRanking\n\n"
 	
