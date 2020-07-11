@@ -28,12 +28,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 606 $
-$Id: mona.py 606 2020-07-11 13:30:00Z corelanc0d3r $ 
+$Revision: 607 $
+$Id: mona.py 607 2020-07-11 13:30:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 606 $')
+__REV__ = filter(str.isdigit, '$Revision: 607 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -8672,7 +8672,7 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 	routinedefs["VirtualAlloc"] 			= virtualalloc
 	# only run these on older systems
 	osver=dbg.getOsVersion()
-	if not (osver == "6" or osver == "7" or osver == "8" or osver == "vista" or osver == "win7" or osver == "2008server" or osver == "win8"):
+	if not (osver == "6" or osver == "7" or osver == "8" or osver == "vista" or osver == "win7" or osver == "2008server" or osver == "win8" osver == "win8.1" or osver == "win10"):
 		routinedefs["SetInformationProcess"]	= setinformationprocess
 		routinedefs["SetProcessDEPPolicy"]		= setprocessdeppolicy	
 	
