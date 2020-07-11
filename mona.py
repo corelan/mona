@@ -28,12 +28,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 605 $
-$Id: mona.py 605 2020-03-29 09:16:00Z corelanc0d3r $ 
+$Revision: 606 $
+$Id: mona.py 606 2020-07-11 13:30:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 605 $')
+__REV__ = filter(str.isdigit, '$Revision: 606 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -2909,18 +2909,23 @@ class MnModule:
 		
 	def getIAT(self):
 		IAT = {}
+		#dbg.logLines("    Getting IAT for %s. Existing: %d" % (self.moduleKey, len(self.IAT)))
 		try:
 			if len(self.IAT) == 0:
-				themod = dbg.getModule(self.moduleKey)
-				syms = themod.getSymbols()
-				thename = ""
-				for sym in syms:
-					if syms[sym].getType().startswith("Import"):
-						thename = syms[sym].getName()
-						theaddress = syms[sym].getAddress()
-						if not theaddress in IAT:
-							IAT[theaddress] = thename
-				
+				try:
+					themod = dbg.getModule(self.moduleKey)
+					syms = themod.getSymbols()
+					thename = ""
+					for sym in syms:
+						if syms[sym].getType().startswith("Import"):
+							thename = syms[sym].getName()
+							theaddress = syms[sym].getAddress()
+							if not theaddress in IAT:
+								IAT[theaddress] = thename
+				except:
+					import traceback
+					dbg.logLines(traceback.format_exc())
+					pass
 				# merge
 				
 				# find optional header
