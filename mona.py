@@ -8672,7 +8672,7 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 	routinedefs["VirtualAlloc"] 			= virtualalloc
 	# only run these on older systems
 	osver=dbg.getOsVersion()
-	if not (osver == "6" or osver == "7" or osver == "8" or osver == "vista" or osver == "win7" or osver == "2008server" or osver == "win8" osver == "win8.1" or osver == "win10"):
+	if not (osver == "6" or osver == "7" or osver == "8" or osver == "vista" or osver == "win7" or osver == "2008server" or osver == "win8" or osver == "win8.1" or osver == "win10"):
 		routinedefs["SetInformationProcess"]	= setinformationprocess
 		routinedefs["SetProcessDEPPolicy"]		= setprocessdeppolicy	
 	
