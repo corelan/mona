@@ -28,12 +28,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 608 $
-$Id: mona.py 608 2020-07-11 13:48:00Z corelanc0d3r $ 
+$Revision: 609 $
+$Id: mona.py 609 2020-07-12 10:32:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 608 $')
+__REV__ = filter(str.isdigit, '$Revision: 609 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -566,7 +566,7 @@ def stripExtension(fullname):
 	Return:
 	A string, containing the original string without the last extension
 	"""
-	nameparts = fullname.split(".")
+	nameparts = str(fullname).split(".")
 	if len(nameparts) > 1:
 		cnt = 0
 		modname = ""
@@ -8798,7 +8798,7 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 				# this must be done first, so we can determine deviations to the chain using
 				# replacelist and skiplist arrays
 				if str(thistarget) == "api":
-					objprogressfile.write("  * Enumerating ROPFunc info",progressfile)
+					objprogressfile.write("  * Enumerating ROPFunc info (IAT Query)",progressfile)
 					#dbg.log("    Enumerating ROPFunc info")
 					# routine to put api pointer in thisreg
 					funcptr,functext = getRopFuncPtr(routine,modulecriteria,criteria,"iat")
@@ -8812,7 +8812,7 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 						else:
 							thischain[thisreg] = putValueInReg(thisreg,funcptr,routine + "() [" + MnPointer(funcptr).belongsTo() + "]",suggestions,interestinggadgets,criteria)
 					else:
-						objprogressfile.write("    Function pointer : 0x%0x",funcptr)
+						objprogressfile.write("    Function pointer : 0x%0x" % funcptr, progressfile)
 						objprogressfile.write("  * Getting pickup gadget",progressfile)
 						thischain[thisreg],skiplist = getPickupGadget(thisreg,funcptr,functext,suggestions,interestinggadgets,criteria,modulecriteria,routine)
 						# if skiplist is not empty, then we are using the alternative pickup (via jmp [eax])
