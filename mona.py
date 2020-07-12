@@ -28,12 +28,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 609 $
-$Id: mona.py 609 2020-07-12 10:32:00Z corelanc0d3r $ 
+$Revision: 610 $
+$Id: mona.py 610 2020-07-12 14:55:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 609 $')
+__REV__ = filter(str.isdigit, '$Revision: 610 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -116,6 +116,7 @@ global vtableCache
 global stacklistCache
 global segmentlistCache
 global VACache
+global IATCache
 global NtGlobalFlag
 global FreeListBitmap
 global memProtConstants
@@ -129,6 +130,7 @@ NtGlobalFlag = -1
 FreeListBitmap = {}
 memProtConstants = {}
 CritCache={}
+IATCache={}
 vtableCache={}
 stacklistCache={}
 segmentlistCache={}
@@ -2909,9 +2911,11 @@ class MnModule:
 		
 	def getIAT(self):
 		IAT = {}
-		#dbg.logLines("    Getting IAT for %s. Existing: %d" % (self.moduleKey, len(self.IAT)))
+		global IATCache
+		dbg.logLines("    Getting IAT for %s." % (self.moduleKey))
 		try:
-			if len(self.IAT) == 0:
+			if not self.moduleKey in IATCache:  # if len(self.IAT) == 0:
+				dbg.log("    Enumerating IAT")          
 				try:
 					themod = dbg.getModule(self.moduleKey)
 					syms = themod.getSymbols()
@@ -2999,8 +3003,10 @@ class MnModule:
 									IAT[ptr] = thisfuncname[1].strip(">")
 									
 				self.IAT = IAT
+				IATCache[self.moduleKey] = IAT
 			else:
-				IAT = self.IAT
+				dbg.log("    Retrieving IAT from cache")             
+				IAT = IATCache[self.moduleKey] #IAT = self.IAT
 		except:
 			import traceback
 			dbg.logLines(traceback.format_exc())
@@ -9628,7 +9634,7 @@ def getRopFuncPtr(apiname,modulecriteria,criteria,mode = "iat"):
 	ropfuncptr = 0
 	ropfuncoffsets = {}
 	ropfunctext = "ptr to &" + apiname + "()"
-	
+	#dbg.log("Ropfunc start, looking for %s - modulecriteria: %s" % (ropfunctext, modulecriteria))
 	if mode == "iat":
 		if rfuncsearch != "":
 			ropfuncs,ropfuncoffsets = findROPFUNC(modulecriteria,criteria, [rfuncsearch])
@@ -9636,18 +9642,36 @@ def getRopFuncPtr(apiname,modulecriteria,criteria,mode = "iat"):
 			ropfuncs,ropfuncoffsets = findROPFUNC(modulecriteria)
 		silent = oldsilent
 		#first look for good one
-		#dbg.log("Found %d pointers" % len(ropfuncs))
+		#dbg.log("Ropfunc - Found %d pointers" % len(ropfuncs))
 		for ropfunctypes in ropfuncs:
-			#dbg.log("%s %s" % (ropfunctypes, rfuncsearch))
+			#dbg.log("Ropfunc - %s %s" % (ropfunctypes, rfuncsearch))
 			if ropfunctypes.lower().find(rfuncsearch) > -1 and ropfunctypes.lower().find("rebased") == -1:
 				ropfuncptr = ropfuncs[ropfunctypes][0]
 				break
+                
 		if ropfuncptr == 0:
 			for ropfunctypes in ropfuncs:
 				if ropfunctypes.lower().find(rfuncsearch) > -1:
 					ropfuncptr = ropfuncs[ropfunctypes][0]
 					break
-		#dbg.log("Selected pointer: 0x%08x" % ropfuncptr)
+		#dbg.log("Ropfunc - Selected pointer: 0x%08x" % ropfuncptr)
+        
+		#haven't found pointer, and you were looking at specific modules only? remove module restriction, but still exclude ASLR/rebase
+		if (ropfuncptr == 0) and ("modules" in modulecriteria):
+			oldsilent = silent
+			silent = True
+			limitedmodulecriteria = {}
+			limitedmodulecriteria["aslr"] = False
+			limitedmodulecriteria["rebase"] = False
+			limitedmodulecriteria["os"] = False
+			ropfuncs,ropfuncoffsets = findROPFUNC(limitedmodulecriteria,criteria)
+			silent = oldsilent
+			for ropfunctypes in ropfuncs:
+				#dbg.log("Ropfunc - %s %s" % (ropfunctypes, rfuncsearch))
+				if ropfunctypes.lower().find(rfuncsearch) > -1 and ropfunctypes.lower().find("rebased") == -1:
+					ropfuncptr = ropfuncs[ropfunctypes][0]
+					break
+                
 		#still haven't found ? clear out modulecriteria, include ASLR/rebase modules (but not OS modules)
 		if ropfuncptr == 0:
 			oldsilent = silent
