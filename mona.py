@@ -28,12 +28,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 610 $
-$Id: mona.py 610 2020-07-12 14:55:00Z corelanc0d3r $ 
+$Revision: 611 $
+$Id: mona.py 611 2020-07-12 16:55:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 610 $')
+__REV__ = filter(str.isdigit, '$Revision: 611 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -9626,6 +9626,11 @@ def getRopFuncPtr(apiname,modulecriteria,criteria,mode = "iat"):
 	global ptr_to_get
 	ptr_to_get = -1	
 	rfuncsearch = apiname.lower()
+    
+	selectedmodules = False
+	if "modules" in modulecriteria:
+		if len(modulecriteria["modules"]) > 0:
+			selectedmodules = True
 
 	arrfuncsearch = [rfuncsearch]
 	if rfuncsearch == "virtualloc":
@@ -9657,7 +9662,7 @@ def getRopFuncPtr(apiname,modulecriteria,criteria,mode = "iat"):
 		#dbg.log("Ropfunc - Selected pointer: 0x%08x" % ropfuncptr)
         
 		#haven't found pointer, and you were looking at specific modules only? remove module restriction, but still exclude ASLR/rebase
-		if (ropfuncptr == 0) and ("modules" in modulecriteria):
+		if (ropfuncptr == 0) and selectedmodules:
 			oldsilent = silent
 			silent = True
 			limitedmodulecriteria = {}
@@ -9673,7 +9678,7 @@ def getRopFuncPtr(apiname,modulecriteria,criteria,mode = "iat"):
 					break
                 
 		#still haven't found ? clear out modulecriteria, include ASLR/rebase modules (but not OS modules)
-		if ropfuncptr == 0:
+		if (ropfuncptr == 0) and not selectedmodules:
 			oldsilent = silent
 			silent = True
 			limitedmodulecriteria = {}
