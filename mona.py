@@ -28,12 +28,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 612 $
-$Id: mona.py 612 2020-07-13 11:55:00Z corelanc0d3r $ 
+$Revision: 613 $
+$Id: mona.py 613 2020-07-13 14:33:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 612 $')
+__REV__ = filter(str.isdigit, '$Revision: 613 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -8758,14 +8758,11 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
     
 	# restrict techniques if needed
 	validatedroutinedefs = {}
-	#dbg.log("pre: %s" % routinedefs)
 	if technique != "":
 		for routine in routinedefs:
-			dbg.log("%s" % routine)
 			if technique.lower() == routine.lower():
 				validatedroutinedefs[routine] = routinedefs[routine]            
 		routinedefs = validatedroutinedefs
-	#dbg.log("post: %s" % routinedefs)
 
 	for routine in routinedefs:
 	
