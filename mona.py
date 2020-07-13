@@ -28,12 +28,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 611 $
-$Id: mona.py 611 2020-07-12 16:55:00Z corelanc0d3r $ 
+$Revision: 612 $
+$Id: mona.py 612 2020-07-13 11:55:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 611 $')
+__REV__ = filter(str.isdigit, '$Revision: 612 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -6287,7 +6287,7 @@ def assemble(instructions,encoder=""):
 
 
 	
-def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5,split=False,pivotdistance=0,fast=False,mode="all", sortedprint=False):
+def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5,split=False,pivotdistance=0,fast=False,mode="all", sortedprint=False, technique=""):
 	"""
 	Searches for rop gadgets
 
@@ -6303,6 +6303,7 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 	fast - Boolean indicating if you want to process less obvious gadgets as well
 	mode - internal use only
 	sortedprint - sort pointers before printing output to rop.txt
+	technique - create all chains if empty. otherwise, create virtualalloc or virtualprotect chain (based on what is specified)
 	
 	Return:
 	Output is written to files, containing rop gadgets, suggestions, stack pivots and virtualprotect/virtualalloc routine (if possible)
@@ -6311,6 +6312,7 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 	found_opcodes = {}
 	all_opcodes = {}
 	ptr_counter = 0
+	valid_techniques = ["virtualalloc", "virtualprotect"]
 
 	modulestosearch = getModulesToQuery(modulecriteria)
 	
@@ -6325,12 +6327,15 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 	dbg.log("[+] (Minimum/optional maximum) stackpivot distance : %s" % str(pivotdistance))
 	dbg.log("[+] Max nr of instructions : %d" % depth)
 	dbg.log("[+] Split output into module rop files ? %s" % split)
-
+	#dbg.log("[+] Technique: %s" % technique)    
+	if technique != "" and technique in valid_techniques:
+		dbg.log("[+] Only creating rop chain for '%s'" % technique)
+	else:
+		dbg.log("[+] Going to create rop chains for all relevant/supported techniques: %s" % technique)
 	usefiles = False
 	filestouse = []
 	vplogtxt = ""
 	suggestions = {}
-
 
 	if "f" in criteria:
 		if criteria["f"] != "":
@@ -6566,7 +6571,7 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 			dbg.log("[+] Launching ROP generator")
 			updatetext = "Attempting to create rop chain proposals"
 			objprogressfile.write(updatetext.strip(),progressfile)
-			vplogtxt = createRopChains(suggestions,interestinggadgets,ropgadgets,modulecriteria,criteria,objprogressfile,progressfile)
+			vplogtxt = createRopChains(suggestions,interestinggadgets,ropgadgets,modulecriteria,criteria,objprogressfile,progressfile,technique)
 			dbg.logLines(vplogtxt.replace("\t","    "))
 			dbg.log("    ROP generator finished")
 		else:
@@ -8645,7 +8650,7 @@ def memcompare(location, src, comparetable, sctype, smart=True, tablecols=16):
 # ROP related functions
 #-----------------------------------------------------------------------#
 
-def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,criteria,objprogressfile,progressfile):
+def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,criteria,objprogressfile,progressfile,technique):
 	"""
 	Will attempt to produce ROP chains
 	"""
@@ -8750,6 +8755,17 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 --------------------------------------------"""
 
 	updatetxt = ""
+    
+	# restrict techniques if needed
+	validatedroutinedefs = {}
+	#dbg.log("pre: %s" % routinedefs)
+	if technique != "":
+		for routine in routinedefs:
+			dbg.log("%s" % routine)
+			if technique.lower() == routine.lower():
+				validatedroutinedefs[routine] = routinedefs[routine]            
+		routinedefs = validatedroutinedefs
+	#dbg.log("post: %s" % routinedefs)
 
 	for routine in routinedefs:
 	
@@ -8807,10 +8823,10 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 					objprogressfile.write("  * Enumerating ROPFunc info (IAT Query)",progressfile)
 					#dbg.log("    Enumerating ROPFunc info")
 					# routine to put api pointer in thisreg
-					funcptr,functext = getRopFuncPtr(routine,modulecriteria,criteria,"iat")
+					funcptr,functext = getRopFuncPtr(routine,modulecriteria,criteria,"iat", objprogressfile, progressfile)
 					if routine == "SetProcessDEPPolicy" and funcptr == 0:
 						# read EAT
-						funcptr,functext = getRopFuncPtr(routine,modulecriteria,criteria,"eat")
+						funcptr,functext = getRopFuncPtr(routine,modulecriteria,criteria,"eat", objprogressfile, progressfile)
 						extra = ""
 						if funcptr == 0:
 							extra = "[-] Unable to find ptr to "
@@ -9608,7 +9624,7 @@ def getPickupGadget(targetreg,targetval,freetext,suggestions,interestinggadgets,
 		
 	return pickupchain,disablelist
 	
-def getRopFuncPtr(apiname,modulecriteria,criteria,mode = "iat"):
+def getRopFuncPtr(apiname,modulecriteria,criteria,mode, objprogressfile, progressfile):
 	"""
 	Will get a pointer to pointer to the given API name in the IAT of the selected modules
 	
@@ -9639,7 +9655,7 @@ def getRopFuncPtr(apiname,modulecriteria,criteria,mode = "iat"):
 	ropfuncptr = 0
 	ropfuncoffsets = {}
 	ropfunctext = "ptr to &" + apiname + "()"
-	#dbg.log("Ropfunc start, looking for %s - modulecriteria: %s" % (ropfunctext, modulecriteria))
+	objprogressfile.write("  * Ropfunc - Looking for %s (IAT) - modulecriteria: %s" % (ropfunctext, modulecriteria), progressfile)
 	if mode == "iat":
 		if rfuncsearch != "":
 			ropfuncs,ropfuncoffsets = findROPFUNC(modulecriteria,criteria, [rfuncsearch])
@@ -9647,7 +9663,7 @@ def getRopFuncPtr(apiname,modulecriteria,criteria,mode = "iat"):
 			ropfuncs,ropfuncoffsets = findROPFUNC(modulecriteria)
 		silent = oldsilent
 		#first look for good one
-		#dbg.log("Ropfunc - Found %d pointers" % len(ropfuncs))
+		objprogressfile.write("  * Ropfunc - Found %d pointers" % len(ropfuncs), progressfile)
 		for ropfunctypes in ropfuncs:
 			#dbg.log("Ropfunc - %s %s" % (ropfunctypes, rfuncsearch))
 			if ropfunctypes.lower().find(rfuncsearch) > -1 and ropfunctypes.lower().find("rebased") == -1:
@@ -9663,6 +9679,7 @@ def getRopFuncPtr(apiname,modulecriteria,criteria,mode = "iat"):
         
 		#haven't found pointer, and you were looking at specific modules only? remove module restriction, but still exclude ASLR/rebase
 		if (ropfuncptr == 0) and selectedmodules:
+			objprogressfile.write("  * Ropfunc - No results yet, expanding search to all non ASLR/rebase modules", progressfile)
 			oldsilent = silent
 			silent = True
 			limitedmodulecriteria = {}
@@ -9679,6 +9696,7 @@ def getRopFuncPtr(apiname,modulecriteria,criteria,mode = "iat"):
                 
 		#still haven't found ? clear out modulecriteria, include ASLR/rebase modules (but not OS modules)
 		if (ropfuncptr == 0) and not selectedmodules:
+			objprogressfile.write("  * Ropfunc - Still no results, now going to search in all application modules", progressfile)
 			oldsilent = silent
 			silent = True
 			limitedmodulecriteria = {}
@@ -12029,6 +12047,7 @@ def main(args):
 			sortedprint = False
 			endingstr = ""
 			endings = []
+			technique = ""            
 			
 			if "depth" in args:
 				if type(args["depth"]).__name__.lower() != "bool":
@@ -12054,6 +12073,10 @@ def main(args):
 			if "split" in args:
 				if type(args["split"]).__name__.lower() == "bool":
 					split = args["split"]
+
+			if "s" in args:
+				if type(args["s"]).__name__.lower() != "bool":
+					technique = args["s"].replace("'","").replace('"',"").strip().lower()                   
 					
 			if "fast" in args:
 				if type(args["fast"]).__name__.lower() == "bool":
@@ -12081,7 +12104,7 @@ def main(args):
 			else:
 				mode = "all"
 			
-			findROPGADGETS(modulecriteria,criteria,endings,maxoffset,depth,split,thedistance,fast,mode,sortedprint)
+			findROPGADGETS(modulecriteria,criteria,endings,maxoffset,depth,split,thedistance,fast,mode,sortedprint,technique)
 			
 
 		def procJseh(args):
@@ -18560,6 +18583,7 @@ Optional parameters :
                                (Separate instructions with #). Default ending is RETN
     -f \"file1,file2,..filen\" : use mona generated rop files as input instead of searching in memory
     -rva : use RVA's in rop chain
+    -s <technique> : only create a ROP chain for the selected technique (options: virtualalloc, virtualprotect)    
     -sort : sort the output in rop.txt (sort on pointer value)"""
 	
 		jopUsage="""Default module criteria : non aslr,non rebase,non os
