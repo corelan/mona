@@ -6342,7 +6342,7 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 			if type(criteria["f"]).__name__.lower() != "bool":		
 				usefiles = True
 				rawfilenames = criteria["f"].replace('"',"")
-				allfiles = rawfilenames.split(',')
+				allfiles = [getAbsolutePath(f) for f in rawfilenames.split(',')]
 				#check if files exist
 				dbg.log("[+] Attempting to use %d rop file(s) as input" % len(allfiles))
 				for fname in allfiles:
@@ -11649,6 +11649,29 @@ def doManageBpOnFunc(modulecriteria,criteria,funcfilter,mode="add",type="export"
 						
 	return
 
+def getAbsolutePath(filename):
+	if os.path.isabs(filename):
+		return filename
+	else:
+		# unfortunately this is code-duplication from MnLog()
+		# probably this should be refactored
+		debuggedname = dbg.getDebuggedName()
+		thispid = dbg.getDebuggedPid()
+		if thispid == 0:
+			debuggedname = "_no_name_"
+		thisconfig = MnConfig()
+		workingfolder = thisconfig.get("workingfolder").rstrip("\\").strip()
+		#strip extension from debuggedname
+		parts = debuggedname.split(".")
+		extlen = len(parts[len(parts)-1])+1
+		debuggedname = debuggedname[0:len(debuggedname)-extlen]
+		debuggedname = debuggedname.replace(" ","_")
+		workingfolder = workingfolder.replace('%p', debuggedname)
+		workingfolder = workingfolder.replace('%i', str(thispid))		
+
+		return os.path.join(workingfolder, filename)
+
+
 #-----------------------------------------------------------------------#
 # main
 #-----------------------------------------------------------------------#	
@@ -12282,7 +12305,7 @@ def main(args):
 			if "f" in args:
 				if args["f"] != "":
 					rawfilenames=args["f"].replace('"',"")
-					allfiles = rawfilenames.split(',')
+					allfiles = [getAbsolutePath(f) for f in rawfilenames.split(',')]
 					dbg.log("[+] Number of files to be examined : %d " % len(allfiles))
 			if "range" in args:
 				if not type(args["range"]).__name__.lower() == "bool":
@@ -12688,7 +12711,7 @@ def main(args):
 			findunicode = False
 			allregs = dbg.getRegs()
 			if "f" in args:
-				filename = args["f"].replace('"',"").replace("'","")
+				filename = getAbsolutePath(args["f"].replace('"',"").replace("'",""))
 				#see if we can read the file
 				if not os.path.isfile(filename):
 					dbg.log("Unable to find/read file %s" % filename,highlight=1)
@@ -13266,7 +13289,7 @@ def main(args):
 			stopnow = False
 			if "f" in args:
 				if type(args["f"]).__name__.lower() != "bool":	
-					filename = args["f"]
+					filename = getAbsolutePath(args["f"])
 			if "t" in args:
 				if type(args["t"]).__name__.lower() != "bool":
 					if args["t"] in alltypes:
@@ -13613,7 +13636,7 @@ def main(args):
 			if "f" in args:
 				if type(args["f"]).__name__.lower() != "bool":
 					filename = args["f"]
-			filename = filename.replace("'", "").replace("\"", "")					
+			filename = getAbsolutePath(filename.replace("'", "").replace("\"", ""))
 
 			if "winver" in args:
 				if str(args["winver"]) in win_vers:
@@ -16434,7 +16457,7 @@ def main(args):
 
 			if "f" in args:
 				if type(args["f"]).__name__.lower() != "bool":
-					binfile = args["f"]
+					binfile = getAbsolutePath(args["f"])
 					if os.path.exists(binfile):
 						if not silent:
 							dbg.log("[+] Reading bytes from %s" % binfile)
@@ -16851,7 +16874,7 @@ def main(args):
 			
 			if "f" in args:
 				if type(args["f"]).__name__.lower() != "bool":
-					logfile = args["f"]
+					logfile = getAbsolutePath(args["f"])
 			
 			if "nofree" in args:
 				ignorefree = True			
