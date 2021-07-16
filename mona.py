@@ -11643,7 +11643,7 @@ def doManageBpOnFunc(modulecriteria,criteria,funcfilter,mode="add",type="export"
 def getAbsolutePath(filename):
 	# attempt to read input file from workingfolder (if any)
 	# unless absolute path has been specified
-	if os.path.isabs(filename):
+	if os.path.isabs(filename) or filename == "":
 		return filename
 	else:
 		debuggedname = dbg.getDebuggedName()
