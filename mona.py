@@ -5786,7 +5786,7 @@ def getModuleProperty(modname,parameter):
 	parameter name - (see populateModuleInfo())
 	
 	Returns : 
-	value associcated with the given parameter / module combination
+	value associated with the given parameter / module combination
 	
 	"""
 	modname=modname.strip()
@@ -10987,7 +10987,7 @@ def goFindMSP(distance = 0,args = {}):
 		dbg.log("*** Attach to an application, and trigger a crash with a cyclic pattern ! ***",highlight=1)
 		return	{}
 	
-	#1. find beging of cyclic pattern in memory ?
+	#1. find beginning of cyclic pattern in memory ?
 
 	patbegin = createPattern(6,args)
 	
@@ -15530,7 +15530,7 @@ def main(args):
 															savetolog = True
 														else:
 															# check if this location could acts as a heap chunk for a certain size
-															# the size field would be placed at the curren location - 8 bytes
+															# the size field would be placed at the current location - 8 bytes
 															# and is 2 bytes large
 															sizeval = 0
 															if not dofreelist:
@@ -17633,7 +17633,7 @@ def main(args):
 				dbg.log("If you are unsatisfied with the result, run the command again and use the -t option")
 				dbg.log("")
 			return alignresults
-		# end unicode alignemt routines
+		# end unicode alignment routines
 
 
 		def procHeapCookie(args):
