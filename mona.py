@@ -10300,7 +10300,7 @@ def isInterestingGadget(instructions):
 							foundinstruction = True
 					if not foundinstruction:
 						#check the conditional instructions
-						if thisinstr.find("MOV DWORD PTR DS:[E") > -1: #TODO: fix for 64 bit
+						if thisinstr.find("MOV DWORD PTR DS:[E") > -1:
 							thisinstrparts = thisinstr.split(",")
 							if len(thisinstrparts) > 1:
 								if thisinstrparts[1] in regs:
