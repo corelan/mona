@@ -93,7 +93,6 @@ import itertools
 import traceback
 import pickle
 import json
-import cProfile
 
 from operator import itemgetter
 from collections import defaultdict, namedtuple
@@ -6427,8 +6426,8 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 					try:
 						thisopcode = dbg.disasmBackward(endingtypeptr,depth+1)
 						thisptr = thisopcode.getAddress()
-					except Exception as e:
-						dbg.log("        ** Unable to backward disassemble at 0x%0x, depth %d, skipping location\n %s" % (endingtypeptr, depth+1, e))
+					except:
+						dbg.log("        ** Unable to backward disassemble at 0x%0x, depth %d, skipping location\n %s" % (endingtypeptr, depth+1))
 						thisopcode = ""
 						thisptr = 0
 
@@ -10611,7 +10610,6 @@ def getRopSuggestion(ropchains,allchains):
 								pickedupin.append(r)
 	# move pointer into another pointer
 	# =================================
-	pykd.dprintln('move ptr into another ptr')
 	for reg in arch_aware_regs:	#from
 		for reg2 in arch_aware_regs:	#to
 			if reg != reg2:
@@ -10630,17 +10628,14 @@ def getRopSuggestion(ropchains,allchains):
 			moveptr_notallowed = ["ADD "+reg2, "ADC "+reg2, "POP "+reg2,"MOV "+reg2+",","XCHG "+reg2+",","XOR "+reg2,"LEA "+reg2+",","AND "+reg2,"DS:","SS:","PUSHAD","POPAD", "DEC ESP", "DEC RSP"]
 			suggestions = mergeOpcodes(suggestions,getRegToReg("MOVE",reg,reg2,ropchains,moveptr_allowed,moveptr_notallowed))
 			
-	pykd.dprintln('done')
 	# xor pointer into another pointer
 	# =================================
-	pykd.dprintln('xor')
 	for reg in arch_aware_regs:	#from
 		for reg2 in arch_aware_regs:	#to
 			if reg != reg2:
 				xorptr_allowed = ["NOP","RETN","POP ","INC ","DEC ","OR ","XOR ","ADD ","PUSH ","AND ", "XCHG ", "ADC ","FPATAN", "TEST ", "CMP "]
 				xorptr_notallowed = ["POP "+reg2,"MOV "+reg2+",","XCHG "+reg2+",","XOR "+reg2,"LEA "+reg2+",","AND "+reg2,"DS:","SS:","PUSHAD","POPAD", "DEC ESP", "DEC RSP"]
 				suggestions = mergeOpcodes(suggestions,getRegToReg("XOR",reg,reg2,ropchains,xorptr_allowed,xorptr_notallowed))
-	pykd.dprintln('done')
 	# get stack pointer
 	# =================
 	for reg in arch_aware_regs:
@@ -10650,32 +10645,26 @@ def getRopSuggestion(ropchains,allchains):
 		suggestions = mergeOpcodes(suggestions,getRegToReg("MOVE",STACK_POINTER,reg,allchains,moveptr_allowed,moveptr_notallowed))
 	# add something to register
 	# =========================
-	pykd.dprintln('add something')
 	for reg in arch_aware_regs:	#from
 		for reg2 in arch_aware_regs:	#to
 			if reg != reg2:
 				moveptr_allowed = ["NOP","RETN","POP ","INC ","DEC ","OR ","XOR ","ADD ","PUSH ","AND ", "ADC ","FPATAN", "TEST ", "CMP "]
 				moveptr_notallowed = ["POP "+reg2,"MOV "+reg2+",","XCHG "+reg2+",","XOR "+reg2,"LEA "+reg2+",","AND "+reg2,"DS:","SS:", "DEC ESP", "DEC RSP"]
 				suggestions = mergeOpcodes(suggestions,getRegToReg("ADD",reg,reg2,ropchains,moveptr_allowed,moveptr_notallowed))
-	pykd.dprintln('done')
 	# add value to register
 	# =========================
-	pykd.dprintln('add value')
 	for reg in regs:	#to
 		moveptr_allowed = ["NOP","RETN","POP ","INC ","DEC ","OR ","XOR ","ADD ","PUSH ","AND ", "ADC ", "SUB ","FPATAN", "TEST ", "CMP "]
 		moveptr_notallowed = ["POP "+reg,"MOV "+reg+",","XCHG "+reg+",","XOR "+reg,"LEA "+reg+",","DS:","SS:", "DEC ESP", "DEC RSP"]
 		suggestions = mergeOpcodes(suggestions, getRegToReg("ADDVAL",reg,reg,ropchains,moveptr_allowed,moveptr_notallowed))	
 
-	pykd.dprintln('done')
 	#inc reg
 	# =======
-	pykd.dprintln('inc')
 	for reg in regs:
 		moveptr_allowed = ["NOP","RETN","POP ","INC " + reg,"DEC ","OR ","XOR ","ADD ","PUSH ","AND ", "ADC ", "SUB ","FPATAN", "TEST ", "CMP "]
 		moveptr_notallowed = ["POP "+reg,"MOV "+reg+",","XCHG "+reg+",","XOR "+reg,"LEA "+reg+",","DS:","SS:", "DEC ESP", "DEC RSP", "DEC "+reg]
 		suggestions = mergeOpcodes(suggestions,getRegToReg("INC",reg,reg,ropchains,moveptr_allowed,moveptr_notallowed))
 		
-	pykd.dprintln('done')
 	#dec reg
 	# =======
 	for reg in regs:
@@ -10699,7 +10688,6 @@ def getRopSuggestion(ropchains,allchains):
 						suggestions["popad"] = mergeOpcodes(suggestions["popad"],toadd)				
 	# pop
 	# ===
-	pykd.dprintln('pop')
 	for reg in regs:
 		pop_allowed = "POP "+reg+" # RETN"
 		pop_notallowed = []
@@ -10713,9 +10701,7 @@ def getRopSuggestion(ropchains,allchains):
 					suggestions[resulthash] = toadd
 				else:
 					suggestions[resulthash] = mergeOpcodes(suggestions[resulthash],toadd)
-	pykd.dprintln('done')
 	# check if we have a pop for each reg
-	pykd.dprintln('pop for each reg')
 	for reg in regs:
 		r = reg.lower()
 		if not "pop "+r in suggestions:
@@ -10741,10 +10727,8 @@ def getRopSuggestion(ropchains,allchains):
 						suggestions["pop " + r] = toadd
 					else:
 						suggestions["pop " + r] = mergeOpcodes(suggestions["pop " + r],toadd)
-	pykd.dprintln('done')
 	# neg
 	# ===
-	pykd.dprintln('neg')
 	for reg in regs:
 		neg_allowed = "NEG "+reg+" # RETN"
 		neg_notallowed = []
@@ -10760,7 +10744,6 @@ def getRopSuggestion(ropchains,allchains):
 					suggestions[resulthash] = mergeOpcodes(suggestions[resulthash],toadd)		
 	# empty
 	# =====
-	pykd.dprintln('empty')
 	for reg in regs:
 		empty_allowed = ["XOR "+reg+","+reg+" # RETN","MOV "+reg+",FFFFFFFF # INC "+reg+" # RETN", "SUB "+reg+","+reg+" # RETN", "PUSH 0 # POP "+reg + " # RETN", "IMUL "+reg+","+reg+",0 # RETN"]
 		empty_notallowed = []
@@ -10775,7 +10758,6 @@ def getRopSuggestion(ropchains,allchains):
 						suggestions[resulthash] = toadd
 					else:
 						suggestions[resulthash] = mergeOpcodes(suggestions[resulthash],toadd)						
-	pykd.dprintln('done')
 	return suggestions
 
 def getRegToReg(type,fromreg,toreg,ropchains,moveptr_allowed,moveptr_notallowed):
