@@ -5216,7 +5216,8 @@ def searchInRange(sequences, start=0, end=TOP_USERLAND,criteria=[]):
 		for a in dbg.MemoryPages.keys():
 
 			if (ptr_to_get < 0) or (ptr_to_get > 0 and ptr_counter < ptr_to_get):
-		
+				
+				# get end address of the page
 				page_start = a
 				page_size = dbg.MemoryPages[a].getSize()
 				page_end   = a + page_size
@@ -6410,6 +6411,7 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 		updateth = 100
 	for endingtype in all_opcodes:
 		if len(all_opcodes[endingtype]) > 0:
+			for endingtypeptr in all_opcodes[endingtype]:
 				adcnt=adcnt+1
 				if usefiles:
 					adcnt = adcnt - 0.5
