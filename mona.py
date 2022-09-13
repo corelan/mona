@@ -93,6 +93,7 @@ import itertools
 import traceback
 import pickle
 import json
+import cProfile
 
 from operator import itemgetter
 from collections import defaultdict, namedtuple
@@ -108,7 +109,9 @@ DESC = "Corelan Consulting bv exploit development swiss army knife"
 #  Global stuff                         #
 #---------------------------------------#	
 
-TOP_USERLAND = 0x7fffffff
+TOP_USERLAND = 0x7fffffff if arch == 32 else 0x7FFFFFFFFFFF
+STACK_POINTER = "ESP" if arch == 32 else "RSP"
+PTR_SIZE_DIRECTIVE = "DWORD PTR" if arch == 32 else "QWORD PTR"
 g_modules={}
 MemoryPageACL={}
 global CritCache
@@ -5215,7 +5218,6 @@ def searchInRange(sequences, start=0, end=TOP_USERLAND,criteria=[]):
 
 			if (ptr_to_get < 0) or (ptr_to_get > 0 and ptr_counter < ptr_to_get):
 		
-				# get end address of the page
 				page_start = a
 				page_size = dbg.MemoryPages[a].getSize()
 				page_end   = a + page_size
@@ -5328,7 +5330,6 @@ def searchInModule(sequences, name,criteria=[]):
 	# get the base and end address of the module
 	start = module.getBaseAddress()
 	end   = start + module.getSize()
-
 	return searchInRange(sequences, start, end, criteria)
 
 def getRangesOutsideModules():
@@ -6004,7 +6005,7 @@ def mergeOpcodes(all_opcodes,found_opcodes):
 	if found_opcodes:
 		for hf in found_opcodes:
 			if hf in all_opcodes:
-				all_opcodes[hf] += found_opcodes[hf]
+				all_opcodes[hf].update(found_opcodes[hf])
 			else:
 				all_opcodes[hf] = found_opcodes[hf]
 	return all_opcodes
@@ -6410,7 +6411,6 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 		updateth = 100
 	for endingtype in all_opcodes:
 		if len(all_opcodes[endingtype]) > 0:
-			for endingtypeptr in all_opcodes[endingtype]:
 				adcnt=adcnt+1
 				if usefiles:
 					adcnt = adcnt - 0.5
@@ -6427,8 +6427,8 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 					try:
 						thisopcode = dbg.disasmBackward(endingtypeptr,depth+1)
 						thisptr = thisopcode.getAddress()
-					except:
-						dbg.log("        ** Unable to backward disassemble at 0x%0x, depth %d, skipping location" % (endingtypeptr, depth+1))
+					except Exception as e:
+						dbg.log("        ** Unable to backward disassemble at 0x%0x, depth %d, skipping location\n %s" % (endingtypeptr, depth+1, e))
 						thisopcode = ""
 						thisptr = 0
 
@@ -6494,7 +6494,7 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 						if modname != "":
 							thism = MnModule(modname)
 							issafeseh = thism.isSafeSEH
-						if isGoodGadgetPtr(startptr,criteria) and not startptr in ropgadgets and not startptr in interestinggadgets:
+						if isGoodGadgetPtr(startptr,criteria) and not startptr in ropgadgets and not startptr in interestinggadgets: 
 							fullchain = thischain
 							if isInterestingGadget(fullchain):
 								interestinggadgets[startptr] = fullchain
@@ -6559,12 +6559,13 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 					else:
 						break
 					gcnt += 1
-			dbg.log("[+] Launching ROP generator")
-			updatetext = "Attempting to create rop chain proposals"
-			objprogressfile.write(updatetext.strip(),progressfile)
-			vplogtxt = createRopChains(suggestions,interestinggadgets,ropgadgets,modulecriteria,criteria,objprogressfile,progressfile,technique)
-			dbg.logLines(vplogtxt.replace("\t","    "))
-			dbg.log("    ROP generator finished")
+			if arch == 32:
+				dbg.log("[+] Launching ROP generator")
+				updatetext = "Attempting to create rop chain proposals"
+				objprogressfile.write(updatetext.strip(),progressfile)
+				vplogtxt = createRopChains(suggestions,interestinggadgets,ropgadgets,modulecriteria,criteria,objprogressfile,progressfile,technique)
+				dbg.logLines(vplogtxt.replace("\t","    "))
+				dbg.log("    ROP generator finished")
 		else:
 			updatetext = "[+] Oops, no gadgets found, aborting.."
 			dbg.log(updatetext)
@@ -10272,9 +10273,13 @@ def isInterestingGadget(instructions):
 						"SUB DH", "SUB DL", "ADD DH", "ADD DL",
 						"MOV E", "CLC", "CLD", "FS:", "FPA", "TEST "
 						]
+
 		notinteresting = [ "MOV ESP,EBP", "LEA ESP"	]
-		subregs = ["EAX","ECX","EDX","EBX","EBP","ESI","EDI"]
-		regs = dbglib.Registers32BitsOrder
+		regs = dbglib.Registers32BitsOrder[:]
+		if arch == 64:
+			interesting.extend(["POP R", "XCHG R", "LEA R", "PUSH R", "XOR R", "AND R", "NEG R", "OR R", "ADD R",
+			                    "SUB R", "INC R", "DEC R", "SUB R", "ADD R", "ADC R", "MOV R"])
+			regs.extend(dbglib.Registers64BitsOrder)
 		individual = instructions.split("#")
 		cnt = 0
 		allgood = True
@@ -10293,7 +10298,7 @@ def isInterestingGadget(instructions):
 							foundinstruction = True
 					if not foundinstruction:
 						#check the conditional instructions
-						if thisinstr.find("MOV DWORD PTR DS:[E") > -1:
+						if thisinstr.find("MOV DWORD PTR DS:[E") > -1: #TODO: fix for 64 bit
 							thisinstrparts = thisinstr.split(",")
 							if len(thisinstrparts) > 1:
 								if thisinstrparts[1] in regs:
@@ -10320,7 +10325,7 @@ def isInterestingJopGadget(instructions):
 					"MOV E", "CLC", "CLD", "FS:", "FPA"
 					]
 	notinteresting = [ "MOV ESP,EBP", "LEA ESP"	]
-	regs = dbglib.Registers32BitsOrder
+	regs = dbglib.Registers32BitsOrder[:]
 	individual = instructions.split("#")
 	cnt = 0
 	allgood = True
@@ -10507,50 +10512,57 @@ def isGadgetEnding(instruction,endings,verbosity=False):
 
 def getRopSuggestion(ropchains,allchains):
 	suggestions={}
+	arch_aware_regs = dbglib.Registers32BitsOrder[:] if arch == 32 else dbglib.Registers64BitsOrder[:]
+	regs = dbglib.Registers32BitsOrder[:]
+	if arch == 64:
+		regs.extend(dbglib.Registers64BitsOrder)
+
 	# pushad
 	# ======================
-	regs = ["EAX","EBX","ECX","EDX","EBP","ESI","EDI"]
-	pushad_allowed = [ "INC ","DEC ","OR ","XOR ","LEA ","ADD ","SUB ", "PUSHAD", "RETN ", "NOP", "POP ","PUSH EAX","PUSH EDI","ADC ","FPATAN","MOV E" , "TEST ", "CMP "]
-	for r in regs:
-		pushad_allowed.append("MOV "+r+",DWORD PTR DS:[ESP")	#stack
-		pushad_allowed.append("MOV "+r+",DWORD PTR SS:[ESP")	#stack
-		pushad_allowed.append("MOV "+r+",DWORD PTR DS:[ESI")	#virtualprotect
-		pushad_allowed.append("MOV "+r+",DWORD PTR SS:[ESI")	#virtualprotect
-		pushad_allowed.append("MOV "+r+",DWORD PTR DS:[EBP")	#stack
-		pushad_allowed.append("MOV "+r+",DWORD PTR SS:[EBP")	#stack
-		for r2 in regs:
-			pushad_allowed.append("MOV "+r+","+r2)
-			pushad_allowed.append("XCHG "+r+","+r2)
-			pushad_allowed.append("LEA "+r+","+r2)
-	pushad_notallowed = ["POP ESP","POPAD","PUSH ESP","MOV ESP","ADD ESP", "INC ESP","DEC ESP","XOR ESP","LEA ESP","SS:","DS:"]
-	for gadget in ropchains:
-		gadgetinstructions = ropchains[gadget].strip()
-		if gadgetinstructions.find("PUSHAD") == 2:
-			# does chain only contain allowed instructions
-			# one pop is allowed, as long as it's not pop esp
-			# push edi and push eax are allowed too (ropnop)
-			if gadgetinstructions.count("POP ") < 2 and suggestedGadgetCheck(gadgetinstructions,pushad_allowed,pushad_notallowed):
-				toadd={}
-				toadd[gadget] = gadgetinstructions
-				if not "pushad" in suggestions:
-					suggestions["pushad"] = toadd
-				else:
-					suggestions["pushad"] = mergeOpcodes(suggestions["pushad"],toadd)
+	
+	if arch == 32: # we don't care about pushad in 64 bit
+		pushad_allowed = [ "INC ","DEC ","OR ","XOR ","LEA ","ADD ","SUB ", "PUSHAD", "RETN ", "NOP", "POP ","PUSH EAX","PUSH EDI","ADC ","FPATAN","MOV E" , "TEST ", "CMP "]
+		for r in regs:
+			pushad_allowed.append("MOV "+r+",DWORD PTR DS:[ESP")	#stack
+			pushad_allowed.append("MOV "+r+",DWORD PTR SS:[ESP")	#stack
+			pushad_allowed.append("MOV "+r+",DWORD PTR DS:[ESI")	#virtualprotect
+			pushad_allowed.append("MOV "+r+",DWORD PTR SS:[ESI")	#virtualprotect
+			pushad_allowed.append("MOV "+r+",DWORD PTR DS:[EBP")	#stack
+			pushad_allowed.append("MOV "+r+",DWORD PTR SS:[EBP")	#stack
+			for r2 in regs:
+				pushad_allowed.append("MOV "+r+","+r2)
+				pushad_allowed.append("XCHG "+r+","+r2)
+				pushad_allowed.append("LEA "+r+","+r2)
+		pushad_notallowed = ["POP ESP","POPAD","PUSH ESP","MOV ESP","ADD ESP", "INC ESP","DEC ESP","XOR ESP","LEA ESP","SS:","DS:"]
+		for gadget in ropchains:
+			gadgetinstructions = ropchains[gadget].strip()
+			if gadgetinstructions.find("PUSHAD") == 2:
+				# does chain only contain allowed instructions
+				# one pop is allowed, as long as it's not pop esp
+				# push edi and push eax are allowed too (ropnop)
+				if gadgetinstructions.count("POP ") < 2 and suggestedGadgetCheck(gadgetinstructions,pushad_allowed,pushad_notallowed):
+					toadd={}
+					toadd[gadget] = gadgetinstructions
+					if not "pushad" in suggestions:
+						suggestions["pushad"] = toadd
+					else:
+						suggestions["pushad"] = mergeOpcodes(suggestions["pushad"],toadd)
+
 	# pick up a pointer
 	# =========================
 	pickedupin = []
 	resulthash = ""
 	allowedpickup = True
-	for r in regs:
-		for r2 in regs:
+	for r in arch_aware_regs:
+		for r2 in arch_aware_regs:
 			pickup_allowed = ["NOP","RETN ","INC ","DEC ","OR ","XOR ","MOV ","LEA ","ADD ","SUB ","POP","ADC ","FPATAN", "TEST ", "CMP "]
-			pickup_target = []
-			pickup_notallowed = []
-			pickup_allowed.append("MOV "+r+",DWORD PTR SS:["+r2+"]")
-			pickup_allowed.append("MOV "+r+",DWORD PTR DS:["+r2+"]")
-			pickup_target.append("MOV "+r+",DWORD PTR SS:["+r2+"]")
-			pickup_target.append("MOV "+r+",DWORD PTR DS:["+r2+"]")
+			pickup_target = ["MOV "+r+","+PTR_SIZE_DIRECTIVE+" SS:["+r2+"+", "MOV "+r+","+PTR_SIZE_DIRECTIVE+" DS:["+r2+"+"]
+			pickup_allowed.append("MOV "+r+","+PTR_SIZE_DIRECTIVE+" SS:["+r2+"+")
+			pickup_allowed.append("MOV "+r+","+PTR_SIZE_DIRECTIVE+" DS:["+r2+"+")
 			pickup_notallowed = ["POP "+r, "MOV "+r+",E", "LEA "+r+",E", "MOV ESP", "XOR ESP", "LEA ESP", "MOV DWORD PTR", "DEC ESP"]
+			if arch == 64:
+				pickup_notallowed.extend(["MOV RSP", "XOR RSP", "LEA RSP", "DEC RSP", "MOV QWORD PTR"])
+
 			for gadget in ropchains:
 				gadgetinstructions = ropchains[gadget].strip()	
 				allowedpickup = False
@@ -10570,21 +10582,20 @@ def getRopSuggestion(ropchains,allchains):
 						if not r in pickedupin:
 							pickedupin.append(r)
 	if len(pickedupin) == 0:
-		for r in regs:
-			for r2 in regs:
+		for r in arch_aware_regs:
+			for r2 in arch_aware_regs:
 				pickup_allowed = ["NOP","RETN ","INC ","DEC ","OR ","XOR ","MOV ","LEA ","ADD ","SUB ","POP", "ADC ","FPATAN", "TEST ", "CMP "]
-				pickup_target = []
-				pickup_notallowed = []
-				pickup_allowed.append("MOV "+r+",DWORD PTR SS:["+r2+"+")
-				pickup_allowed.append("MOV "+r+",DWORD PTR DS:["+r2+"+")
-				pickup_target.append("MOV "+r+",DWORD PTR SS:["+r2+"+")
-				pickup_target.append("MOV "+r+",DWORD PTR DS:["+r2+"+")
+				pickup_allowed.append("MOV "+r+","+PTR_SIZE_DIRECTIVE+" SS:["+r2+"+")
+				pickup_allowed.append("MOV "+r+","+PTR_SIZE_DIRECTIVE+" DS:["+r2+"+")
+				pickup_target = ["MOV "+r+","+PTR_SIZE_DIRECTIVE+" SS:["+r2+"+", "MOV "+r+","+PTR_SIZE_DIRECTIVE+" DS:["+r2+"+"]
 				pickup_notallowed = ["POP "+r, "MOV "+r+",E", "LEA "+r+",E", "MOV ESP", "XOR ESP", "LEA ESP", "MOV DWORD PTR"]
+				if arch == 64:
+					pickup_notallowed.extend(["MOV RSP", "XOR RSP", "LEA RSP", "MOV QWORD PTR"])
 				for gadget in ropchains:
 					gadgetinstructions = ropchains[gadget].strip()	
 					allowedpickup = False
 					for allowed in pickup_target:
-						if gadgetinstructions.find(allowed) == 2 and gadgetinstructions.count("DWORD PTR") == 1:
+						if gadgetinstructions.find(allowed) == 2 and gadgetinstructions.count(PTR_SIZE_DIRECTIVE) == 1:
 							allowedpickup = True
 							break
 					if allowedpickup:
@@ -10600,89 +10611,95 @@ def getRopSuggestion(ropchains,allchains):
 								pickedupin.append(r)
 	# move pointer into another pointer
 	# =================================
-	for reg in regs:	#from
-		for reg2 in regs:	#to
+	pykd.dprintln('move ptr into another ptr')
+	for reg in arch_aware_regs:	#from
+		for reg2 in arch_aware_regs:	#to
 			if reg != reg2:
 				moveptr_allowed = ["NOP","RETN","POP ","INC ","DEC ","OR ","XOR ","ADD ","PUSH ","AND ", "XCHG ", "ADC ","FPATAN", "TEST ", "CMP "]
-				moveptr_notallowed = ["POP "+reg2,"MOV "+reg2+",","XCHG "+reg2+",","XOR "+reg2,"LEA "+reg2+",","AND "+reg2,"DS:","SS:","PUSHAD","POPAD", "DEC ESP"]
+				moveptr_notallowed = ["POP "+reg2,"MOV "+reg2+",","XCHG "+reg2+",","XOR "+reg2,"LEA "+reg2+",","AND "+reg2,"DS:","SS:","PUSHAD","POPAD", "DEC ESP", "DEC RSP"]
 				suggestions = mergeOpcodes(suggestions,getRegToReg("MOVE",reg,reg2,ropchains,moveptr_allowed,moveptr_notallowed))
 				# if we didn't find any, expand the search
 				if not ("move " + reg + " -> " + reg2).lower() in suggestions:
 					moveptr_allowed = ["NOP","RETN","POP ","INC ","DEC ","OR ","XOR ","ADD ","PUSH ","AND ", "XCHG ", "ADC ","FPATAN", "TEST ", "CMP "]
-					moveptr_notallowed = ["POP "+reg2,"MOV "+reg2+",","XCHG "+reg2+",","XOR "+reg2,"LEA "+reg2+",","AND "+reg2,"PUSHAD","POPAD", "DEC ESP"]
+					moveptr_notallowed = ["POP "+reg2,"MOV "+reg2+",","XCHG "+reg2+",","XOR "+reg2,"LEA "+reg2+",","AND "+reg2,"PUSHAD","POPAD", "DEC ESP", "DEC RSP"]
 					suggestions = mergeOpcodes(suggestions,getRegToReg("MOVE",reg,reg2,ropchains,moveptr_allowed,moveptr_notallowed))
 				
-		reg2 = "ESP"	#special case
+		reg2 = STACK_POINTER	#special case
 		if reg != reg2:
 			moveptr_allowed = ["NOP","RETN","POP ","INC ","DEC ","OR ","XOR ","ADD ","PUSH ","AND ", "MOV ", "XCHG ", "ADC ", "TEST ", "CMP "]
-			moveptr_notallowed = ["ADD "+reg2, "ADC "+reg2, "POP "+reg2,"MOV "+reg2+",","XCHG "+reg2+",","XOR "+reg2,"LEA "+reg2+",","AND "+reg2,"DS:","SS:","PUSHAD","POPAD", "DEC ESP"]
+			moveptr_notallowed = ["ADD "+reg2, "ADC "+reg2, "POP "+reg2,"MOV "+reg2+",","XCHG "+reg2+",","XOR "+reg2,"LEA "+reg2+",","AND "+reg2,"DS:","SS:","PUSHAD","POPAD", "DEC ESP", "DEC RSP"]
 			suggestions = mergeOpcodes(suggestions,getRegToReg("MOVE",reg,reg2,ropchains,moveptr_allowed,moveptr_notallowed))
 			
+	pykd.dprintln('done')
 	# xor pointer into another pointer
 	# =================================
-	for reg in regs:	#from
-		for reg2 in regs:	#to
+	pykd.dprintln('xor')
+	for reg in arch_aware_regs:	#from
+		for reg2 in arch_aware_regs:	#to
 			if reg != reg2:
 				xorptr_allowed = ["NOP","RETN","POP ","INC ","DEC ","OR ","XOR ","ADD ","PUSH ","AND ", "XCHG ", "ADC ","FPATAN", "TEST ", "CMP "]
-				xorptr_notallowed = ["POP "+reg2,"MOV "+reg2+",","XCHG "+reg2+",","XOR "+reg2,"LEA "+reg2+",","AND "+reg2,"DS:","SS:","PUSHAD","POPAD", "DEC ESP"]
+				xorptr_notallowed = ["POP "+reg2,"MOV "+reg2+",","XCHG "+reg2+",","XOR "+reg2,"LEA "+reg2+",","AND "+reg2,"DS:","SS:","PUSHAD","POPAD", "DEC ESP", "DEC RSP"]
 				suggestions = mergeOpcodes(suggestions,getRegToReg("XOR",reg,reg2,ropchains,xorptr_allowed,xorptr_notallowed))
-
+	pykd.dprintln('done')
 	# get stack pointer
 	# =================
-	for reg in regs:
+	for reg in arch_aware_regs:
 		moveptr_allowed = ["NOP","RETN","POP ","INC ","DEC ","OR ","XOR ","ADD ","PUSH ","AND ","MOV ", "ADC ","FPATAN", "TEST ", "CMP "]
-		moveptr_notallowed = ["POP ESP","MOV ESP,","XCHG ESP,","XOR ESP","LEA ESP,","AND ESP", "ADD ESP", "],","SUB ESP","OR ESP"]
-		moveptr_notallowed.append("POP "+reg)
-		moveptr_notallowed.append("MOV "+reg)
-		moveptr_notallowed.append("XCHG "+reg)
-		moveptr_notallowed.append("XOR "+reg)
-		moveptr_notallowed.append("LEA "+reg)
-		moveptr_notallowed.append("AND "+reg)
-		suggestions = mergeOpcodes(suggestions,getRegToReg("MOVE","ESP",reg,allchains,moveptr_allowed,moveptr_notallowed))
+		moveptr_notallowed = ["POP ESP","MOV ESP,","XCHG ESP,","XOR ESP","LEA ESP,","AND ESP", "ADD ESP", "],","SUB ESP","OR ESP",
+		                      "POP "+reg,"MOV "+reg,"XCHG "+reg,"XOR "+reg,"LEA "+reg,"AND "+reg]
+		suggestions = mergeOpcodes(suggestions,getRegToReg("MOVE",STACK_POINTER,reg,allchains,moveptr_allowed,moveptr_notallowed))
 	# add something to register
 	# =========================
-	for reg in regs:	#from
-		for reg2 in regs:	#to
+	pykd.dprintln('add something')
+	for reg in arch_aware_regs:	#from
+		for reg2 in arch_aware_regs:	#to
 			if reg != reg2:
 				moveptr_allowed = ["NOP","RETN","POP ","INC ","DEC ","OR ","XOR ","ADD ","PUSH ","AND ", "ADC ","FPATAN", "TEST ", "CMP "]
-				moveptr_notallowed = ["POP "+reg2,"MOV "+reg2+",","XCHG "+reg2+",","XOR "+reg2,"LEA "+reg2+",","AND "+reg2,"DS:","SS:", "DEC ESP"]
+				moveptr_notallowed = ["POP "+reg2,"MOV "+reg2+",","XCHG "+reg2+",","XOR "+reg2,"LEA "+reg2+",","AND "+reg2,"DS:","SS:", "DEC ESP", "DEC RSP"]
 				suggestions = mergeOpcodes(suggestions,getRegToReg("ADD",reg,reg2,ropchains,moveptr_allowed,moveptr_notallowed))
+	pykd.dprintln('done')
 	# add value to register
 	# =========================
+	pykd.dprintln('add value')
 	for reg in regs:	#to
 		moveptr_allowed = ["NOP","RETN","POP ","INC ","DEC ","OR ","XOR ","ADD ","PUSH ","AND ", "ADC ", "SUB ","FPATAN", "TEST ", "CMP "]
-		moveptr_notallowed = ["POP "+reg,"MOV "+reg+",","XCHG "+reg+",","XOR "+reg,"LEA "+reg+",","DS:","SS:", "DEC ESP"]
-		suggestions = mergeOpcodes(suggestions,getRegToReg("ADDVAL",reg,reg,ropchains,moveptr_allowed,moveptr_notallowed))	
+		moveptr_notallowed = ["POP "+reg,"MOV "+reg+",","XCHG "+reg+",","XOR "+reg,"LEA "+reg+",","DS:","SS:", "DEC ESP", "DEC RSP"]
+		suggestions = mergeOpcodes(suggestions, getRegToReg("ADDVAL",reg,reg,ropchains,moveptr_allowed,moveptr_notallowed))	
 
+	pykd.dprintln('done')
 	#inc reg
 	# =======
+	pykd.dprintln('inc')
 	for reg in regs:
 		moveptr_allowed = ["NOP","RETN","POP ","INC " + reg,"DEC ","OR ","XOR ","ADD ","PUSH ","AND ", "ADC ", "SUB ","FPATAN", "TEST ", "CMP "]
-		moveptr_notallowed = ["POP "+reg,"MOV "+reg+",","XCHG "+reg+",","XOR "+reg,"LEA "+reg+",","DS:","SS:", "DEC ESP", "DEC "+reg]
+		moveptr_notallowed = ["POP "+reg,"MOV "+reg+",","XCHG "+reg+",","XOR "+reg,"LEA "+reg+",","DS:","SS:", "DEC ESP", "DEC RSP", "DEC "+reg]
 		suggestions = mergeOpcodes(suggestions,getRegToReg("INC",reg,reg,ropchains,moveptr_allowed,moveptr_notallowed))
 		
+	pykd.dprintln('done')
 	#dec reg
 	# =======
 	for reg in regs:
 		moveptr_allowed = ["NOP","RETN","POP ","DEC " + reg,"INC ","OR ","XOR ","ADD ","PUSH ","AND ", "ADC ", "SUB ","FPATAN", "TEST ", "CMP "]
-		moveptr_notallowed = ["POP "+reg,"MOV "+reg+",","XCHG "+reg+",","XOR "+reg,"LEA "+reg+",","DS:","SS:", "DEC ESP", "INC "+reg]
+		moveptr_notallowed = ["POP "+reg,"MOV "+reg+",","XCHG "+reg+",","XOR "+reg,"LEA "+reg+",","DS:","SS:", "DEC ESP", "DEC RSP", "INC "+reg]
 		suggestions = mergeOpcodes(suggestions,getRegToReg("DEC",reg,reg,ropchains,moveptr_allowed,moveptr_notallowed))	
 	#popad reg
 	# =======
-	popad_allowed = ["POPAD","RETN","INC ","DEC ","OR ","XOR ","ADD ","AND ", "ADC ", "SUB ","FPATAN","POP ", "TEST ", "CMP "]
-	popad_notallowed = ["POP ESP","PUSH ESP","MOV ESP","ADD ESP", "INC ESP","DEC ESP","XOR ESP","LEA ESP","SS:","DS:"]
-	for gadget in ropchains:
-		gadgetinstructions = ropchains[gadget].strip()
-		if gadgetinstructions.find("POPAD") == 2:
-			if suggestedGadgetCheck(gadgetinstructions,popad_allowed,popad_notallowed):
-				toadd={}
-				toadd[gadget] = gadgetinstructions
-				if not "popad" in suggestions:
-					suggestions["popad"] = toadd
-				else:
-					suggestions["popad"] = mergeOpcodes(suggestions["popad"],toadd)				
+	if arch == 32: 
+		popad_allowed = ["POPAD","RETN","INC ","DEC ","OR ","XOR ","ADD ","AND ", "ADC ", "SUB ","FPATAN","POP ", "TEST ", "CMP "]
+		popad_notallowed = ["POP ESP","PUSH ESP","MOV ESP","ADD ESP", "INC ESP","DEC ESP","XOR ESP","LEA ESP","SS:","DS:"]
+		for gadget in ropchains:
+			gadgetinstructions = ropchains[gadget].strip()
+			if gadgetinstructions.find("POPAD") == 2:
+				if suggestedGadgetCheck(gadgetinstructions,popad_allowed,popad_notallowed):
+					toadd={}
+					toadd[gadget] = gadgetinstructions
+					if not "popad" in suggestions:
+						suggestions["popad"] = toadd
+					else:
+						suggestions["popad"] = mergeOpcodes(suggestions["popad"],toadd)				
 	# pop
 	# ===
+	pykd.dprintln('pop')
 	for reg in regs:
 		pop_allowed = "POP "+reg+" # RETN"
 		pop_notallowed = []
@@ -10696,12 +10713,15 @@ def getRopSuggestion(ropchains,allchains):
 					suggestions[resulthash] = toadd
 				else:
 					suggestions[resulthash] = mergeOpcodes(suggestions[resulthash],toadd)
-					
+	pykd.dprintln('done')
 	# check if we have a pop for each reg
+	pykd.dprintln('pop for each reg')
 	for reg in regs:
 		r = reg.lower()
 		if not "pop "+r in suggestions:
 			pop_notallowed = ["MOV "+reg+",","XCHG "+reg+",","XOR "+reg,"LEA "+reg+",","DS:","SS:", "DEC ESP", "DEC "+reg, "INC " + reg,"PUSH ","XOR "+reg]
+			if arch == 64:
+				moveptr_notallowed.append("DEC RSP")
 			for rchain in ropchains:
 				rparts = ropchains[rchain].strip().split("#")
 				chainok = False
@@ -10721,8 +10741,10 @@ def getRopSuggestion(ropchains,allchains):
 						suggestions["pop " + r] = toadd
 					else:
 						suggestions["pop " + r] = mergeOpcodes(suggestions["pop " + r],toadd)
+	pykd.dprintln('done')
 	# neg
 	# ===
+	pykd.dprintln('neg')
 	for reg in regs:
 		neg_allowed = "NEG "+reg+" # RETN"
 		neg_notallowed = []
@@ -10738,6 +10760,7 @@ def getRopSuggestion(ropchains,allchains):
 					suggestions[resulthash] = mergeOpcodes(suggestions[resulthash],toadd)		
 	# empty
 	# =====
+	pykd.dprintln('empty')
 	for reg in regs:
 		empty_allowed = ["XOR "+reg+","+reg+" # RETN","MOV "+reg+",FFFFFFFF # INC "+reg+" # RETN", "SUB "+reg+","+reg+" # RETN", "PUSH 0 # POP "+reg + " # RETN", "IMUL "+reg+","+reg+",0 # RETN"]
 		empty_notallowed = []
@@ -10752,6 +10775,7 @@ def getRopSuggestion(ropchains,allchains):
 						suggestions[resulthash] = toadd
 					else:
 						suggestions[resulthash] = mergeOpcodes(suggestions[resulthash],toadd)						
+	pykd.dprintln('done')
 	return suggestions
 
 def getRegToReg(type,fromreg,toreg,ropchains,moveptr_allowed,moveptr_notallowed):
