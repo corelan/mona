@@ -5216,7 +5216,7 @@ def searchInRange(sequences, start=0, end=TOP_USERLAND,criteria=[]):
 		for a in dbg.MemoryPages.keys():
 
 			if (ptr_to_get < 0) or (ptr_to_get > 0 and ptr_counter < ptr_to_get):
-				
+		
 				# get end address of the page
 				page_start = a
 				page_size = dbg.MemoryPages[a].getSize()
