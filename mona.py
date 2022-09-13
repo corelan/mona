@@ -5330,6 +5330,7 @@ def searchInModule(sequences, name,criteria=[]):
 	# get the base and end address of the module
 	start = module.getBaseAddress()
 	end   = start + module.getSize()
+
 	return searchInRange(sequences, start, end, criteria)
 
 def getRangesOutsideModules():
