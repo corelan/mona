@@ -10281,7 +10281,7 @@ def isInterestingGadget(instructions):
 		if arch == 64:
 			interesting.extend(["POP R", "XCHG R", "LEA R", "PUSH R", "XOR R", "AND R", "NEG R", "OR R", "ADD R",
 			                    "SUB R", "INC R", "DEC R", "SUB R", "ADD R", "ADC R", "MOV R"])
-			notinteresting.extend["MOV RSP, RBP", "LEA RSP"]
+			notinteresting.extend(["MOV RSP, RBP", "LEA RSP"])
 			regs.extend(dbglib.Registers64BitsOrder)
 		individual = instructions.split("#")
 		cnt = 0
