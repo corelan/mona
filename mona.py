@@ -6430,7 +6430,7 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 						thisopcode = dbg.disasmBackward(endingtypeptr,depth+1)
 						thisptr = thisopcode.getAddress()
 					except:
-						dbg.log("        ** Unable to backward disassemble at 0x%0x, depth %d, skipping location\n %s" % (endingtypeptr, depth+1))
+						dbg.log("        ** Unable to backward disassemble at 0x%0x, depth %d, skipping location\n" % (endingtypeptr, depth+1))
 						thisopcode = ""
 						thisptr = 0
 
@@ -6496,7 +6496,7 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 						if modname != "":
 							thism = MnModule(modname)
 							issafeseh = thism.isSafeSEH
-						if isGoodGadgetPtr(startptr,criteria) and not startptr in ropgadgets and not startptr in interestinggadgets: 
+						if isGoodGadgetPtr(startptr,criteria) and not startptr in ropgadgets and not startptr in interestinggadgets:
 							fullchain = thischain
 							if isInterestingGadget(fullchain):
 								interestinggadgets[startptr] = fullchain
@@ -10281,6 +10281,7 @@ def isInterestingGadget(instructions):
 		if arch == 64:
 			interesting.extend(["POP R", "XCHG R", "LEA R", "PUSH R", "XOR R", "AND R", "NEG R", "OR R", "ADD R",
 			                    "SUB R", "INC R", "DEC R", "SUB R", "ADD R", "ADC R", "MOV R"])
+			notinteresting.extend["MOV RSP, RBP", "LEA RSP"]
 			regs.extend(dbglib.Registers64BitsOrder)
 		individual = instructions.split("#")
 		cnt = 0
