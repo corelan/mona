@@ -352,40 +352,39 @@ def getAddyArg(argaddy):
 
 	partok = False
 	for part in addyparts:
-		cleaned = part
-		if not part in delimchars:
-			for x in delimchars:
-				cleaned = cleaned.replace(x,"")	
-			if cleaned.startswith("[") and cleaned.endswith("]"):
-				partval,partok = getIntForPart(cleaned.replace("[","").replace("]",""))
-				if partok:
-					try:
-						partval = struct.unpack('<L',dbg.readMemory(partval,4))[0]
-					except:
-						partval = 0
-						partok = False
-						break
-			else:	
-				partval,partok = getIntForPart(cleaned)
-				if not partok:
-					break
-			addypartsint.append(partval)
+	    cleaned = part
+	    if not part in delimchars:
+		for x in delimchars:
+		    cleaned = cleaned.replace(x, '')
+		if cleaned.startswith('[') and cleaned.endswith(']'):
+		    (partval, partok) = getIntForPart(cleaned.replace('[', '').replace(']', ''))
+		    if partok:
+			try:
+			    partval = struct.unpack('<L', dbg.readMemory(partval, 4))[0]
+			except:
+			    partval = 0
+			    partok = False
+			    break
 		else:
-			addypartsint.append(part)
-		if not partok:
+		    (partval, partok) = getIntForPart(cleaned)
+		    if not partok:
 			break
-
-	if not partok:
+		addypartsint.append(partval)
+	    else:
+		addypartsint.append(part)
+	    if not partok:
 		addyok = False
 		findval = 0
+		break
 	else:
-		calcstr = "".join(str(x) for x in addypartsint)
-		try:
-			findval = eval(calcstr)
-			addyok = True
-		except:
-			findval = 0
-			addyok = False
+	    calcstr = ''.join((str(x) for x in addypartsint))
+	    try:
+		findval = eval(calcstr)
+		addyok = True
+	    except:
+		findval = 0
+		addyok = False
+	
 
 	return findval, addyok
 	
