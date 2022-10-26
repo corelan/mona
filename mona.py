@@ -28,12 +28,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 617 $
-$Id: mona.py 617 2022-10-09 17:49:00Z corelanc0d3r $ 
+$Revision: 618 $
+$Id: mona.py 618 2022-10-27 17:49:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 617 $')
+__REV__ = filter(str.isdigit, '$Revision: 618 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -6006,7 +6006,14 @@ def mergeOpcodes(all_opcodes,found_opcodes):
 	if found_opcodes:
 		for hf in found_opcodes:
 			if hf in all_opcodes:
-				all_opcodes[hf].update(found_opcodes[hf])
+				try:
+					all_opcodes[hf].update(found_opcodes[hf])
+				except:
+					# anticipate 'list object has no update attribute' error,
+					# merge lists oldskool style
+					for newly_found in found_opcodes[hf]:
+						if not newly_found in all_opcodes[hf]:
+							all_opcodes[hf].append(newly_found)
 			else:
 				all_opcodes[hf] = found_opcodes[hf]
 	return all_opcodes
