@@ -5997,7 +5997,6 @@ def processResults(all_opcodes,logfile,thislog,specialcases = {},ptronly = False
 	dbg.log("    Found a total of %d pointers" % ptrcnt, highlight=1)
 	dbg.setStatusBar("Done. Found %d pointers" % ptrcnt)
 	
-	
 def mergeOpcodes(all_opcodes,found_opcodes):
 	"""
 	merges two dictionaries together
@@ -6012,14 +6011,10 @@ def mergeOpcodes(all_opcodes,found_opcodes):
 	if found_opcodes:
 		for hf in found_opcodes:
 			if hf in all_opcodes:
-				try:
+				if isinstance(all_opcodes[hf], dict):
 					all_opcodes[hf].update(found_opcodes[hf])
-				except:
-					# anticipate 'list object has no update attribute' error,
-					# merge lists oldskool style
-					for newly_found in found_opcodes[hf]:
-						if not newly_found in all_opcodes[hf]:
-							all_opcodes[hf].append(newly_found)
+				else:
+					all_opcodes[hf] += found_opcodes[hf]
 			else:
 				all_opcodes[hf] = found_opcodes[hf]
 	return all_opcodes
@@ -10528,10 +10523,17 @@ def isGadgetEnding(instruction,endings,verbosity=False):
 
 def getRopSuggestion(ropchains,allchains):
 	suggestions={}
-	arch_aware_regs = dbglib.Registers32BitsOrder[:] if arch == 32 else dbglib.Registers64BitsOrder[:]
+	if arch == 32:
+		arch_aware_regs = dbglib.Registers32BitsOrder[:]
+		arch_aware_regs.remove('ESP')
+	else:
+		arch_aware_regs = dbglib.Registers64BitsOrder[:]
+		arch_aware_regs.remove('RSP')
 	regs = dbglib.Registers32BitsOrder[:]
+	regs.remove('ESP')
 	if arch == 64:
 		regs.extend(dbglib.Registers64BitsOrder)
+		regs.remove('RSP')
 
 	# pushad
 	# ======================
