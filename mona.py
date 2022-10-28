@@ -28,12 +28,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-$Revision: 625 $
-$Id: mona.py 625 2022-10-29 16:49:00Z corelanc0d3r $ 
+$Revision: 627 $
+$Id: mona.py 627 2022-10-29 16:49:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 625 $')
+__REV__ = filter(str.isdigit, '$Revision: 627 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -6588,16 +6588,19 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 	thislog = logfile.reset()	
 	objprogressfile.write("Writing " + str(len(stackpivots)+len(stackpivots_safeseh))+" stackpivots with minimum offset " + str(pivotdistance)+" to file " + thislog,progressfile)
 	dbg.log("[+] Writing stackpivots to file " + thislog)
-	logfile.write("Stack pivots, minimum distance " + str(pivotdistance),thislog)
-	logfile.write("-------------------------------------",thislog)
+	logfile.write("Stack pivots, minimum distance " + str(pivotdistance) + ", in descending order",thislog)
+	logfile.write("------------------------------------------------------------------------------",thislog)
+	logfile.write("", thislog)
+	logfile.write("", thislog)	
 	logfile.write("Non-SafeSEH protected pivots :",thislog)
 	logfile.write("------------------------------",thislog)
+	logfile.write("", thislog)	
 	arrtowrite = ""	
 	pivotcount = 0
 	try:
 		with open(thislog,"a") as fh:
 			arrtowrite = ""
-			stackpivots_index = sorted(stackpivots) # returns sorted keys as an array
+			stackpivots_index = sorted(stackpivots, reverse=True) # returns sorted keys as an array, in descending order
 			for sdist in stackpivots_index:
 				for spivot, schain in stackpivots[sdist]:
 					ptrx = MnPointer(spivot)
@@ -6611,15 +6614,19 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 		pass
 	logfile.write("", thislog)
 	logfile.write("", thislog)
-	logfile.write("", thislog)
+	logfile.write("", thislog)	
+	logfile.write("**********************************************************************************************************", thislog)
+	logfile.write("", thislog)		
+	logfile.write("", thislog)	
 	logfile.write("", thislog)		
 	logfile.write("SafeSEH protected pivots :",thislog)
 	logfile.write("--------------------------",thislog)	
+	logfile.write("", thislog)	
 	arrtowrite = ""	
 	try:
 		with open(thislog, "a") as fh:
 			arrtowrite = ""
-			stackpivots_safeseh_index = sorted(stackpivots_safeseh)
+			stackpivots_safeseh_index = sorted(stackpivots_safeseh, reverse=True)
 			for sdist in stackpivots_safeseh_index:
 				for spivot, schain in stackpivots_safeseh[sdist]:
 					ptrx = MnPointer(spivot)
