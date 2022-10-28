@@ -27,13 +27,13 @@ GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
 HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- 
-$Revision: 621 $
-$Id: mona.py 621 2022-10-28 16:49:00Z corelanc0d3r $ 
+
+$Revision: 622 $
+$Id: mona.py 622 2022-10-28 16:49:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 621 $')
+__REV__ = filter(str.isdigit, '$Revision: 622 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -6012,19 +6012,14 @@ def mergeOpcodes(all_opcodes,found_opcodes):
 	if found_opcodes:
 		for hf in found_opcodes:
 			if hf in all_opcodes:
-				# do not change this, the .update stuff seems to break things
-				# 'list objet has no update attribute'
-				all_opcodes[hf] += found_opcodes[hf]
-
-				#try:
-				#	all_opcodes[hf].update(found_opcodes[hf])
-				#except:
-				#	# anticipate 'list object has no update attribute' error,
-				#	# merge lists oldskool style
-				#	for newly_found in found_opcodes[hf]:
-				#		if not newly_found in all_opcodes[hf]:
-				#			all_opcodes[hf].append(newly_found)
-
+				try:
+					all_opcodes[hf].update(found_opcodes[hf])
+				except:
+					# anticipate 'list object has no update attribute' error,
+					# merge lists oldskool style
+					for newly_found in found_opcodes[hf]:
+						if not newly_found in all_opcodes[hf]:
+							all_opcodes[hf].append(newly_found)
 			else:
 				all_opcodes[hf] = found_opcodes[hf]
 	return all_opcodes
