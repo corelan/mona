@@ -10574,9 +10574,9 @@ def getRopSuggestion(ropchains,allchains):
 	for r in arch_aware_regs:
 		for r2 in arch_aware_regs:
 			pickup_allowed = ["NOP","RETN ","INC ","DEC ","OR ","XOR ","MOV ","LEA ","ADD ","SUB ","POP","ADC ","FPATAN", "TEST ", "CMP "]
-			pickup_target = ["MOV "+r+","+PTR_SIZE_DIRECTIVE+" SS:["+r2+"+", "MOV "+r+","+PTR_SIZE_DIRECTIVE+" DS:["+r2+"+"]
-			pickup_allowed.append("MOV "+r+","+PTR_SIZE_DIRECTIVE+" SS:["+r2+"+")
-			pickup_allowed.append("MOV "+r+","+PTR_SIZE_DIRECTIVE+" DS:["+r2+"+")
+			pickup_target = ["MOV "+r+","+PTR_SIZE_DIRECTIVE+" SS:["+r2+"]", "MOV "+r+","+PTR_SIZE_DIRECTIVE+" DS:["+r2+"]"]
+			pickup_allowed.append("MOV "+r+","+PTR_SIZE_DIRECTIVE+" SS:["+r2+"]")
+			pickup_allowed.append("MOV "+r+","+PTR_SIZE_DIRECTIVE+" DS:["+r2+"]")
 			pickup_notallowed = ["POP "+r, "MOV "+r+",E", "LEA "+r+",E", "MOV ESP", "XOR ESP", "LEA ESP", "MOV DWORD PTR", "DEC ESP"]
 			if arch == 64:
 				pickup_notallowed.extend(["MOV RSP", "XOR RSP", "LEA RSP", "DEC RSP", "MOV QWORD PTR"])
