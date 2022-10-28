@@ -28,12 +28,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-$Revision: 619 $
-$Id: mona.py 619 2022-10-27 17:49:00Z corelanc0d3r $ 
+$Revision: 620 $
+$Id: mona.py 620 2022-10-27 17:49:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 619 $')
+__REV__ = filter(str.isdigit, '$Revision: 620 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -10487,7 +10487,7 @@ def isGoodGadgetInstr(instruction):
 					"REPZ", "REPNE", "REPNZ", "LDS", "FST", "FIST", "FMUL", "FDIVR",
 					"FSTP", "FST", "FLD", "FDIV", "FXCH", "JS ", "FIDIVR", "SBB",
 					"SALC", "ENTER", "CWDE", "FCOM", "LAHF", "DIV", "JO", "OUT", "IRET",
-					"FILD", "RETF","HALT","HLT","AAM","FINIT","INT3"
+					"FILD", "RETF","HALT","HLT","AAM","FINIT","INT3", "POP ESP", "SS:[ESP"
 					]
 		for instr in forbidden:
 			if instruction.upper().find(instr) > -1:
