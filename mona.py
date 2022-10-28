@@ -28,12 +28,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-$Revision: 624 $
-$Id: mona.py 624 2022-10-29 16:49:00Z corelanc0d3r $ 
+$Revision: 625 $
+$Id: mona.py 625 2022-10-29 16:49:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 624 $')
+__REV__ = filter(str.isdigit, '$Revision: 625 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
