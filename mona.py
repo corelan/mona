@@ -5991,7 +5991,7 @@ def processResults(all_opcodes,logfile,thislog,specialcases = {},ptronly = False
 	dbg.log("    Found a total of %d pointers" % ptrcnt, highlight=1)
 	dbg.setStatusBar("Done. Found %d pointers" % ptrcnt)
 	
-	
+t = []
 def mergeOpcodes(all_opcodes,found_opcodes):
 	"""
 	merges two dictionaries together
@@ -6002,11 +6002,15 @@ def mergeOpcodes(all_opcodes,found_opcodes):
 
 	Return:
 	Dictionary (merged dictionaries)
+	{'move eax -> ebp': {2009659774: u'# XCHG EAX,EBP # RETN'}}
 	"""
 	if found_opcodes:
 		for hf in found_opcodes:
 			if hf in all_opcodes:
-				all_opcodes[hf].update(found_opcodes[hf])
+				if isinstance(all_opcodes[hf], dict):
+					all_opcodes[hf].update(found_opcodes[hf])
+				else:
+					all_opcodes[hf] += found_opcodes[hf]
 			else:
 				all_opcodes[hf] = found_opcodes[hf]
 	return all_opcodes
@@ -6062,7 +6066,7 @@ def findSEH(modulecriteria={},criteria={}):
 				if not silent:
 					dbg.log("    - Querying 0x%08x - 0x%08x" % (thisrange[0],thisrange[1]))
 				found_opcodes = searchInRange(search, thisrange[0], thisrange[1],criteria)
-				all_opcodes = mergeOpcodes(all_opcodes,found_opcodes)
+				all_opcodes = mergeOpcodes(all_opcodes,found_opcodes) 
 			if not silent:
 				dbg.log("    - Search complete, processing results")
 			dbg.updateLog()
@@ -10515,10 +10519,17 @@ def isGadgetEnding(instruction,endings,verbosity=False):
 
 def getRopSuggestion(ropchains,allchains):
 	suggestions={}
-	arch_aware_regs = dbglib.Registers32BitsOrder[:] if arch == 32 else dbglib.Registers64BitsOrder[:]
+	if arch == 32:
+		arch_aware_regs = dbglib.Registers32BitsOrder[:]
+		arch_aware_regs.remove('ESP')
+	else:
+		arch_aware_regs = dbglib.Registers64BitsOrder[:]
+		arch_aware_regs.remove('RSP')
 	regs = dbglib.Registers32BitsOrder[:]
+	regs.remove('ESP')
 	if arch == 64:
 		regs.extend(dbglib.Registers64BitsOrder)
+		regs.remove('RSP')
 
 	# pushad
 	# ======================
