@@ -28,12 +28,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-$Revision: 623 $
-$Id: mona.py 623 2022-10-29 16:49:00Z corelanc0d3r $ 
+$Revision: 624 $
+$Id: mona.py 624 2022-10-29 16:49:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 623 $')
+__REV__ = filter(str.isdigit, '$Revision: 624 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -6611,6 +6611,8 @@ def findROPGADGETS(modulecriteria={},criteria={},endings=[],maxoffset=40,depth=5
 		pass
 	logfile.write("", thislog)
 	logfile.write("", thislog)
+	logfile.write("", thislog)
+	logfile.write("", thislog)		
 	logfile.write("SafeSEH protected pivots :",thislog)
 	logfile.write("--------------------------",thislog)	
 	arrtowrite = ""	
@@ -8685,7 +8687,7 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 	routinedefs["VirtualAlloc"] 			= virtualalloc
 	# only run these on older systems
 	osver=dbg.getOsVersion()
-	if not (osver == "6" or osver == "7" or osver == "8" or osver == "vista" or osver == "win7" or osver == "2008server" or osver == "win8" or osver == "win8.1" or osver == "win10"):
+	if not (osver == "6" or osver == "7" or osver == "8" or osver == "10" or osver == "11" or osver == "vista" or osver == "win7" or osver == "2008server" or osver == "win8" or osver == "win8.1" or osver == "win10"):
 		routinedefs["SetInformationProcess"]	= setinformationprocess
 		routinedefs["SetProcessDEPPolicy"]		= setprocessdeppolicy	
 	
@@ -10488,7 +10490,7 @@ def isGoodGadgetInstr(instruction):
 					"REPZ", "REPNE", "REPNZ", "LDS", "FST", "FIST", "FMUL", "FDIVR",
 					"FSTP", "FST", "FLD", "FDIV", "FXCH", "JS ", "FIDIVR", "SBB",
 					"SALC", "ENTER", "CWDE", "FCOM", "LAHF", "DIV", "JO", "OUT", "IRET",
-					"FILD", "RETF","HALT","HLT","AAM","FINIT","INT3", "POP ESP", "S:[ESP"
+					"FILD", "RETF","HALT","HLT","AAM","FINIT","INT3"
 					]
 		for instr in forbidden:
 			if instruction.upper().find(instr) > -1:
