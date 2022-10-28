@@ -5997,7 +5997,6 @@ def processResults(all_opcodes,logfile,thislog,specialcases = {},ptronly = False
 	dbg.log("    Found a total of %d pointers" % ptrcnt, highlight=1)
 	dbg.setStatusBar("Done. Found %d pointers" % ptrcnt)
 	
-t = []
 def mergeOpcodes(all_opcodes,found_opcodes):
 	"""
 	merges two dictionaries together
@@ -6008,7 +6007,6 @@ def mergeOpcodes(all_opcodes,found_opcodes):
 
 	Return:
 	Dictionary (merged dictionaries)
-	{'move eax -> ebp': {2009659774: u'# XCHG EAX,EBP # RETN'}}
 	"""
 	if found_opcodes:
 		for hf in found_opcodes:
@@ -6072,7 +6070,7 @@ def findSEH(modulecriteria={},criteria={}):
 				if not silent:
 					dbg.log("    - Querying 0x%08x - 0x%08x" % (thisrange[0],thisrange[1]))
 				found_opcodes = searchInRange(search, thisrange[0], thisrange[1],criteria)
-				all_opcodes = mergeOpcodes(all_opcodes,found_opcodes) 
+				all_opcodes = mergeOpcodes(all_opcodes,found_opcodes)
 			if not silent:
 				dbg.log("    - Search complete, processing results")
 			dbg.updateLog()
