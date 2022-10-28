@@ -3,7 +3,7 @@
  
 U{Corelan<https://www.corelan.be>}
 
-Copyright (c) 2011-2021, Peter Van Eeckhoutte - Corelan Consulting bv
+Copyright (c) 2011-2022, Peter Van Eeckhoutte - Corelan Consulting bv
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -27,13 +27,13 @@ GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
 HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- 
-$Revision: 616 $
-$Id: mona.py 615 2021-09-04 08:29:00Z corelanc0d3r $ 
+
+$Revision: 622 $
+$Id: mona.py 622 2022-10-28 16:49:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 616 $')
+__REV__ = filter(str.isdigit, '$Revision: 622 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -161,14 +161,14 @@ if __DEBUGGERAPP__ == "WinDBG":
 		dbg.log("")
 
 osver = dbg.getOsVersion()
-if osver in ["6", "7", "8", "vista", "win7", "2008server", "win8", "win8.1", "win10"]:
+if osver in ["6", "7", "8", "vista", "win7", "2008server", "win8", "win8.1", "win10", "win11"]:
 	win7mode = True
 
 heapgranularity = 8
 if arch == 64:
 	heapgranularity = 16
 
-offset_categories = ["xp", "vista", "win7", "win8", "win10"]
+offset_categories = ["xp", "vista", "win7", "win8", "win10", "win11"]
 
 # offset = [x86,x64]
 offsets = {
@@ -178,7 +178,10 @@ offsets = {
 		"win8" : [0x0d0,0x170],
 		"win10" : {
 			14393 : [0x0d4,0x178]
-		}
+		},
+		"win11" : {
+			14393 : [0x0d4,0x178]
+		}		
 	},
 	"FrontEndHeapType" : {
 		"xp" : [0x586,0xae2],
@@ -186,7 +189,10 @@ offsets = {
 		"win8" : [0x0d6,0x17a],
 		"win10" : {
 			14393 : [0x0da,0x182]
-		}
+		},
+		"win11" : {
+			14393 : [0x0da,0x182]
+		}		
 	},
 	"VirtualAllocdBlocks" : {
 		"xp" : [0x050,0x090],
@@ -10484,7 +10490,7 @@ def isGoodGadgetInstr(instruction):
 					"REPZ", "REPNE", "REPNZ", "LDS", "FST", "FIST", "FMUL", "FDIVR",
 					"FSTP", "FST", "FLD", "FDIV", "FXCH", "JS ", "FIDIVR", "SBB",
 					"SALC", "ENTER", "CWDE", "FCOM", "LAHF", "DIV", "JO", "OUT", "IRET",
-					"FILD", "RETF","HALT","HLT","AAM","FINIT","INT3"
+					"FILD", "RETF","HALT","HLT","AAM","FINIT","INT3", "POP ESP", "S:[ESP"
 					]
 		for instr in forbidden:
 			if instruction.upper().find(instr) > -1:
@@ -12041,6 +12047,9 @@ def main(args):
 			modulecriteria,criteria = args2criteria(args,modulecriteria,criteria)
 			modulestosearch = getModulesToQuery(modulecriteria)
 			showModuleTable("",modulestosearch)
+			logfile = MnLog("modules.txt")
+			thislog = logfile.reset()
+
 
 		# ----- ROP ----- #
 		def procFindROPFUNC(args):
