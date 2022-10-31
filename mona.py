@@ -28,12 +28,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-$Revision: 627 $
-$Id: mona.py 627 2022-10-29 16:49:00Z corelanc0d3r $ 
+$Revision: 628 $
+$Id: mona.py 628 2022-10-29 16:49:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 627 $')
+__REV__ = filter(str.isdigit, '$Revision: 628 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -11756,7 +11756,7 @@ def main(args):
 			bannertext += "    |    _____ ___  ____  ____  ____ _                                 |\n"
 			bannertext += "    |    / __ `__ \/ __ \/ __ \/ __ `/  https://www.corelan.be         |\n"
 			bannertext += "    |   / / / / / / /_/ / / / / /_/ /  https://www.corelan-training.com|\n"
-			bannertext += "    |  /_/ /_/ /_/\____/_/ /_/\__,_/  #corelan (Freenode IRC)          |\n"
+			bannertext += "    |  /_/ /_/ /_/\____/_/ /_/\__,_/                                   |\n"
 			bannertext += "    |                                                                  |\n"
 			bannertext += "    |------------------------------------------------------------------|\n"
 			banners[2] = bannertext
