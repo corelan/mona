@@ -31,4 +31,4 @@ notes
 -----
 
 mona.py has been inventoried at Rawsec's CyberSecurity Inventory
-[![Rawsec's CyberSecurity Inventory](https://inventory.rawsec.ml/img/badges/Rawsec-inventoried-FF5050_plastic.svg)](https://inventory.rawsec.ml/)
+[![Rawsec's CyberSecurity Inventory](https://inventory.raw.pm/img/badges/Rawsec-inventoried-FF5050_plastic.svg)](https://inventory.raw.pm/)
