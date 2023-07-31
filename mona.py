@@ -9214,6 +9214,7 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 		calltxt = "rop_chain = create_rop_chain("
 		argtxt = ""
 		vplogtxtpy = ""
+		vplogtxtperl = ""
 		vplogtxtc = ""
 		vplogtxtjs = ""
 		argtxtpy = ""
@@ -9222,11 +9223,13 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 				repr_mod = sanitize_module_name(themod)
 				vplogtxt += "  # " + modused[themod][1] + "\n"
 				vplogtxtpy += "  # " + modused[themod][1] + "\n"
+				vplogtxtperl += "  # " + modused[themod][1] + "\n"
 				vplogtxtc += "  // " + modused[themod][1] + "\n"
 				vplogtxtjs += "  // " + modused[themod][1] + "\n"
 				vplogtxt += "  base_" + repr_mod + " = 0x%s\n" % toHex(modused[themod][0])
 				vplogtxtjs += "  var base_" + repr_mod + " = 0x%s;\n" % toHex(modused[themod][0])
 				vplogtxtpy += "  base_" + repr_mod + " = 0x%s\n" % toHex(modused[themod][0])
+				vplogtxtperl += "  my $base_" + repr_mod + " = 0x%s;\n" % toHex(modused[themod][0])
 				vplogtxtc += "  unsigned int base_" + repr_mod + " = 0x%s;\n" % toHex(modused[themod][0])
 				calltxt += "base_" + repr_mod + ","
 				argtxt += "base_" + repr_mod + ","
@@ -9272,6 +9275,17 @@ def createRopChains(suggestions,interestinggadgets,allgadgets,modulecriteria,cri
 		vplogtxt += "    return ''.join(struct.pack('<I', _) for _ in rop_gadgets)\n\n"
 		vplogtxt += vplogtxtpy
 		vplogtxt += "  rop_chain = create_rop_chain(%s)\n\n" % argtxtpy
+        # Perl
+		vplogtxt += "*** [ Perl ] ***\n\n"	
+		vplogtxt += "  sub create_rop_chain {\n"
+		vplogtxt += "    # rop chain generated with mona.py - www.corelan.be\n"
+		vplogtxt += "    my (%s)=@_;\n" % ", ".join("$%s" % _ for _ in argtxt.split(",")) if argtxt else ""
+		vplogtxt += "    my @rop_gadgets = (\n"
+		vplogtxt += thischaintxt
+		vplogtxt += "    );\n"
+		vplogtxt += "    return join('', map { pack('V', $_) } @rop_gadgets);\n"
+		vplogtxt += vplogtxtperl
+		vplogtxt += "  }\n\n  my $rop_chain = create_rop_chain(%s);\n\n" % argtxtpy
 		# Javascript
 		vplogtxt += "\n\n*** [ JavaScript ] ***\n\n"
 		vplogtxt += "  //rop chain generated with mona.py - www.corelan.be\n"		
