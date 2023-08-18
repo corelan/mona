@@ -3,7 +3,7 @@
  
 U{Corelan<https://www.corelan.be>}
 
-Copyright (c) 2011-2022, Peter Van Eeckhoutte - Corelan Consulting bv
+Copyright (c) 2011-2023, Peter Van Eeckhoutte - Corelan Consulting bv
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -28,12 +28,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-$Revision: 628 $
-$Id: mona.py 628 2022-10-29 16:49:00Z corelanc0d3r $ 
+$Revision: 630 $
+$Id: mona.py 630 2023-08-18 18:49:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 628 $')
+__REV__ = filter(str.isdigit, '$Revision: 630 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -2672,12 +2672,12 @@ class MnModule:
 	Class to access module properties
 	"""
 	def __init__(self, modulename):
-		#dbg.log("MnModule(%s)" % modulename)
 		modisaslr = True
 		modissafeseh = True
 		modrebased = True
 		modisnx = True
 		modisos = True
+		modiscfg = True		
 		self.IAT = {}
 		self.EAT = {}
 		path = ""
@@ -2698,6 +2698,7 @@ class MnModule:
 				modrebased = getModuleProperty(modulename,"rebase")
 				modisnx = getModuleProperty(modulename,"nx")
 				modisos = getModuleProperty(modulename,"os")
+				modiscfg = getModuleProperty(modulename,"cfg")
 				path = getModuleProperty(modulename,"path")
 				mzbase = getModuleProperty(modulename,"base")
 				mzsize = getModuleProperty(modulename,"size")
@@ -2715,6 +2716,7 @@ class MnModule:
 				modisnx = True
 				modrebased = False
 				modisos = False
+				modiscfg = False
 				#if self.moduleobj == None:
 				#	dbg.log("*** Error - self.moduleobj is None, key %s" % modulename, highlight=1)
 				mod       = self.moduleobj
@@ -2779,9 +2781,14 @@ class MnModule:
 					#nx
 					if (flags&0x0100)==0:
 						modisnx=False
+					#cfg
+					if (flags&0x4000)==0:
+						modiscfg=False
 					#rebase
 					if mzrebase != mzbase:
 						modrebased=True
+		
+
 		else:
 			# should never be hit
 			#print "No module specified !!!"
@@ -2811,6 +2818,8 @@ class MnModule:
 		self.isNX = modisnx
 		
 		self.isOS = modisos
+
+		self.isCFG = modiscfg
 		
 		self.moduleKey = modulename
 	
@@ -2848,7 +2857,7 @@ class MnModule:
 		"""			
 		outstring = ""
 		if self.moduleKey != "":
-			outstring = "[" + self.moduleKey + "] ASLR: " + str(self.isAslr) + ", Rebase: " + str(self.isRebase) + ", SafeSEH: " + str(self.isSafeSEH) + ", OS: " + str(self.isOS) + ", v" + self.moduleVersion + " (" + self.modulePath + ")"
+			outstring = "[" + self.moduleKey + "] ASLR: " + str(self.isAslr) + ", Rebase: " + str(self.isRebase) + ", SafeSEH: " + str(self.isSafeSEH) + ", CFG: " + str(self.isCFG) +  ", OS: " + str(self.isOS) + ", v" + self.moduleVersion + " (" + self.modulePath + ")"
 		else:
 			outstring = "[None]"
 		return outstring
@@ -2864,6 +2873,9 @@ class MnModule:
 		
 	def isOS(self):
 		return self.isOS
+
+	def isCFG(self):
+		return self.isCFG
 	
 	def isNX(self):
 		return self.isNX
@@ -2907,6 +2919,7 @@ class MnModule:
 		sequences.append(["call","\xff\x15"])
 		funccalls = searchInRange(sequences, self.moduleBase, self.moduleTop,criteria)
 		return funccalls
+
 		
 	def getIAT(self):
 		IAT = {}
@@ -5727,6 +5740,8 @@ def getModulesToQuery(criteria):
 			if ("os" in criteria) and ((not criteria["os"]) and thismod.isOS):
 				included = False
 			if ("nx" in criteria) and ((not criteria["nx"]) and thismod.isNX):
+				included = False
+			if ("cfg" in criteria) and ((not criteria["cfg"]) and thismod.isCFG):
 				included = False				
 		else:
 			included = False
@@ -5837,6 +5852,7 @@ def populateModuleInfo():
 			modinfo["rebase"]	= thismod.isRebase
 			modinfo["version"]	= thismod.moduleVersion
 			modinfo["os"]		= thismod.isOS
+			modinfo["cfg"]		= thismod.isCFG
 			modinfo["name"]		= key
 			modinfo["entry"]	= thismod.moduleEntry
 			modinfo["codebase"]	= thismod.moduleCodebase
@@ -5884,9 +5900,9 @@ def showModuleTable(logfile="", modules=[]):
 	thistable += " Module info :\n"
 	thistable += "-----------------------------------------------------------------------------------------------------------------------------------------\n"
 	if arch == 32:
-		thistable += " Base       | Top        | Size       | Rebase | SafeSEH | ASLR  | NXCompat | OS Dll | Version, Modulename & Path\n"
+		thistable += " Base       | Top        | Size       | Rebase | SafeSEH | ASLR  | CFG   | NXCompat | OS Dll | Version, Modulename & Path\n"
 	elif arch == 64:
-		thistable += " Base               | Top                | Size               | Rebase | SafeSEH | ASLR  | NXCompat | OS Dll | Version, Modulename & Path\n"
+		thistable += " Base               | Top                | Size               | Rebase | SafeSEH | ASLR  | CFG   | NXCompat | OS Dll | Version, Modulename & Path\n"
 	thistable += "-----------------------------------------------------------------------------------------------------------------------------------------\n"
 
 	for thismodule,modproperties in g_modules.iteritems():
@@ -5897,12 +5913,13 @@ def showModuleTable(logfile="", modules=[]):
 			size 	= toSize(str("0x" + toHex(modproperties["size"])),10)
 			safeseh = toSize(str(modproperties["safeseh"]),7)
 			aslr 	= toSize(str(modproperties["aslr"]),5)
+			cfg 	= toSize(str(modproperties["cfg"]),5)
 			nx 		= toSize(str(modproperties["nx"]),7)
 			isos 	= toSize(str(modproperties["os"]),7)
 			version = str(modproperties["version"])
 			path 	= str(modproperties["path"])
 			name	= str(modproperties["name"])
-			thistable += " " + base + " | " + top + " | " + size + " | " + rebase +"| " +safeseh + " | " + aslr + " |  " + nx + " | " + isos + "| " + version + " [" + name + "] (" + path + ")\n"
+			thistable += " " + base + " | " + top + " | " + size + " | " + rebase +"| " +safeseh + " | " + aslr + " | "+ cfg + " |  " + nx + " | " + isos + "| " + version + " [" + name + "] (" + path + ")\n"
 	thistable += "-----------------------------------------------------------------------------------------------------------------------------------------\n"
 	tableinfo = thistable.split('\n')
 	if logfile == "":
