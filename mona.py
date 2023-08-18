@@ -28,12 +28,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-$Revision: 630 $
-$Id: mona.py 630 2023-08-18 18:49:00Z corelanc0d3r $ 
+$Revision: 631 $
+$Id: mona.py 631 2023-08-18 18:49:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 630 $')
+__REV__ = filter(str.isdigit, '$Revision: 631 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -2784,6 +2784,8 @@ class MnModule:
 					#cfg
 					if (flags&0x4000)==0:
 						modiscfg=False
+					else:
+						modiscfg=True
 					#rebase
 					if mzrebase != mzbase:
 						modrebased=True
