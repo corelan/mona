@@ -28,12 +28,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-$Revision: 632 $
-$Id: mona.py 632 2023-08-24 18:49:00Z corelanc0d3r $ 
+$Revision: 633 $
+$Id: mona.py 633 2023-08-24 18:49:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 632 $')
+__REV__ = filter(str.isdigit, '$Revision: 633 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -2777,8 +2777,8 @@ class MnModule:
 				
 					# IMAGE_DLL_CHARACTERISTICS FIELD
 					# Sits at offset 0x5e in Optional Header
-					dll_characteristics_flags=struct.unpack('<L',dbg.readMemory(pebase+0x5e,4))[0]
-					# dbg.log("%s: Flags: 0x%x" % (path, dll_characteristics_flags))
+					dll_characteristics_flags=struct.unpack('<H',dbg.readMemory(pebase+0x5e,2))[0]
+					#dbg.log("%s: Flags: 0x%x" % (path, dll_characteristics_flags))
 					#aslr
 					if (dll_characteristics_flags&0x0040)==0:
 						modisaslr=False
@@ -2787,9 +2787,9 @@ class MnModule:
 						modisnx=False
 					#cfg
 					if (dll_characteristics_flags&0x4000)==0:
-						modiscfg=True
-					else:
 						modiscfg=False
+					else:
+						modiscfg=True
 					#rebase
 					if mzrebase != mzbase:
 						modrebased=True
