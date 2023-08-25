@@ -28,12 +28,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-$Revision: 633 $
-$Id: mona.py 633 2023-08-24 18:49:00Z corelanc0d3r $ 
+$Revision: 634 $
+$Id: mona.py 634 2023-08-25 08:49:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 633 $')
+__REV__ = filter(str.isdigit, '$Revision: 634 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -2688,6 +2688,7 @@ class MnModule:
 		mcodesize = 0
 		mcodetop = 0
 		mentry = 0
+		mdllcharacteristics = 0
 		mversion = ""
 		self.internalname = modulename
 		if modulename != "":
@@ -2708,6 +2709,7 @@ class MnModule:
 				mcodebase = getModuleProperty(modulename,"codebase")
 				mcodesize = getModuleProperty(modulename,"codesize")
 				mcodetop = getModuleProperty(modulename,"codetop")
+				mdllcharacteristics = getModuleProperty(modulename, "dllcharacteristics")
 			else:
 				#gather info manually - this code should only get called from populateModuleInfo()
 				self.moduleobj = dbg.getModule(modulename)
@@ -2728,7 +2730,7 @@ class MnModule:
 				mcodebase = mod.getCodebase()
 				mcodesize = mod.getCodesize()
 				mcodetop  = mcodebase + mcodesize
-				
+				mdllcharacteristics = 0
 				mversion=mversion.replace(", ",".")
 				mversionfields=mversion.split('(')
 				mversion=mversionfields[0].replace(" ","")
@@ -2778,6 +2780,7 @@ class MnModule:
 					# IMAGE_DLL_CHARACTERISTICS FIELD
 					# Sits at offset 0x5e in Optional Header
 					dll_characteristics_flags=struct.unpack('<H',dbg.readMemory(pebase+0x5e,2))[0]
+					mdllcharacteristics = dll_characteristics_flags
 					#dbg.log("%s: Flags: 0x%x" % (path, dll_characteristics_flags))
 					#aslr
 					if (dll_characteristics_flags&0x0040)==0:
@@ -2846,6 +2849,8 @@ class MnModule:
 		self.moduleCodetop = mcodetop
 		
 		self.moduleCodebase = mcodebase
+
+		self.moduleDllCharacteristics = mdllcharacteristics
 		
 			
 	
@@ -2863,7 +2868,7 @@ class MnModule:
 		"""			
 		outstring = ""
 		if self.moduleKey != "":
-			outstring = "[" + self.moduleKey + "] ASLR: " + str(self.isAslr) + ", Rebase: " + str(self.isRebase) + ", SafeSEH: " + str(self.isSafeSEH) + ", CFG: " + str(self.isCFG) +  ", OS: " + str(self.isOS) + ", v" + self.moduleVersion + " (" + self.modulePath + ")"
+			outstring = "[" + self.moduleKey + "] ASLR: " + str(self.isAslr) + ", Rebase: " + str(self.isRebase) + ", SafeSEH: " + str(self.isSafeSEH) + ", CFG: " + str(self.isCFG) +  ", OS: " + str(self.isOS) + ", v" + self.moduleVersion + " (" + self.modulePath + "), 0x%x" % self.moduleDllCharacteristics 
 		else:
 			outstring = "[None]"
 		return outstring
@@ -2915,6 +2920,9 @@ class MnModule:
 		
 	def moduleVersion(self):
 		return self.moduleVersion
+
+	def moduleDllCharacteristics(self):
+		return self.moduleDllCharacteristics
 		
 	def isExcluded(self):
 		return self.isExcluded
@@ -5864,6 +5872,7 @@ def populateModuleInfo():
 			modinfo["codebase"]	= thismod.moduleCodebase
 			modinfo["codesize"]	= thismod.moduleCodesize
 			modinfo["codetop"]	= thismod.moduleCodetop
+			modinfo["dllcharacteristics"]  = thismod.moduleDllCharacteristics
 			g_modules[thismod.moduleKey] = modinfo
 		else:
 			if not silent:
@@ -5902,14 +5911,14 @@ def showModuleTable(logfile="", modules=[]):
 	thistable = ""
 	if len(g_modules) == 0:
 		populateModuleInfo()
-	thistable += "-----------------------------------------------------------------------------------------------------------------------------------------\n"
+	thistable += "----------------------------------------------------------------------------------------------------------------------------------------------\n"
 	thistable += " Module info :\n"
-	thistable += "-----------------------------------------------------------------------------------------------------------------------------------------\n"
+	thistable += "----------------------------------------------------------------------------------------------------------------------------------------------\n"
 	if arch == 32:
-		thistable += " Base       | Top        | Size       | Rebase | SafeSEH | ASLR  | CFG   | NXCompat | OS Dll | Version, Modulename & Path\n"
+		thistable += " Base       | Top        | Size       | Rebase | SafeSEH | ASLR  | CFG   | NXCompat | OS Dll | Version, Modulename & Path, DLLCharacteristics\n"
 	elif arch == 64:
-		thistable += " Base               | Top                | Size               | Rebase | SafeSEH | ASLR  | CFG   | NXCompat | OS Dll | Version, Modulename & Path\n"
-	thistable += "-----------------------------------------------------------------------------------------------------------------------------------------\n"
+		thistable += " Base               | Top                | Size               | Rebase | SafeSEH | ASLR  | CFG   | NXCompat | OS Dll | Version, Modulename & Path, DLLCharacteristics\n"
+	thistable += "----------------------------------------------------------------------------------------------------------------------------------------------\n"
 
 	for thismodule,modproperties in g_modules.iteritems():
 		if (len(modules) > 0 and modproperties["name"] in modules or len(logfile)>0):
@@ -5925,7 +5934,8 @@ def showModuleTable(logfile="", modules=[]):
 			version = str(modproperties["version"])
 			path 	= str(modproperties["path"])
 			name	= str(modproperties["name"])
-			thistable += " " + base + " | " + top + " | " + size + " | " + rebase +"| " +safeseh + " | " + aslr + " | "+ cfg + " |  " + nx + " | " + isos + "| " + version + " [" + name + "] (" + path + ")\n"
+			dllflag = "0x%x" % modproperties["dllcharacteristics"]
+			thistable += " " + base + " | " + top + " | " + size + " | " + rebase +"| " +safeseh + " | " + aslr + " | "+ cfg + " |  " + nx + " | " + isos + "| " + version + " [" + name + "] (" + path + ") " + dllflag + "\n"
 	thistable += "-----------------------------------------------------------------------------------------------------------------------------------------\n"
 	tableinfo = thistable.split('\n')
 	if logfile == "":
