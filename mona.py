@@ -28,12 +28,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-$Revision: 634 $
-$Id: mona.py 634 2023-08-25 08:49:00Z corelanc0d3r $ 
+$Revision: 635 $
+$Id: mona.py 635 2023-10-22 14:49:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 634 $')
+__REV__ = filter(str.isdigit, '$Revision: 635 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -11109,6 +11109,7 @@ def goFindMSP(distance = 0,args = {}):
 	#2. registers overwritten ?
 	if not silent:
 		dbg.log("[+] Examining registers")
+	tofile += "\n[+] Examining registers\n"
 	registers = {}
 	registers_to = {}
 	for reg in regs:
@@ -11202,7 +11203,7 @@ def goFindMSP(distance = 0,args = {}):
 	seh = {}
 	if not silent:
 		dbg.log("[+] Examining SEH chain")
-	tofile += "[+] Examining SEH chain\r\n"
+	tofile += "\n[+] Examining SEH chain\n"
 	thissehchain=dbg.getSehChain()
 	
 	for chainentry in thissehchain:
@@ -11266,7 +11267,7 @@ def goFindMSP(distance = 0,args = {}):
 			else:
 				extratxt = "(+- "+str(distance)+" bytes)"
 			dbg.log("[+] Examining stack %s - looking for cyclic pattern" % extratxt)
-		tofile += "[+] Examining stack %s - looking for cyclic pattern\n" % extratxt
+		tofile += "\n[+] Examining stack %s - looking for cyclic pattern\n" % extratxt
 		
 		# get stack this address belongs to
 		stacks = getStacks()
@@ -11367,7 +11368,7 @@ def goFindMSP(distance = 0,args = {}):
 			else:
 				extratxt = "(+- "+str(distance)+" bytes)"
 			dbg.log("[+] Examining stack %s - looking for pointers to cyclic pattern" % extratxt)	
-		tofile += "[+] Examining stack %s - looking for pointers to cyclic pattern\n" % extratxt
+		tofile += "\n[+] Examining stack %s - looking for pointers to cyclic pattern\n" % extratxt
 		# get stack this address belongs to
 		stacks = getStacks()
 		thisstackbase = 0
