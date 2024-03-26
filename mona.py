@@ -3,7 +3,7 @@
  
 U{Corelan<https://www.corelan.be>}
 
-Copyright (c) 2011-2023, Peter Van Eeckhoutte - Corelan Consulting bv
+Copyright (c) 2011-2024, Peter Van Eeckhoutte - Corelan Consulting bv
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -28,12 +28,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-$Revision: 635 $
-$Id: mona.py 635 2023-10-22 14:49:00Z corelanc0d3r $ 
+$Revision: 636 $
+$Id: mona.py 636 2024-03-26 14:49:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 635 $')
+__REV__ = filter(str.isdigit, '$Revision: 636 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -18374,30 +18374,30 @@ def main(args):
 
 							if "[" in ipart:
 								regsyntax += ipart.replace("[","").replace("]","")
-								regsyntax += ": 0x%08x, "
+								regsyntax += ": 0x%p, "
 
 								argsyntax += "%s," % ipart.replace("[","").replace("]","")
 
 								regsyntax += ipart
-								regsyntax += ": 0x%08x, "								
+								regsyntax += ": 0x%p, "								
 
 								argsyntax += "%s," % ipart.replace("[","poi(").replace("]",")")
 								
 								iparttxt = ipart.replace("[","").replace("]","")
-								dmpsyntax += ".echo;.echo %s:;dds %s L 0x24/4;" % (iparttxt,iparttxt)
+								dmpsyntax += ".echo;.echo %s:;dps %s L 0x24/4;" % (iparttxt,iparttxt)
 							else:
 								regsyntax += ipart
-								regsyntax += ": 0x%08x, "								
+								regsyntax += ": 0x%p, "								
 								argsyntax += "%s," % ipart 
 				argsyntax = argsyntax.strip(",")
 				regsyntax = regsyntax.strip(", ")
 				regsyntax += '\\",%s;' % argsyntax
 
 			if "CALL" in instruction.upper():
-				dmpsyntax += '.echo;.printf \\"Stack (esp: 0x%08x):\\",esp;.echo;dds esp L 0x4;'
+				dmpsyntax += '.echo;.printf \\"Stack (esp: 0x%p):\\",esp;.echo;dps esp L 0x4;'
 
 			if instruction.upper().startswith("RET"):
-				dmpsyntax += '.echo;.printf \\"EAX: 0x%08x, Ret To: 0x%08x, Arg1: 0x%08x, Arg2: 0x%08x, Arg3: 0x%08x, Arg4: 0x%08x\\",eax,poi(esp),poi(esp+4),poi(esp+8),poi(esp+c),poi(esp+10);'
+				dmpsyntax += '.echo;.printf \\"EAX: 0x%p, Ret To: 0x%p, Arg1: 0x%p, Arg2: 0x%p, Arg3: 0x%p, Arg4: 0x%p\\",eax,poi(esp),poi(esp+4),poi(esp+8),poi(esp+c),poi(esp+10);'
 
 			bpsyntax = locsyntax + ' ".echo ---------------;u eip L 1;' + regsyntax + dmpsyntax + ".echo;g" + '"'
 			filename = "logbps.txt"
