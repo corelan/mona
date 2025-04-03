@@ -3,7 +3,7 @@
  
 U{Corelan<https://www.corelan.be>}
 
-Copyright (c) 2011-2024, Peter Van Eeckhoutte - Corelan Consulting bv
+Copyright (c) 2011-2025, Peter Van Eeckhoutte - Corelan Consulting bv
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -28,12 +28,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-$Revision: 636 $
-$Id: mona.py 636 2024-03-26 14:49:00Z corelanc0d3r $ 
+$Revision: 637 $
+$Id: mona.py 637 2025-04-03 19:49:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 636 $')
+__REV__ = filter(str.isdigit, '$Revision: 637 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -2941,10 +2941,11 @@ class MnModule:
 		dbg.logLines("    Getting IAT for %s." % (self.moduleKey))
 		try:
 			if not self.moduleKey in IATCache:  # if len(self.IAT) == 0:
-				dbg.log("    Enumerating IAT")          
+				dbg.log("    Enumerating IAT, method 1 (Symbols)")          
 				try:
 					themod = dbg.getModule(self.moduleKey)
 					syms = themod.getSymbols()
+					syms = []
 					thename = ""
 					for sym in syms:
 						if syms[sym].getType().startswith("Import"):
@@ -2957,7 +2958,7 @@ class MnModule:
 					dbg.logLines(traceback.format_exc())
 					pass
 				# merge
-				
+				dbg.log("    Enumerating IAT, method 2 (read strings)")
 				# find optional header
 				PEHeader_ref = self.moduleBase + 0x3c
 				PEHeader_location = self.moduleBase + struct.unpack('<L',dbg.readMemory(PEHeader_ref,4))[0]
@@ -2999,7 +3000,8 @@ class MnModule:
 						iatcnt += 1
 				
 				if len(IAT) == 0:
-					#search method nr 2, not accurate, but will find *something*
+					#another search method, not accurate, but will find *something*
+					dbg.log("    Enumerating IAT, method 3 (getFunctionCalls)")
 					funccalls = self.getFunctionCalls()
 					for functype in funccalls:
 						for fptr in funccalls[functype]:
@@ -5853,30 +5855,37 @@ def populateModuleInfo():
 	allmodules=dbg.getAllModules()
 	curmod = ""
 	for key in allmodules.keys():
-		modinfo={}
-		thismod = MnModule(key)
-		if not thismod is None:
-			modinfo["path"]		= thismod.modulePath
-			modinfo["base"] 	= thismod.moduleBase
-			modinfo["size"] 	= thismod.moduleSize
-			modinfo["top"]  	= thismod.moduleTop
-			modinfo["safeseh"]	= thismod.isSafeSEH
-			modinfo["aslr"]		= thismod.isAslr
-			modinfo["nx"]		= thismod.isNX
-			modinfo["rebase"]	= thismod.isRebase
-			modinfo["version"]	= thismod.moduleVersion
-			modinfo["os"]		= thismod.isOS
-			modinfo["cfg"]		= thismod.isCFG
-			modinfo["name"]		= key
-			modinfo["entry"]	= thismod.moduleEntry
-			modinfo["codebase"]	= thismod.moduleCodebase
-			modinfo["codesize"]	= thismod.moduleCodesize
-			modinfo["codetop"]	= thismod.moduleCodetop
-			modinfo["dllcharacteristics"]  = thismod.moduleDllCharacteristics
-			g_modules[thismod.moduleKey] = modinfo
-		else:
+		try:    
+			modinfo={}
+			thismod = MnModule(key)
+			if not thismod is None:
+				modinfo["path"]		= thismod.modulePath
+				modinfo["base"] 	= thismod.moduleBase
+				modinfo["size"] 	= thismod.moduleSize
+				modinfo["top"]  	= thismod.moduleTop
+				modinfo["safeseh"]	= thismod.isSafeSEH
+				modinfo["aslr"]		= thismod.isAslr
+				modinfo["nx"]		= thismod.isNX
+				modinfo["rebase"]	= thismod.isRebase
+				modinfo["version"]	= thismod.moduleVersion
+				modinfo["os"]		= thismod.isOS
+				modinfo["cfg"]		= thismod.isCFG
+				modinfo["name"]		= key
+				modinfo["entry"]	= thismod.moduleEntry
+				modinfo["codebase"]	= thismod.moduleCodebase
+				modinfo["codesize"]	= thismod.moduleCodesize
+				modinfo["codetop"]	= thismod.moduleCodetop
+				modinfo["dllcharacteristics"]  = thismod.moduleDllCharacteristics
+				g_modules[thismod.moduleKey] = modinfo
+			else:
+				if not silent:
+					dbg.log("    - Oops, potential issue with module %s, skipping module" % key)
+		except Exception as e:
 			if not silent:
-				dbg.log("    - Oops, potential issue with module %s, skipping module" % key)
+				dbg.log("    - Unable to create MnModule for '%s', skipping module" % key)
+				dbg.log("%s" % verbose(str(e)))
+			continue            
+        
 	if not silent:
 		dbg.log("    - Done. Let's rock 'n roll.")
 		dbg.setStatusBar("")	
@@ -6211,17 +6220,19 @@ def findROPFUNC(modulecriteria={},criteria={},searchfuncs=[]):
 
 	# found pointers to functions
 	# now query IATs
-	#dbg.log("%s" % modulecriteria)		
+	# dbg.log("%s" % modulecriteria)		
 	isrebased = False
 	for key in modulestosearch:
 		curmod = dbg.getModule(key)
-		#dbg.log("Searching in IAT of %s" % key)
+		dbg.log("Searching in IAT of %s" % key)
 		#is this module going to get rebase ?
 		themodule = MnModule(key)
 		isrebased = themodule.isRebase
 		if not silent:
-			dbg.log("     - Querying %s" % (key))		
+			dbg.log("     - Querying %s" % (key))
+		dbg.log("         Enumerating IAT")   
 		allfuncs = themodule.getIAT()
+		dbg.log("         Done enumerating IAT for %s" % key)
 		dbg.updateLog()
 		for fn in allfuncs:
 			thisfuncname = allfuncs[fn].lower()
@@ -9706,7 +9717,7 @@ def getRopFuncPtr(apiname,modulecriteria,criteria,mode, objprogressfile, progres
 		#first look for good one
 		objprogressfile.write("  * Ropfunc - Found %d pointers" % len(ropfuncs), progressfile)
 		for ropfunctypes in ropfuncs:
-			#dbg.log("Ropfunc - %s %s" % (ropfunctypes, rfuncsearch))
+			dbg.log("Ropfunc - %s %s" % (ropfunctypes, rfuncsearch))
 			if ropfunctypes.lower().find(rfuncsearch) > -1 and ropfunctypes.lower().find("rebased") == -1:
 				ropfuncptr = ropfuncs[ropfunctypes][0]
 				break
@@ -9736,20 +9747,20 @@ def getRopFuncPtr(apiname,modulecriteria,criteria,mode, objprogressfile, progres
 					break
                 
 		#still haven't found ? clear out modulecriteria, include ASLR/rebase modules (but not OS modules)
-		if (ropfuncptr == 0) and not selectedmodules:
-			objprogressfile.write("  * Ropfunc - Still no results, now going to search in all application modules", progressfile)
-			oldsilent = silent
-			silent = True
-			limitedmodulecriteria = {}
-			# search in anything except known OS modules - bad idea anyway
-			limitedmodulecriteria["os"] = False
-			ropfuncs2,ropfuncoffsets2 = findROPFUNC(limitedmodulecriteria,criteria)
-			silent = oldsilent
-			for ropfunctypes in ropfuncs2:
-				if ropfunctypes.lower().find(rfuncsearch) > -1 and ropfunctypes.lower().find("rebased") == -1:
-					ropfuncptr = ropfuncs2[ropfunctypes][0]
-					ropfunctext += " (skipped module criteria, check if pointer is reliable !)"
-					break	
+		#if (ropfuncptr == 0) and not selectedmodules:
+		#	objprogressfile.write("  * Ropfunc - Still no results, now going to search in all application modules", progressfile)
+		#	oldsilent = silent
+		#	silent = True
+		#	limitedmodulecriteria = {}
+		#	# search in anything except known OS modules - bad idea anyway
+		#	limitedmodulecriteria["os"] = False
+		#	ropfuncs2,ropfuncoffsets2 = findROPFUNC(limitedmodulecriteria,criteria)
+		#	silent = oldsilent
+		#	for ropfunctypes in ropfuncs2:
+		#		if ropfunctypes.lower().find(rfuncsearch) > -1 and ropfunctypes.lower().find("rebased") == -1:
+		#			ropfuncptr = ropfuncs2[ropfunctypes][0]
+		#			ropfunctext += " (skipped module criteria, check if pointer is reliable !)"
+		#			break	
 		
 		if ropfuncptr == 0:
 			ropfunctext = "[-] Unable to find ptr to &" + apiname+"()"
