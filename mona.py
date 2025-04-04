@@ -28,12 +28,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-$Revision: 637 $
-$Id: mona.py 637 2025-04-03 19:49:00Z corelanc0d3r $ 
+$Revision: 638 $
+$Id: mona.py 638 2025-04-03 19:49:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 637 $')
+__REV__ = filter(str.isdigit, '$Revision: 638 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -5359,7 +5359,7 @@ def searchInModule(sequences, name,criteria=[]):
 	
 	module = dbg.getModule(name)
 	if(not module):
-		self.log("module %s not found" % name)
+		dbg.log("Module %s not found" % name)
 		return []
 	
 	# get the base and end address of the module
