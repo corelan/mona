@@ -2945,7 +2945,6 @@ class MnModule:
 				try:
 					themod = dbg.getModule(self.moduleKey)
 					syms = themod.getSymbols()
-					syms = []
 					thename = ""
 					for sym in syms:
 						if syms[sym].getType().startswith("Import"):
