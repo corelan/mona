@@ -28,12 +28,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-$Revision: 639 $
-$Id: mona.py 639 2025-07-13 10:16:00Z corelanc0d3r $ 
+$Revision: 640 $
+$Id: mona.py 640 2025-09-28 10:16:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 639 $')
+__REV__ = filter(str.isdigit, '$Revision: 640 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -4891,6 +4891,10 @@ class MnPointer:
 		if addy >= startaddy and addy <= endaddy:
 			offset = addy - startaddy
 			locinfo = ["self","ptr to self+0x%08x" % offset,""]
+			return locinfo
+
+		if addy == 0xc0c0c0c0:
+			locinfo = ["self", "Uninitialized", addy]
 			return locinfo
 			
 		ismapped = False
