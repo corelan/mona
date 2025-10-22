@@ -1,4 +1,7 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+from __future__ import print_function
+
 """
  
 U{Corelan<https://www.corelan.be>}
@@ -28,12 +31,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-$Revision: 640 $
-$Id: mona.py 640 2025-09-28 10:16:00Z corelanc0d3r $ 
+$Revision: 641 $
+$Id: mona.py 641 2025-10-22 19:09:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 640 $')
+__REV__ = filter(str.isdigit, '$Revision: 641 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -43,6 +46,7 @@ win7mode = False
 # 	import debugger
 # except:
 # 	pass
+
 try:
 	import immlib as dbglib
 	from immlib import LogBpHook
@@ -93,6 +97,7 @@ import itertools
 import traceback
 import pickle
 import json
+import math
 
 from operator import itemgetter
 from collections import defaultdict, namedtuple
@@ -5886,7 +5891,7 @@ def populateModuleInfo():
 		except Exception as e:
 			if not silent:
 				dbg.log("    - Unable to create MnModule for '%s', skipping module" % key)
-				dbg.log("%s" % verbose(str(e)))
+				dbg.log("%s" % str(e))
 			continue            
         
 	if not silent:
@@ -15916,6 +15921,96 @@ def main(args):
 			
 			return
 
+		def procLoad(args):
+
+			# checks the args
+			# file ok?
+			inputfile = ""
+			argspresent = False
+			stopnow = False
+			if "a" in args and "f" in args:
+				argspresent = True
+
+			if argspresent:
+				# target is an address or a register?
+				targetloc = "0x0"
+				if type(args["a"]).__name__.lower() != "bool":
+					targetloc = args["a"]
+				
+				regs = dbg.getRegs()
+				targetlocupper = targetloc.upper()	
+				if targetlocupper in regs:
+					targetloc = "0x" + toHex(regs[targetlocupper])
+
+				if type(args["f"]).__name__.lower() != "bool":
+					inputfile = args["f"]
+
+				if inputfile == "":
+					dbg.log("Missing argument -f <source filename>",highlight=1)
+					stopnow = True
+
+			if stopnow:
+				return
+
+			inputfile = inputfile.replace("'","").replace('"',"")
+			content = ""
+			try:		
+				file = open(inputfile,"rb")
+				content = file.read()
+				file.close()
+			except:
+				dbg.log("Unable to read file %s" % inputfile,highlight=1)
+				return
+
+			dbg.log("[+] Read %d bytes from %s" % (len(content),inputfile))	
+			dbg.log("[+] Attempting to write contents of file to %s" % targetloc)
+
+			batch_size = 16
+
+			#dbg.writeMemory doesn't work reliably
+			# so let's do it the dirty way
+
+			addr = int(targetloc, 0)
+
+			if sys.version_info[0] < 3:
+				bytes_list = [ord(c) for c in content]
+			else:
+				bytes_list = list(content)
+
+			total_len = len(content)
+			log_every = True
+			num_batches = int(math.ceil(float(total_len) / batch_size))
+
+			for batch_idx in range(num_batches):
+				start = batch_idx * batch_size
+				end = min(start + batch_size, total_len)
+				slice_bytes = bytes_list[start:end]
+
+				cur_addr = addr + start
+				addr_hex = "0x%X" % cur_addr
+
+				# format bytes as two-digit hex without 0x, separated by spaces
+				byte_tokens = " ".join("%02X" % (b & 0xFF) for b in slice_bytes)
+
+				# build command: eb 0xADDR <b1> <b2> ...
+				cmd = "eb %s %s" % (addr_hex, byte_tokens)
+
+				try:
+					dbg.nativeCommand(cmd)
+				except Exception as e:
+					dbg.log("Failed to run: %s  (error: %s)" % (cmd, e), highlight=1)
+					return False
+
+				# optional progress logging
+				if log_every and ((batch_idx + 1) % log_every == 0 or batch_idx == num_batches - 1):
+					written = end
+					dbg.log("[+] Progress: wrote %d / %d bytes (to 0x%X)" % (written, total_len, addr))
+
+			dbg.log("[+] Finished writing %d bytes to 0x%X" % (total_len, addr))
+
+			dbg.log("[+] Done.")
+			return
+
 
 		def procFillChunk(args):
 		
@@ -19130,6 +19225,12 @@ Arguments:
     -save     : save current state to disk 
     -diff     : compare current state with previously saved state""" 
 
+		loadUsage = """Read the contents from a file and write to a memory location
+Arguments:
+    -f     : Full path to the file to read 
+    -a     : address (or register) to write to""" 
+
+
 
 		commands["seh"] 			= MnCommand("seh", "Find pointers to assist with SEH overwrite exploits",sehUsage, procFindSEH)
 		commands["config"] 			= MnCommand("config","Manage configuration file (mona.ini)",configUsage,procConfig,"conf")
@@ -19185,6 +19286,7 @@ Arguments:
 			commands["allocmem"]	= MnCommand("allocmem","Allocate some memory in the process",allocmemUsage,procAllocMem,"alloc")
 			commands["tobp"]		= MnCommand("tobp","Generate WinDBG syntax to create a logging breakpoint at given location",tobpUsage,procToBp,"2bp")
 			commands["flow"]		= MnCommand("flow","Simulate execution flows, including all branch combinations",flowUsage,procFlow,"flw")
+			commands["load"]		= MnCommand("load","Copy bytes from file to a memory location",loadUsage,procLoad)
 			#commands["diffheap"]	= MnCommand("diffheap", "Compare current heap layout with previously saved state", diffheapUsage, procDiffHeap, "dh")
 		commands["fwptr"]			= MnCommand("fwptr", "Find Writeable Pointers that get called", fwptrUsage, procFwptr, "fwp")
 		commands["sehchain"]		= MnCommand("sehchain","Show the current SEH chain",sehchainUsage,procSehChain,"exchain")
