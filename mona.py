@@ -31,12 +31,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-$Revision: 642 $
-$Id: mona.py 642 2025-11-01 00:29:00Z corelanc0d3r $ 
+$Revision: 643 $
+$Id: mona.py 643 2025-11-01 00:39:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 642 $')
+__REV__ = filter(str.isdigit, '$Revision: 643 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -16007,10 +16007,13 @@ def main(args):
 				# optional progress logging
 				if log_every and ((batch_idx + 1) % log_every == 0 or batch_idx == num_batches - 1):
 					written = end
-					dbg.log("[+] Progress: wrote %d / %d bytes (to 0x%X)" % (written, total_len, addr))
+					dbg.log("[+] Progress: wrote %d / %d bytes" % (written, total_len))
 
 			dbg.log("[+] Finished writing %d bytes to 0x%X" % (total_len, addr))
 
+			# let's make that location RWX to be sure
+			dbg.rVirtualProtect(addr,1,0x40)
+			dbg.log("[+] Changed ACL to RWX")
 			dbg.log("[+] Done.")
 			return
 
