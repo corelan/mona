@@ -31,12 +31,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-$Revision: 641 $
-$Id: mona.py 641 2025-10-22 19:09:00Z corelanc0d3r $ 
+$Revision: 642 $
+$Id: mona.py 642 2025-11-01 00:29:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 641 $')
+__REV__ = filter(str.isdigit, '$Revision: 642 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -15928,14 +15928,17 @@ def main(args):
 			inputfile = ""
 			argspresent = False
 			stopnow = False
-			if "a" in args and "f" in args:
+			if "f" in args:
 				argspresent = True
 
 			if argspresent:
 				# target is an address or a register?
 				targetloc = "0x0"
-				if type(args["a"]).__name__.lower() != "bool":
-					targetloc = args["a"]
+				if "a" in args:
+					if type(args["a"]).__name__.lower() != "bool":
+						targetloc = args["a"]
+				else:
+					targetloc = "EIP"
 				
 				regs = dbg.getRegs()
 				targetlocupper = targetloc.upper()	
