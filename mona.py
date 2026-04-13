@@ -19426,3 +19426,4 @@ if __name__ == "__main__":
 		dbg = None
 	except:
 		pass
+print("我的第一次代码修改成功啦！")
