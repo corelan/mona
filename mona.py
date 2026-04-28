@@ -11872,7 +11872,7 @@ def main(args):
 				pykdversion = dbg.getPyKDVersionNr()
 				dbg.log("     PyKD version %s" % pykdversion)
 			dbg.log("     Written by Corelan - https://www.corelan.be")
-			dbg.log("     Project page : https://github.com/corelan/mona")
+			dbg.log("     Project page : https://github.com/corelan/mona3")
 			dbg.logLines(getBanner(),highlight=1)
 			dbg.log("Global options :")
 			dbg.log("----------------")
@@ -13594,7 +13594,7 @@ def main(args):
 			#url
 			dbg.setStatusBar("Running update process...")
 			dbg.updateLog()
-			updateurl = "https://github.com/corelan/mona3/raw/master/mona.py"
+			updateurl = "https://github.com/corelan/mona3/raw/refs/heads/main/mona.py"
 			
 			currentversion,currentrevision = getVersionInfo(inspect.stack()[0][1])
 			u = ""
@@ -13649,7 +13649,7 @@ def main(args):
 					dbg.log("    ** Unable to find windbglib.py ! **")
 				else:
 					dbg.log("[+] Checking if %s needs an update..." % libfile)
-					updateurl = "https://github.com/corelan/mona3/raw/master/windbglib.py"
+					updateurl = "https://github.com/corelan/mona3/raw/refs/heads/main/windbglib.py"
 
 					currentversion,currentrevision = getVersionInfo(libfile)
 					u = ""
