@@ -31,12 +31,12 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY 
 WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-$Revision: 644 $
-$Id: mona.py 644 2025-11-01 00:39:00Z corelanc0d3r $ 
+$Revision: 645 $
+$Id: mona.py 645 2025-11-01 00:39:00Z corelanc0d3r $ 
 """
 
 __VERSION__ = '2.0'
-__REV__ = filter(str.isdigit, '$Revision: 644 $')
+__REV__ = filter(str.isdigit, '$Revision: 645 $')
 __IMM__ = '1.8'
 __DEBUGGERAPP__ = ''
 arch = 32
@@ -11762,6 +11762,36 @@ def getAbsolutePath(filename):
 		return os.path.join(workingfolder, filename)
 
 
+def showMonaV3Notice():
+	box = [
+		"+" + "-" * 73 + "+",
+		"|                                                                         |",
+		"| May 1st, 2026                                                           |",
+		"|                                                                         |",
+		"| Hi there,                                                               |",		
+		"|                                                                         |",
+		"| Friendly heads-up: this version of mona.py and windbglib is now legacy. |",
+		"| They have been replaced by mona v3.                                     |",
+		"|                                                                         |",
+		"| You may be able to get the updated version by running !mona up,         |",
+		"| but we do encourage everyone to upgrade pykd and run mona with Python 3 |",
+		"|                                                                         |",
+		"| Visit https://github.com/corelan/mona3 for setup instructions and the   |",
+		"| dependencies required to run mona v3 using newer versions of            |",
+		"| pykd and Python 3.                                                      |",
+		"| Additionally, check out https://www.corelan.be for release notes and    |",		
+		"| further guidance on how to get started.                                 |",		
+		"|                                                                         |",
+		"| Thank you!                                                              |",
+		"| - corelanc0d3r                                                          |",		
+		"|                                                                         |",				
+		"+" + "-" * 73 + "+"
+	]
+	dbg.log("")
+	for line in box:
+		dbg.log(line, highlight=True)
+
+
 #-----------------------------------------------------------------------#
 # main
 #-----------------------------------------------------------------------#	
@@ -11913,6 +11943,9 @@ def main(args):
 				dbg.log("")
 				dbg.log("Want more info about a given command ?  Run !mona help <command>",highlight=1)
 				dbg.log("")
+				showMonaV3Notice()
+				dbg.log("")
+
 		
 		commands["help"] = MnCommand("help", "show help", "!mona help [command]",procHelp)
 		
@@ -19384,6 +19417,7 @@ Arguments:
 		# ----- report ----- #
 		endtime = datetime.datetime.now()
 		delta = endtime - starttime
+		showMonaV3Notice()
 		dbg.log("")
 		dbg.log("[+] This mona.py action took %s" % str(delta))	
 		dbg.setStatusBar("Done")
