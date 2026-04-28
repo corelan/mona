@@ -3,6 +3,14 @@ mona
 
 Corelan Repository for mona.py
 
+> [!IMPORTANT]
+> 🚀 A newer version of `mona` is now available: [`mona3`](https://github.com/corelan/mona3)
+>
+> 👉 Please use the new repository instead:
+> [https://github.com/corelan/mona3](https://github.com/corelan/mona3)
+>
+> ⚠️ The instructions below are kept for historical reasons only and should **not** be used anymore.
+
 ### What is mona.py?
 
 Mona.py is a python script that can be used to automate and speed up specific searches while developing exploits (typically for the Windows platform).
@@ -15,8 +23,8 @@ https://www.corelan-training.com
 
 
 
-Installation instructions
--------------------------
+Historical installation instructions
+------------------------------------
 
 ### Immunity Debugger
 1. drop mona.py into the 'PyCommands' folder (inside the Immunity Debugger application folder).
