@@ -13561,7 +13561,7 @@ def main(args):
 			#url
 			dbg.setStatusBar("Running update process...")
 			dbg.updateLog()
-			updateurl = "https://github.com/corelan/mona/raw/master/mona.py"
+			updateurl = "https://github.com/corelan/mona3/raw/master/mona.py"
 			
 			currentversion,currentrevision = getVersionInfo(inspect.stack()[0][1])
 			u = ""
@@ -13616,7 +13616,7 @@ def main(args):
 					dbg.log("    ** Unable to find windbglib.py ! **")
 				else:
 					dbg.log("[+] Checking if %s needs an update..." % libfile)
-					updateurl = "https://github.com/corelan/windbglib/raw/master/windbglib.py"
+					updateurl = "https://github.com/corelan/mona3/raw/master/windbglib.py"
 
 					currentversion,currentrevision = getVersionInfo(libfile)
 					u = ""
@@ -15656,7 +15656,7 @@ def main(args):
 															if dopatch:
 																dbg.writeLong(addyval,0x41414141)
 							if len(instrbytes) > 0:
-								loc = loc + len(instrbytes)/2
+								loc = loc + len(instrbytes)//2
 							else:
 								loc = loc + 1
 						except:
